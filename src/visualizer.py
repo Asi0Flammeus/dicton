@@ -1,48 +1,46 @@
-"""Minimal audio visualizer - transparent with orange accent, symmetrical"""
+"""Elegant circular audio visualizer - donut waveform with dark background"""
 import os
-import sys
+import math
 import threading
 
-# Suppress pygame messages before import
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 os.environ['SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR'] = '0'
 
 import numpy as np
 
-# Colors
-BLACK = (0, 0, 0)
-ORANGE = (188, 82, 21)  # #BC5215
-ORANGE_DIM = (94, 41, 10)
-ORANGE_GLOW = (255, 120, 40)
-TRANSPARENT = (0, 0, 0, 0)
+# Color palette
+ORANGE = (255, 120, 40)
+ORANGE_MID = (220, 80, 20)
+ORANGE_DIM = (120, 50, 15)
+ORANGE_GLOW = (255, 160, 60)
+BG_COLOR = (20, 20, 24)
 
-# Window settings
-WIDTH = 500
-HEIGHT = 160
-BAR_COUNT = 40
-BAR_GAP = 3
-CORNER_RADIUS = 20
+SIZE = 160
+WAVE_POINTS = 90
 
 
 class Visualizer:
-    """Audio visualizer window using pygame"""
+    """Circular donut audio visualizer"""
 
     def __init__(self):
         self.running = False
         self.thread = None
-        self.levels = np.zeros(BAR_COUNT)
-        self.peak_levels = np.zeros(BAR_COUNT)
+        self.levels = np.zeros(WAVE_POINTS)
+        self.smooth_levels = np.zeros(WAVE_POINTS)
         self.lock = threading.Lock()
         self._ready = threading.Event()
+        self.frame = 0
+        self.global_level = 0.0
 
     def start(self):
-        """Start visualizer in separate thread"""
         if self.running:
             return
 
         self.running = True
-        self.levels = np.zeros(BAR_COUNT)
-        self.peak_levels = np.zeros(BAR_COUNT)
+        self.levels = np.zeros(WAVE_POINTS)
+        self.smooth_levels = np.zeros(WAVE_POINTS)
+        self.frame = 0
+        self.global_level = 0.0
         self._ready.clear()
 
         self.thread = threading.Thread(target=self._run, daemon=True)
@@ -50,13 +48,11 @@ class Visualizer:
         self._ready.wait(timeout=2.0)
 
     def stop(self):
-        """Stop visualizer"""
         self.running = False
         if self.thread:
             self.thread.join(timeout=1.0)
 
     def update(self, audio_chunk: bytes):
-        """Update with new audio data"""
         if not self.running:
             return
 
@@ -65,43 +61,45 @@ class Visualizer:
             if len(data) == 0:
                 return
 
-            chunk_size = max(1, len(data) // BAR_COUNT)
+            rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / 8000
+            rms = min(1.0, rms * 1.8)
+
+            fft_data = np.abs(np.fft.rfft(data))
+            fft_size = len(fft_data)
 
             with self.lock:
-                for i in range(BAR_COUNT):
-                    start = i * chunk_size
-                    end = min(start + chunk_size, len(data))
-                    if start < len(data):
-                        chunk = data[start:end]
-                        level = np.sqrt(np.mean(chunk.astype(np.float32) ** 2)) / 5000
-                        self.levels[i] = self.levels[i] * 0.4 + min(1.0, level) * 0.6
+                self.global_level = self.global_level * 0.7 + rms * 0.3
+
+                for i in range(WAVE_POINTS):
+                    freq_idx = int((i / WAVE_POINTS) * fft_size * 0.7)
+                    freq_idx = min(freq_idx, fft_size - 1)
+                    level = fft_data[freq_idx] / 35000
+                    level = min(1.0, level * 1.8)
+                    self.levels[i] = self.levels[i] * 0.4 + level * 0.6
+
         except Exception:
             pass
 
     def _run(self):
-        """Main visualizer loop"""
         try:
             import pygame
-
             pygame.init()
 
-            # Get screen info for centering
+            # Position at bottom center
             info = pygame.display.Info()
             screen_w, screen_h = info.current_w, info.current_h
-            pos_x = (screen_w - WIDTH) // 2
-            pos_y = (screen_h - HEIGHT) // 2
-
+            pos_x = (screen_w - SIZE) // 2
+            pos_y = screen_h - SIZE - 50
             os.environ['SDL_VIDEO_WINDOW_POS'] = f'{pos_x},{pos_y}'
 
-            # Create window with transparency support
-            screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.NOFRAME | pygame.SRCALPHA)
+            screen = pygame.display.set_mode((SIZE, SIZE), pygame.NOFRAME)
             pygame.display.set_caption("P2W")
 
-            # Try to set window transparency (Linux/X11)
+            # Try to set opacity
             try:
-                from pygame._sdl2 import Window
+                from pygame._sdl2.video import Window
                 window = Window.from_display_module()
-                window.opacity = 0.9
+                window.opacity = 0.92
             except Exception:
                 pass
 
@@ -115,6 +113,7 @@ class Visualizer:
                         break
 
                 self._draw(screen, pygame)
+                self.frame += 1
                 clock.tick(60)
 
             pygame.quit()
@@ -124,84 +123,125 @@ class Visualizer:
             self._ready.set()
 
     def _draw(self, screen, pygame):
-        """Draw the visualizer with rounded corners and symmetry"""
-        # Clear with semi-transparent black
-        screen.fill((10, 10, 10))
+        screen.fill(BG_COLOR)
 
-        bar_width = (WIDTH - (BAR_COUNT + 1) * BAR_GAP) // BAR_COUNT
-        center_y = HEIGHT // 2
-        max_bar_height = (HEIGHT // 2) - 15
+        center_x = SIZE // 2
+        center_y = SIZE // 2
+
+        outer_radius = SIZE // 2 - 10
+        inner_radius = 25
+        mid_radius = (outer_radius + inner_radius) // 2
+        max_amplitude = (outer_radius - inner_radius) // 2 - 2
 
         with self.lock:
             levels_copy = self.levels.copy()
-            peaks_copy = self.peak_levels.copy()
+            global_level = self.global_level
 
-        for i in range(BAR_COUNT):
-            level = levels_copy[i] * 0.90  # Decay
-            self.levels[i] = level
+        for i in range(WAVE_POINTS):
+            self.smooth_levels[i] = self.smooth_levels[i] * 0.82 + levels_copy[i] * 0.18
 
-            # Update peak
-            if level > peaks_copy[i]:
-                self.peak_levels[i] = level
-            else:
-                self.peak_levels[i] = peaks_copy[i] * 0.96
+        # Calculate wave points
+        outer_points = []
+        inner_points = []
 
-            peak = self.peak_levels[i]
+        for i in range(WAVE_POINTS):
+            angle = (i / WAVE_POINTS) * 2 * math.pi
+            level = self.smooth_levels[i]
 
-            # Bar position (centered)
-            x = BAR_GAP + i * (bar_width + BAR_GAP)
-            bar_height = int(level * max_bar_height)
+            wave_phase = self.frame * 0.05
+            wave1 = math.sin(wave_phase + angle * 3) * 0.15
+            wave2 = math.sin(wave_phase * 0.7 + angle * 5) * 0.1
+            wave3 = math.sin(wave_phase * 1.2 + angle * 2) * 0.08
 
-            if bar_height > 1:
-                # Color intensity based on level
-                intensity = min(1.0, level * 2)
-                color = (
-                    int(ORANGE_DIM[0] + (ORANGE[0] - ORANGE_DIM[0]) * intensity),
-                    int(ORANGE_DIM[1] + (ORANGE[1] - ORANGE_DIM[1]) * intensity),
-                    int(ORANGE_DIM[2] + (ORANGE[2] - ORANGE_DIM[2]) * intensity)
-                )
+            base_wave = (wave1 + wave2 + wave3) * max_amplitude * 0.3
+            amplitude = level * max_amplitude * 0.9 + base_wave
+            amplitude *= (0.4 + global_level * 0.9)
 
-                # Draw upper bar (going up from center)
-                upper_rect = pygame.Rect(x, center_y - bar_height, bar_width, bar_height)
-                pygame.draw.rect(screen, color, upper_rect, border_radius=2)
+            outer_r = mid_radius + amplitude
+            outer_points.append((
+                center_x + math.cos(angle) * outer_r,
+                center_y + math.sin(angle) * outer_r
+            ))
 
-                # Draw lower bar (going down from center, mirrored)
-                lower_rect = pygame.Rect(x, center_y, bar_width, bar_height)
-                pygame.draw.rect(screen, color, lower_rect, border_radius=2)
+            inner_r = max(inner_radius, mid_radius - amplitude)
+            inner_points.append((
+                center_x + math.cos(angle) * inner_r,
+                center_y + math.sin(angle) * inner_r
+            ))
 
-                # Glow effect at peaks
-                if bar_height > 3:
-                    # Upper glow
-                    pygame.draw.rect(screen, ORANGE_GLOW,
-                                   (x, center_y - bar_height, bar_width, 2), border_radius=1)
-                    # Lower glow
-                    pygame.draw.rect(screen, ORANGE_GLOW,
-                                   (x, center_y + bar_height - 2, bar_width, 2), border_radius=1)
+        # Draw glow
+        if global_level > 0.05:
+            glow_surf = pygame.Surface((SIZE, SIZE), pygame.SRCALPHA)
+            glow_alpha = int(60 + global_level * 80)
 
-            # Peak indicators
-            if peak > 0.03:
-                peak_h = int(peak * max_bar_height)
-                # Upper peak
-                pygame.draw.rect(screen, ORANGE, (x, center_y - peak_h - 3, bar_width, 2))
-                # Lower peak
-                pygame.draw.rect(screen, ORANGE, (x, center_y + peak_h + 1, bar_width, 2))
+            glow_outer = []
+            for i in range(WAVE_POINTS):
+                angle = (i / WAVE_POINTS) * 2 * math.pi
+                level = self.smooth_levels[i]
+                wave = math.sin(self.frame * 0.05 + angle * 3) * 0.15
+                amp = (level * max_amplitude * 0.9 + wave * max_amplitude * 0.3) * 1.2
+                amp *= (0.4 + global_level * 0.9)
+                r = mid_radius + amp
+                glow_outer.append((center_x + math.cos(angle) * r, center_y + math.sin(angle) * r))
 
-        # Center line accent
-        pygame.draw.rect(screen, ORANGE_DIM, (10, center_y - 1, WIDTH - 20, 2), border_radius=1)
+            pygame.draw.polygon(glow_surf, (*ORANGE_DIM, glow_alpha), glow_outer, width=5)
+            screen.blit(glow_surf, (0, 0))
 
-        # Rounded border
-        pygame.draw.rect(screen, ORANGE_DIM, (0, 0, WIDTH, HEIGHT),
-                        width=2, border_radius=CORNER_RADIUS)
+        # Draw filled donut
+        if len(outer_points) > 2 and len(inner_points) > 2:
+            donut_shape = outer_points + inner_points[::-1]
+            pygame.draw.polygon(screen, ORANGE_MID, donut_shape)
+
+        # Outer edge
+        if len(outer_points) > 2:
+            intensity = min(1.0, 0.5 + global_level * 0.6)
+            line_color = (
+                int(ORANGE_DIM[0] + (ORANGE[0] - ORANGE_DIM[0]) * intensity),
+                int(ORANGE_DIM[1] + (ORANGE[1] - ORANGE_DIM[1]) * intensity),
+                int(ORANGE_DIM[2] + (ORANGE[2] - ORANGE_DIM[2]) * intensity)
+            )
+            pygame.draw.polygon(screen, line_color, outer_points, width=2)
+
+        # Inner edge
+        if len(inner_points) > 2:
+            pygame.draw.polygon(screen, ORANGE_DIM, inner_points, width=2)
+
+        # Cut out center (draw circle with background color)
+        pygame.draw.circle(screen, BG_COLOR, (center_x, center_y), inner_radius - 3)
+
+        # Highlight
+        if global_level > 0.2:
+            highlight_surf = pygame.Surface((SIZE, SIZE), pygame.SRCALPHA)
+            pygame.draw.polygon(highlight_surf, (*ORANGE_GLOW, int(global_level * 180)), outer_points, width=1)
+            screen.blit(highlight_surf, (0, 0))
+
+        # Draw circular mask to make window appear round
+        # Create mask surface
+        mask = pygame.Surface((SIZE, SIZE), pygame.SRCALPHA)
+        mask.fill((0, 0, 0, 255))
+        pygame.draw.circle(mask, (0, 0, 0, 0), (center_x, center_y), SIZE // 2 - 2)
+
+        # Apply mask - fill corners with very dark color
+        corner_color = (10, 10, 12)
+        # Top-left
+        pygame.draw.polygon(screen, corner_color, [(0, 0), (SIZE//2, 0), (0, SIZE//2)])
+        # Top-right
+        pygame.draw.polygon(screen, corner_color, [(SIZE, 0), (SIZE//2, 0), (SIZE, SIZE//2)])
+        # Bottom-left
+        pygame.draw.polygon(screen, corner_color, [(0, SIZE), (SIZE//2, SIZE), (0, SIZE//2)])
+        # Bottom-right
+        pygame.draw.polygon(screen, corner_color, [(SIZE, SIZE), (SIZE//2, SIZE), (SIZE, SIZE//2)])
+
+        # Draw outer circle to clean up
+        pygame.draw.circle(screen, corner_color, (center_x, center_y), SIZE // 2, SIZE // 2 - outer_radius - 12)
 
         pygame.display.flip()
 
 
-# Singleton
 _visualizer = None
 
 
 def get_visualizer() -> Visualizer:
-    """Get or create visualizer instance"""
     global _visualizer
     if _visualizer is None:
         _visualizer = Visualizer()
