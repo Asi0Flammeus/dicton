@@ -1,0 +1,4 @@
+#!/bin/bash
+cd "/home/asi0/asi0-repos/S2T_P2W"
+source venv/bin/activate
+python src/main.py "$@"

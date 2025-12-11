@@ -1,168 +1,109 @@
 #!/usr/bin/env python3
-"""
-Push-to-Write (P2W) - Voice to Text Application
-Press Alt+T to start voice recording, speak, and the text will be inserted at cursor position
-"""
+"""Push-to-Write: Press Alt+T to record, press again to stop and transcribe"""
+import os
 import sys
 import signal
-import time
 import threading
+import warnings
 from pathlib import Path
 
-# Add src to path
+# Suppress warnings
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+warnings.filterwarnings('ignore')
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config import config
-from speech_recognition_engine import SpeechRecognizer, OnlineSpeechRecognizer
+from speech_recognition_engine import SpeechRecognizer
 from keyboard_handler import KeyboardHandler
-from ui_feedback import UIFeedback
+from ui_feedback import notify
+
 
 class PushToWrite:
-    """Main application class"""
+    """Main application - simple toggle recording"""
 
     def __init__(self):
-        # Create necessary directories
         config.create_dirs()
+        self.recognizer = SpeechRecognizer()
+        self.keyboard = KeyboardHandler(self.on_toggle)
+        self.recording = False
+        self.record_thread = None
 
-        # Initialize components
-        self.ui = UIFeedback(self.quit)
-
-        # Initialize speech recognizer (offline by default)
-        if config.SPEECH_ENGINE == "whisper":
-            print("Initializing offline speech recognition (Whisper)...")
-            self.speech_recognizer = SpeechRecognizer()
+    def on_toggle(self):
+        """Toggle recording on/off"""
+        if self.recording:
+            # Stop recording
+            print("⏹ Stopping...")
+            self.recognizer.stop()
+            self.recording = False
         else:
-            print("Initializing online speech recognition...")
-            self.speech_recognizer = OnlineSpeechRecognizer()
+            # Start recording
+            self.recording = True
+            self.record_thread = threading.Thread(target=self._record_and_transcribe, daemon=True)
+            self.record_thread.start()
 
-        # Initialize keyboard handler
-        self.keyboard_handler = KeyboardHandler(self.on_hotkey_pressed)
-
-        # Flag for clean shutdown
-        self.running = True
-
-    def on_hotkey_pressed(self):
-        """Handle hotkey press - start voice recording"""
-        if config.DEBUG:
-            print(f"Hotkey pressed! Starting voice capture...")
-
-        # Show UI feedback
-        self.ui.update_recording_status(True)
-        self.ui.show_notification("🎤 Recording", "Speak now...", timeout=1)
-
-        # Start recording in a separate thread
-        threading.Thread(target=self._record_and_insert, daemon=True).start()
-
-    def _record_and_insert(self):
-        """Record voice and insert transcribed text"""
+    def _record_and_transcribe(self):
+        """Record audio and transcribe when done"""
         try:
-            # Get the configured language
-            language = config.DEFAULT_LANGUAGE
+            notify("🎤 Recording", "Press Alt+T to stop")
 
-            # Transcribe speech
-            text = self.speech_recognizer.transcribe(language=language)
+            # Record until stopped
+            audio = self.recognizer.record()
 
-            # Update UI
-            self.ui.update_recording_status(False)
+            if audio is not None and len(audio) > 0:
+                print("⏳ Transcribing...")
+                text = self.recognizer.transcribe(audio)
 
-            if text:
-                # Insert text at cursor position
-                KeyboardHandler.insert_text(text)
-
-                # Show success notification
-                preview = text[:50] + "..." if len(text) > 50 else text
-                self.ui.show_notification("✓ Transcribed", preview, timeout=2)
-
-                if config.DEBUG:
-                    print(f"Inserted text: {text}")
+                if text:
+                    KeyboardHandler.insert_text(text)
+                    print(f"✓ {text[:50]}..." if len(text) > 50 else f"✓ {text}")
+                    notify("✓ Done", text[:100])
+                else:
+                    print("No speech detected")
+                    notify("⚠ No speech", "Try again")
             else:
-                self.ui.show_notification("⚠ No Speech", "No speech detected", timeout=2)
+                print("No audio captured")
 
         except Exception as e:
-            print(f"Error in recording: {e}")
-            self.ui.show_notification("❌ Error", str(e), timeout=3)
-            self.ui.update_recording_status(False)
+            print(f"Error: {e}")
+            notify("❌ Error", str(e)[:50])
+        finally:
+            self.recording = False
 
     def run(self):
-        """Run the main application"""
-        print("\n" + "="*60)
-        print("🚀 Push-to-Write (P2W) Started")
-        print("="*60)
-        print(f"📍 Hotkey: {config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}")
-        print(f"🌐 Language: {config.DEFAULT_LANGUAGE}")
-        print(f"🔧 Engine: {config.SPEECH_ENGINE}")
+        """Run the application"""
+        print("\n" + "=" * 50)
+        print("🚀 Push-to-Write")
+        print("=" * 50)
+        print(f"Hotkey: {config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}")
+        print(f"Mode: {'Online API' if self.recognizer.use_online else 'Local model'}")
+        print("\nPress hotkey to start/stop recording")
+        print("Press Ctrl+C to quit")
+        print("=" * 50 + "\n")
 
-        if config.SPEECH_ENGINE == "whisper":
-            print(f"📦 Whisper Model: {config.WHISPER_MODEL}")
-            print("✓ Working OFFLINE - No internet required!")
+        self.keyboard.start()
+        notify("P2W Ready", f"Press {config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}")
 
-        print("\nPress the hotkey to start recording...")
-        print("Press Ctrl+C to quit\n")
-        print("="*60 + "\n")
-
-        # Create system tray icon
-        self.ui.create_tray_icon()
-
-        # Start keyboard listener
-        self.keyboard_handler.start()
-
-        # Show startup notification
-        self.ui.show_notification(
-            "Push-to-Write Started",
-            f"Press {config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY} to record",
-            timeout=3
-        )
-
-        # Keep the application running
         try:
-            while self.running:
-                time.sleep(0.1)
+            signal.pause()
         except KeyboardInterrupt:
-            print("\n\nShutting down...")
-            self.quit()
+            pass
 
-    def quit(self):
+        self.shutdown()
+
+    def shutdown(self):
         """Clean shutdown"""
-        self.running = False
+        print("\nShutting down...")
+        self.keyboard.stop()
+        self.recognizer.cleanup()
+        print("✓ Done")
 
-        print("\nCleaning up...")
-
-        # Stop keyboard listener
-        if self.keyboard_handler:
-            self.keyboard_handler.stop()
-
-        # Stop speech recognizer
-        if self.speech_recognizer:
-            self.speech_recognizer.stop_recording()
-            self.speech_recognizer.cleanup()
-
-        # Cleanup UI
-        if self.ui:
-            self.ui.cleanup()
-
-        print("✓ Push-to-Write stopped")
-        sys.exit(0)
-
-def signal_handler(sig, frame):
-    """Handle Ctrl+C gracefully"""
-    print("\nReceived interrupt signal...")
-    sys.exit(0)
 
 def main():
-    """Main entry point"""
-    # Setup signal handler
-    signal.signal(signal.SIGINT, signal_handler)
-
-    # Create and run application
+    signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
     app = PushToWrite()
+    app.run()
 
-    try:
-        app.run()
-    except Exception as e:
-        print(f"Fatal error: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
 
 if __name__ == "__main__":
     main()

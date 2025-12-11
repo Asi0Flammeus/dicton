@@ -1,158 +1,156 @@
 #!/bin/bash
-
-# Push-to-Write Installation Script
-# For Ubuntu/Debian-based Linux systems
-
+# Push-to-Write System Installation
 set -e
 
-echo "================================================"
-echo "Push-to-Write (P2W) Installation Script"
-echo "================================================"
+INSTALL_DIR="/opt/p2w"
+BIN_LINK="/usr/local/bin/p2w"
+SERVICE_FILE="/etc/systemd/user/p2w.service"
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Check if running on Linux
-if [[ "$OSTYPE" != "linux-gnu"* ]]; then
-    echo -e "${RED}Error: This script is for Linux systems only${NC}"
+usage() {
+    echo "Usage: $0 [install|update|uninstall]"
+    echo "  install   - Install P2W system-wide"
+    echo "  update    - Update to latest version"
+    echo "  uninstall - Remove P2W from system"
     exit 1
-fi
-
-# Function to check if a command exists
-command_exists() {
-    command -v "$1" >/dev/null 2>&1
 }
 
-echo -e "\n${YELLOW}Step 1: Installing system dependencies...${NC}"
+check_root() {
+    if [ "$EUID" -ne 0 ]; then
+        echo -e "${RED}Please run with sudo${NC}"
+        exit 1
+    fi
+}
 
-# Update package lists
-sudo apt-get update
+install_deps() {
+    echo -e "${YELLOW}Installing system dependencies...${NC}"
+    apt-get update -qq
+    apt-get install -y -qq \
+        python3-pip python3-venv python3-dev \
+        portaudio19-dev libportaudio2 \
+        xdotool libnotify-bin
+    echo -e "${GREEN}✓ Dependencies installed${NC}"
+}
 
-# Install system dependencies
-echo "Installing audio libraries and Python development packages..."
-sudo apt-get install -y \
-    python3-pip \
-    python3-venv \
-    python3-dev \
-    portaudio19-dev \
-    python3-pyaudio \
-    ffmpeg \
-    libportaudio2 \
-    libasound2-dev \
-    xclip \
-    xdotool \
-    python3-tk
+install_p2w() {
+    check_root
 
-echo -e "${GREEN}✓ System dependencies installed${NC}"
+    echo -e "${YELLOW}Installing Push-to-Write...${NC}"
 
-echo -e "\n${YELLOW}Step 2: Creating Python virtual environment...${NC}"
+    # Install system deps
+    install_deps
 
-# Create virtual environment
-if [ ! -d "venv" ]; then
-    python3 -m venv venv
-    echo -e "${GREEN}✓ Virtual environment created${NC}"
-else
-    echo "Virtual environment already exists"
-fi
+    # Create install directory
+    mkdir -p "$INSTALL_DIR"
 
-# Activate virtual environment
-source venv/bin/activate
+    # Copy source files
+    cp -r src "$INSTALL_DIR/"
+    cp requirements.txt "$INSTALL_DIR/"
+    cp .env.example "$INSTALL_DIR/"
 
-echo -e "\n${YELLOW}Step 3: Installing Python packages...${NC}"
+    # Create venv and install packages
+    python3 -m venv "$INSTALL_DIR/venv"
+    "$INSTALL_DIR/venv/bin/pip" install -q --upgrade pip
+    "$INSTALL_DIR/venv/bin/pip" install -q -r "$INSTALL_DIR/requirements.txt"
 
-# Upgrade pip
-pip install --upgrade pip
+    # Create config if not exists
+    if [ ! -f "$INSTALL_DIR/.env" ]; then
+        cp "$INSTALL_DIR/.env.example" "$INSTALL_DIR/.env"
+    fi
 
-# Install Python requirements
-pip install -r requirements.txt
-
-echo -e "${GREEN}✓ Python packages installed${NC}"
-
-echo -e "\n${YELLOW}Step 4: Setting up configuration...${NC}"
-
-# Create .env file if it doesn't exist
-if [ ! -f ".env" ]; then
-    cp .env.example .env
-    echo -e "${GREEN}✓ Configuration file created (.env)${NC}"
-    echo -e "${YELLOW}Please edit .env file to customize your settings${NC}"
-else
-    echo "Configuration file already exists"
-fi
-
-# Create models directory
-mkdir -p models
-
-echo -e "\n${YELLOW}Step 5: Creating desktop launcher...${NC}"
-
-# Get the full path to the project directory
-PROJECT_DIR="$(pwd)"
-
-# Create desktop entry for easy launching
-cat > ~/.local/share/applications/push-to-write.desktop <<EOF
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=Push-to-Write
-Comment=Voice to Text with Alt+T
-Exec=bash -c "cd $PROJECT_DIR && source venv/bin/activate && python src/main.py"
-Icon=$PROJECT_DIR/assets/icon.png
-Terminal=false
-Categories=Utility;Accessibility;
-StartupNotify=true
-EOF
-
-# Make desktop entry executable
-chmod +x ~/.local/share/applications/push-to-write.desktop
-
-echo -e "${GREEN}✓ Desktop launcher created${NC}"
-
-echo -e "\n${YELLOW}Step 6: Creating command-line launcher...${NC}"
-
-# Create a launcher script
-cat > p2w <<EOF
+    # Create launcher script
+    cat > "$BIN_LINK" <<'EOF'
 #!/bin/bash
-cd "$PROJECT_DIR"
-source venv/bin/activate
-python src/main.py "\$@"
+cd /opt/p2w
+exec /opt/p2w/venv/bin/python src/main.py "$@"
+EOF
+    chmod +x "$BIN_LINK"
+
+    # Create systemd user service
+    mkdir -p "$(dirname "$SERVICE_FILE")"
+    cat > "$SERVICE_FILE" <<'EOF'
+[Unit]
+Description=Push-to-Write Voice Transcription
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/opt/p2w/venv/bin/python /opt/p2w/src/main.py
+Restart=on-failure
+RestartSec=5
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=default.target
 EOF
 
-# Make launcher executable
-chmod +x p2w
+    # Store version
+    echo "$(date +%Y%m%d)" > "$INSTALL_DIR/VERSION"
 
-# Create symlink in local bin (create directory if it doesn't exist)
-mkdir -p ~/.local/bin
-ln -sf "$PROJECT_DIR/p2w" ~/.local/bin/p2w
+    echo -e "${GREEN}✓ P2W installed${NC}"
+    echo ""
+    echo "Usage:"
+    echo "  p2w              - Run manually"
+    echo "  systemctl --user enable p2w   - Enable autostart"
+    echo "  systemctl --user start p2w    - Start as service"
+    echo ""
+    echo "Config: $INSTALL_DIR/.env"
+}
 
-echo -e "${GREEN}✓ Command-line launcher created${NC}"
+update_p2w() {
+    check_root
 
-# Check if ~/.local/bin is in PATH
-if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
-    echo -e "${YELLOW}Note: Add ~/.local/bin to your PATH by adding this to ~/.bashrc:${NC}"
-    echo 'export PATH="$HOME/.local/bin:$PATH"'
-fi
+    if [ ! -d "$INSTALL_DIR" ]; then
+        echo -e "${RED}P2W not installed. Run: sudo $0 install${NC}"
+        exit 1
+    fi
 
-echo -e "\n${YELLOW}Step 7: Downloading Whisper model (for offline mode)...${NC}"
+    echo -e "${YELLOW}Updating Push-to-Write...${NC}"
 
-# Pre-download the default Whisper model
-python3 -c "import whisper; whisper.load_model('base', download_root='models')" 2>/dev/null || true
+    # Backup config
+    cp "$INSTALL_DIR/.env" /tmp/p2w.env.bak 2>/dev/null || true
 
-echo -e "${GREEN}✓ Whisper model ready${NC}"
+    # Update source files
+    cp -r src "$INSTALL_DIR/"
+    cp requirements.txt "$INSTALL_DIR/"
 
-echo ""
-echo "================================================"
-echo -e "${GREEN}Installation Complete!${NC}"
-echo "================================================"
-echo ""
-echo "To start Push-to-Write:"
-echo "  1. From terminal: p2w"
-echo "  2. From desktop: Search for 'Push-to-Write' in applications"
-echo "  3. Manual: cd $PROJECT_DIR && ./venv/bin/python src/main.py"
-echo ""
-echo "Default hotkey: Alt+T"
-echo "Configuration: Edit .env file"
-echo ""
-echo -e "${YELLOW}Note: The application works completely OFFLINE!${NC}"
-echo "================================================"
+    # Update packages
+    "$INSTALL_DIR/venv/bin/pip" install -q --upgrade -r "$INSTALL_DIR/requirements.txt"
+
+    # Restore config
+    cp /tmp/p2w.env.bak "$INSTALL_DIR/.env" 2>/dev/null || true
+
+    # Update version
+    echo "$(date +%Y%m%d)" > "$INSTALL_DIR/VERSION"
+
+    echo -e "${GREEN}✓ P2W updated${NC}"
+    echo "Restart service: systemctl --user restart p2w"
+}
+
+uninstall_p2w() {
+    check_root
+
+    echo -e "${YELLOW}Uninstalling Push-to-Write...${NC}"
+
+    # Stop service if running
+    systemctl --user stop p2w 2>/dev/null || true
+    systemctl --user disable p2w 2>/dev/null || true
+
+    # Remove files
+    rm -rf "$INSTALL_DIR"
+    rm -f "$BIN_LINK"
+    rm -f "$SERVICE_FILE"
+
+    echo -e "${GREEN}✓ P2W uninstalled${NC}"
+}
+
+case "${1:-install}" in
+    install)  install_p2w ;;
+    update)   update_p2w ;;
+    uninstall) uninstall_p2w ;;
+    *)        usage ;;
+esac
