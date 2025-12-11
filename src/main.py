@@ -76,7 +76,8 @@ class PushToWrite:
         print("🚀 Push-to-Write")
         print("=" * 50)
         print(f"Hotkey: {config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}")
-        print(f"Mode: {'Online API' if self.recognizer.use_online else 'Local model'}")
+        mode = "ElevenLabs realtime streaming" if self.recognizer.use_elevenlabs else "Local model"
+        print(f"Mode: {mode}")
         print("\nPress hotkey to start/stop recording")
         print("Press Ctrl+C to quit")
         print("=" * 50 + "\n")

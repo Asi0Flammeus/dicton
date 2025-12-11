@@ -4,8 +4,8 @@ pynput==1.7.7
 python-dotenv==1.0.1
 numpy>=1.24.0
 
-# Online API (fast)
-openai>=1.0.0
+# ElevenLabs speech-to-text
+elevenlabs>=1.0.0
 
 # Local fallback (optional)
 faster-whisper==1.0.3

@@ -47,3 +47,4 @@ recordings/
 temp/
 *.wav
 *.mp3
+.serena
