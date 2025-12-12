@@ -1,30 +1,88 @@
-# Push-to-Write (P2W) 🎤
+# Push-to-Write (P2W)
 
-A fast voice-to-text application for Linux that transcribes your speech directly at the cursor position. Press `Alt+T` to start recording, press again to stop and transcribe!
+A fast voice-to-text application that transcribes your speech directly at the cursor position. Press `Alt+T` to start recording, press again to stop and transcribe!
 
-## ✨ Features
+**Supported Platforms:** Linux (X11), Windows, macOS
 
-- **🚀 ElevenLabs STT**: Fast, accurate transcription using ElevenLabs Speech-to-Text API
-- **🎯 System-wide**: Works in any application where you can type
-- **🔊 Audio Visualizer**: Elegant circular waveform display while recording
-- **🌍 Multilingual**: Supports auto language detection and manual language selection
-- **🔔 Notifications**: Desktop notifications for recording status
-- **🔧 Configurable**: Customize hotkeys, language, and microphone settings
-- **⚡ Toggle Recording**: Press hotkey to start, press again to stop
-- **🎨 Visual Feedback**: Animated donut visualizer shows audio levels in real-time
+## Features
 
-## 📋 Requirements
+- **ElevenLabs STT**: Fast, accurate transcription using ElevenLabs Speech-to-Text API
+- **System-wide**: Works in any application where you can type
+- **Audio Visualizer**: Elegant circular waveform display while recording
+- **Multilingual**: Supports auto language detection and manual language selection
+- **Notifications**: Desktop notifications for recording status
+- **Configurable**: Customize hotkeys, language, and microphone settings
+- **Toggle Recording**: Press hotkey to start, press again to stop
+- **Visual Feedback**: Animated donut visualizer shows audio levels in real-time
 
+## Requirements
+
+### All Platforms
 - Python 3.10 or higher
-- Ubuntu/Debian or Arch Linux
-- PulseAudio or ALSA audio system
-- X11 window system (for keyboard automation and visualizer)
 - ElevenLabs API key ([get one here](https://elevenlabs.io/app/settings/api-keys))
 
-## 🚀 Installation
+### Linux
+- PulseAudio or ALSA audio system
+- X11 window system (for xdotool keyboard automation)
+- System packages: `xdotool`, `libnotify-bin`
 
-### Quick Install (Local)
+### Windows
+- Windows 10 or later
+- Working microphone
+- No additional system packages required
 
+### macOS
+- macOS 10.15 or later
+- Microphone access permissions
+
+## Installation
+
+### Windows
+
+**Option 1: Batch Script**
+```cmd
+REM Clone or download the repository
+cd push-to-write
+
+REM Run installer
+install.bat
+
+REM Configure API key
+copy .env.example .env
+notepad .env
+REM Add your ELEVENLABS_API_KEY
+
+REM Run
+run.bat
+```
+
+**Option 2: PowerShell**
+```powershell
+# Clone or download the repository
+cd push-to-write
+
+# Run installer
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1
+
+# Configure API key
+Copy-Item .env.example .env
+notepad .env
+# Add your ELEVENLABS_API_KEY
+
+# Run
+.\run.bat
+```
+
+**Note on PyAudio (Windows):** If PyAudio installation fails:
+```cmd
+pip install pipwin
+pipwin install pyaudio
+```
+Or download a wheel from: https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio
+
+### Linux
+
+**Quick Install (Local)**
 ```bash
 # Clone the repository
 git clone https://github.com/yourusername/push-to-write.git
@@ -42,8 +100,7 @@ nano .env
 systemctl --user start p2w
 ```
 
-### System-wide Install (with sudo)
-
+**System-wide Install (with sudo)**
 ```bash
 # Install system-wide to /opt/p2w
 sudo ./install.sh install
@@ -59,36 +116,63 @@ systemctl --user enable p2w
 systemctl --user start p2w
 ```
 
-### System Dependencies
+**System Dependencies (Linux)**
 
-**Debian/Ubuntu:**
+Debian/Ubuntu:
 ```bash
 sudo apt install python3-venv python3-dev portaudio19-dev xdotool libnotify-bin
 ```
 
-**Arch Linux:**
+Arch Linux:
 ```bash
 sudo pacman -S python portaudio xdotool libnotify
 ```
 
-## 🎮 Usage
+### macOS
+
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/push-to-write.git
+cd push-to-write
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# If PyAudio fails, install portaudio first:
+brew install portaudio
+pip install pyaudio
+
+# Configure
+cp .env.example .env
+nano .env
+# Add your ELEVENLABS_API_KEY
+
+# Run
+python src/main.py
+```
+
+## Usage
 
 ### Starting the Application
 
-**Option 1: As a Service (recommended)**
+**Windows:**
+```cmd
+run.bat
+```
+
+**Linux (Service - recommended):**
 ```bash
 systemctl --user start p2w
 ```
 
-**Option 2: Command Line**
-```bash
-p2w
-```
-
-**Option 3: Direct**
+**Linux/macOS (Command Line):**
 ```bash
 cd /path/to/push-to-write
-source .venv/bin/activate
+source venv/bin/activate  # or: venv\Scripts\activate on Windows
 python src/main.py
 ```
 
@@ -107,7 +191,7 @@ python src/main.py
 | Press `Alt+T` again | Stop recording, transcribe, insert text |
 | `Ctrl+C` | Quit the application |
 
-## ⚙️ Configuration
+## Configuration
 
 Edit the `.env` file to customize:
 
@@ -145,30 +229,35 @@ DEBUG=false
 3. Create a new API key
 4. Add it to your `.env` file
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 push-to-write/
 ├── src/
 │   ├── main.py                      # Main application entry point
 │   ├── config.py                    # Configuration management
+│   ├── platform_utils.py            # Cross-platform detection
 │   ├── speech_recognition_engine.py # ElevenLabs STT integration
 │   ├── keyboard_handler.py          # Hotkey detection and text insertion
 │   ├── visualizer.py                # Circular audio visualizer (pygame)
 │   └── ui_feedback.py               # Desktop notifications
 ├── scripts/
-│   ├── install.sh                   # Local installation script
+│   ├── install.sh                   # Linux installation script
+│   ├── install.ps1                  # Windows PowerShell installer
 │   └── p2w.service                  # Systemd service template
 ├── assets/
 │   └── icon.png                     # Application icon
 ├── .env.example                     # Configuration template
 ├── requirements.txt                 # Python dependencies
-├── install.sh                       # System-wide installer
+├── install.sh                       # Linux system-wide installer
+├── install.bat                      # Windows batch installer
+├── run.bat                          # Windows launcher
+├── run.sh                           # Linux launcher
 ├── SETUP.md                         # Detailed setup guide
 └── README.md                        # This file
 ```
 
-## 📦 Dependencies
+## Dependencies
 
 Core dependencies (from `requirements.txt`):
 
@@ -180,8 +269,28 @@ Core dependencies (from `requirements.txt`):
 | `pygame` | Audio visualizer |
 | `python-dotenv` | Environment configuration |
 | `numpy` | Audio processing |
+| `plyer` | Cross-platform notifications |
+| `pyautogui` | Cross-platform text insertion (Windows) |
 
-## 🔧 Service Management
+## Platform-Specific Notes
+
+### Windows
+- Text insertion uses `pyautogui` (with `pynput` fallback)
+- Notifications use Windows Toast via `plyer`
+- No admin rights required for normal operation
+
+### Linux
+- Text insertion uses `xdotool` (with `pynput` fallback)
+- Notifications use `notify-send` (with `plyer` fallback)
+- X11 required for visualizer window positioning
+- Wayland support is limited
+
+### macOS
+- Text insertion uses `pynput`
+- Notifications use native AppleScript
+- May require accessibility permissions for keyboard control
+
+## Service Management (Linux)
 
 ```bash
 # Start the service
@@ -203,10 +312,11 @@ systemctl --user status p2w
 journalctl --user -u p2w -f
 ```
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### No Microphone Detected
 
+**Linux:**
 ```bash
 # List available audio devices
 arecord -l
@@ -218,19 +328,30 @@ pactl list sources short
 MIC_DEVICE=1
 ```
 
+**Windows:**
+- Check Windows Sound Settings > Recording devices
+- Set `MIC_DEVICE=auto` or specific device index in `.env`
+
 ### Visualizer Not Showing
 
-- Ensure X11 is running (not Wayland): `echo $XDG_SESSION_TYPE`
-- Check pygame installation: `.venv/bin/pip show pygame`
+- Linux: Ensure X11 is running (not Wayland): `echo $XDG_SESSION_TYPE`
+- Check pygame installation: `pip show pygame`
 - Try running with `DEBUG=true` for more info
 
 ### Keyboard Shortcuts Not Working
 
-- Ensure you're running X11 (not Wayland)
+- Linux: Ensure you're running X11 (not Wayland)
 - Check if another application uses `Alt+T`
 - Try a different hotkey in `.env`
+- Windows: Run as administrator if needed
 
-### Permission Denied for Input
+### Text Not Inserting (Windows)
+
+- Ensure `pyautogui` is installed: `pip install pyautogui`
+- Some applications may block automated input
+- Try clicking in the target text field first
+
+### Permission Denied for Input (Linux)
 
 ```bash
 # Add user to input group
@@ -238,7 +359,7 @@ sudo usermod -aG input $USER
 # Log out and back in
 ```
 
-### Service Won't Start
+### Service Won't Start (Linux)
 
 ```bash
 # Check logs
@@ -252,9 +373,15 @@ echo $DISPLAY  # Should be :0 or :1
 
 These are harmless! PyAudio scans multiple backends. The warnings are suppressed automatically.
 
-## 🗑️ Uninstall
+## Uninstall
 
-**Local installation:**
+**Windows:**
+```cmd
+REM Delete the project folder
+rmdir /s /q push-to-write
+```
+
+**Linux (Local installation):**
 ```bash
 systemctl --user stop p2w
 systemctl --user disable p2w
@@ -262,27 +389,28 @@ rm ~/.config/systemd/user/p2w.service
 systemctl --user daemon-reload
 ```
 
-**System-wide installation:**
+**Linux (System-wide installation):**
 ```bash
 sudo ./install.sh uninstall
 ```
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit pull requests.
 
-## 📄 License
+## License
 
 MIT License - feel free to use this project however you'd like!
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [ElevenLabs](https://elevenlabs.io/) for the speech-to-text API
 - [pynput](https://github.com/moses-palmer/pynput) for keyboard handling
 - [PyAudio](https://people.csail.mit.edu/hubert/pyaudio/) for audio capture
 - [Pygame](https://www.pygame.org/) for the visualizer
+- [plyer](https://github.com/kivy/plyer) for cross-platform notifications
 
-## 💡 Tips
+## Tips
 
 - Speak clearly and at a normal pace for best results
 - The visualizer shows when audio is being captured

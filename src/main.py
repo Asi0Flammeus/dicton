@@ -13,6 +13,7 @@ warnings.filterwarnings('ignore')
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from platform_utils import IS_WINDOWS
 from config import config
 from speech_recognition_engine import SpeechRecognizer
 from keyboard_handler import KeyboardHandler
@@ -28,6 +29,7 @@ class PushToWrite:
         self.keyboard = KeyboardHandler(self.on_toggle)
         self.recording = False
         self.record_thread = None
+        self._shutdown_event = threading.Event()
 
     def on_toggle(self):
         """Toggle recording on/off"""
@@ -55,7 +57,7 @@ class PushToWrite:
                 text = self.recognizer.transcribe(audio)
 
                 if text:
-                    KeyboardHandler.insert_text(text)
+                    self.keyboard.insert_text(text)
                     print(f"✓ {text[:50]}..." if len(text) > 50 else f"✓ {text}")
                     notify("✓ Done", text[:100])
                 else:
@@ -85,8 +87,14 @@ class PushToWrite:
         self.keyboard.start()
         notify("P2W Ready", f"Press {config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}")
 
+        # Cross-platform wait loop
         try:
-            signal.pause()
+            if IS_WINDOWS:
+                # Windows: use threading event wait
+                self._shutdown_event.wait()
+            else:
+                # Unix: use signal.pause() for efficiency
+                signal.pause()
         except KeyboardInterrupt:
             pass
 
@@ -95,14 +103,27 @@ class PushToWrite:
     def shutdown(self):
         """Clean shutdown"""
         print("\nShutting down...")
+        self._shutdown_event.set()
         self.keyboard.stop()
         self.recognizer.cleanup()
         print("✓ Done")
 
+    def request_shutdown(self):
+        """Request application shutdown (thread-safe)"""
+        self._shutdown_event.set()
+
 
 def main():
-    signal.signal(signal.SIGINT, lambda s, f: sys.exit(0))
     app = PushToWrite()
+
+    def signal_handler(sig, frame):
+        app.request_shutdown()
+
+    # Register signal handlers
+    signal.signal(signal.SIGINT, signal_handler)
+    if not IS_WINDOWS:
+        signal.signal(signal.SIGTERM, signal_handler)
+
     app.run()
 
 

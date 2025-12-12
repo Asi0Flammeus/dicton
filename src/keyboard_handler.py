@@ -1,8 +1,10 @@
-"""Keyboard handler for Push-to-Write"""
+"""Keyboard handler for Push-to-Write - Cross-platform"""
 import subprocess
+import time
 from pynput import keyboard
-from pynput.keyboard import Key
+from pynput.keyboard import Key, Controller as KeyboardController
 from config import config
+from platform_utils import IS_WINDOWS, IS_LINUX, IS_MACOS
 
 
 class KeyboardHandler:
@@ -13,6 +15,7 @@ class KeyboardHandler:
         self.listener = None
         self.pressed_keys = set()
         self.hotkey_active = False
+        self._keyboard_controller = KeyboardController()
 
     def start(self):
         """Start keyboard listener"""
@@ -77,8 +80,59 @@ class KeyboardHandler:
 
         return key in self.pressed_keys
 
-    @staticmethod
-    def insert_text(text: str):
-        """Insert text at cursor using xdotool"""
-        if text:
+    def insert_text(self, text: str):
+        """Insert text at cursor - cross-platform implementation"""
+        if not text:
+            return
+
+        if IS_LINUX:
+            self._insert_text_linux(text)
+        elif IS_WINDOWS:
+            self._insert_text_windows(text)
+        elif IS_MACOS:
+            self._insert_text_macos(text)
+        else:
+            # Fallback: use pynput (slower but universal)
+            self._insert_text_pynput(text)
+
+    def _insert_text_linux(self, text: str):
+        """Insert text on Linux using xdotool"""
+        try:
             subprocess.run(['xdotool', 'type', '--', text], timeout=10)
+        except FileNotFoundError:
+            # xdotool not installed, fallback to pynput
+            print("⚠ xdotool not found, using fallback method")
+            self._insert_text_pynput(text)
+        except Exception as e:
+            print(f"⚠ xdotool error: {e}, using fallback")
+            self._insert_text_pynput(text)
+
+    def _insert_text_windows(self, text: str):
+        """Insert text on Windows using pyautogui or pynput"""
+        try:
+            # Try pyautogui first (better Unicode support)
+            import pyautogui
+            # Disable fail-safe for text insertion
+            pyautogui.FAILSAFE = False
+            pyautogui.write(text, interval=0.01)
+        except ImportError:
+            # Fallback to pynput
+            self._insert_text_pynput(text)
+        except Exception as e:
+            print(f"⚠ pyautogui error: {e}, using fallback")
+            self._insert_text_pynput(text)
+
+    def _insert_text_macos(self, text: str):
+        """Insert text on macOS"""
+        # pynput works well on macOS
+        self._insert_text_pynput(text)
+
+    def _insert_text_pynput(self, text: str):
+        """Insert text using pynput keyboard controller (cross-platform fallback)"""
+        try:
+            # Type character by character with small delay
+            for char in text:
+                self._keyboard_controller.type(char)
+                time.sleep(0.005)  # Small delay for reliability
+        except Exception as e:
+            print(f"⚠ Text insertion error: {e}")

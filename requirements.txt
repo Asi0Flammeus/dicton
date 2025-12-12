@@ -18,5 +18,11 @@ elevenlabs>=1.0.0
 # Audio visualizer
 pygame>=2.5.0
 
+# Cross-platform notifications (Windows/macOS fallback)
+plyer>=2.1.0
+
+# Cross-platform keyboard input (Windows fallback for text insertion)
+pyautogui>=0.9.54
+
 # Local fallback (optional - only used if no API key)
 # faster-whisper==1.0.3

@@ -4,7 +4,11 @@ import math
 import threading
 
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
-os.environ['SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR'] = '0'
+
+# Platform-specific SDL settings (only for X11/Linux)
+from platform_utils import IS_LINUX, IS_X11
+if IS_LINUX and IS_X11:
+    os.environ['SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR'] = '0'
 
 import numpy as np
 
@@ -90,12 +94,15 @@ class Visualizer:
             screen_w, screen_h = info.current_w, info.current_h
             pos_x = screen_w - SIZE - 20
             pos_y = 20
+
+            # Set window position (cross-platform approach)
+            # SDL_VIDEO_WINDOW_POS works on most platforms
             os.environ['SDL_VIDEO_WINDOW_POS'] = f'{pos_x},{pos_y}'
 
             screen = pygame.display.set_mode((SIZE, SIZE), pygame.NOFRAME)
             pygame.display.set_caption("P2W")
 
-            # Try to set opacity
+            # Try to set opacity (may not work on all platforms)
             try:
                 from pygame._sdl2.video import Window
                 window = Window.from_display_module()

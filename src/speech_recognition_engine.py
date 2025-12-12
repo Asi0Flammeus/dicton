@@ -1,4 +1,4 @@
-"""Speech recognition - ElevenLabs STT (capture then transcribe)"""
+"""Speech recognition - ElevenLabs STT (capture then transcribe) - Cross-platform"""
 import os
 import io
 import wave
@@ -6,18 +6,26 @@ import contextlib
 
 import numpy as np
 
-# Suppress ALSA warnings
+from platform_utils import IS_LINUX, IS_WINDOWS
+
+
+# Suppress audio system warnings (ALSA on Linux, etc.)
 @contextlib.contextmanager
 def suppress_stderr():
-    devnull = os.open(os.devnull, os.O_WRONLY)
-    old_stderr = os.dup(2)
+    """Suppress stderr to hide audio system warnings."""
     try:
-        os.dup2(devnull, 2)
+        devnull = os.open(os.devnull, os.O_WRONLY)
+        old_stderr = os.dup(2)
+        try:
+            os.dup2(devnull, 2)
+            yield
+        finally:
+            os.dup2(old_stderr, 2)
+            os.close(devnull)
+            os.close(old_stderr)
+    except Exception:
+        # On some platforms this may fail, just yield without suppression
         yield
-    finally:
-        os.dup2(old_stderr, 2)
-        os.close(devnull)
-        os.close(old_stderr)
 
 
 with suppress_stderr():
@@ -59,7 +67,7 @@ class SpeechRecognizer:
             print("⚠ ELEVENLABS_API_KEY not set in .env")
 
     def _find_input_device(self):
-        """Find the best available input device."""
+        """Find the best available input device - cross-platform."""
         self.device_sample_rate = config.SAMPLE_RATE
 
         try:
@@ -94,19 +102,8 @@ class SpeechRecognizer:
                 print("⚠ No input devices found")
                 return
 
-            # Prefer pulse, then default, then first available
-            selected = None
-            for d in devices:
-                if d["name"].lower() == "pulse":
-                    selected = d
-                    break
-            if not selected:
-                for d in devices:
-                    if d["is_default"]:
-                        selected = d
-                        break
-            if not selected:
-                selected = devices[0]
+            # Platform-specific device selection
+            selected = self._select_best_device(devices)
 
             self.input_device = selected["index"]
             self.device_sample_rate = selected["rate"]
@@ -116,6 +113,40 @@ class SpeechRecognizer:
             print(f"⚠ Could not detect mic: {e}")
             self.input_device = None
             self.device_sample_rate = config.SAMPLE_RATE
+
+    def _select_best_device(self, devices: list) -> dict:
+        """Select the best audio input device based on platform."""
+        selected = None
+
+        if IS_LINUX:
+            # Linux: prefer PulseAudio, then default
+            for d in devices:
+                if d["name"].lower() == "pulse":
+                    selected = d
+                    break
+
+        elif IS_WINDOWS:
+            # Windows: prefer default device, or one with "microphone" in name
+            for d in devices:
+                if d["is_default"]:
+                    selected = d
+                    break
+            if not selected:
+                for d in devices:
+                    if "microphone" in d["name"].lower():
+                        selected = d
+                        break
+
+        # Fallback: use default device or first available
+        if not selected:
+            for d in devices:
+                if d["is_default"]:
+                    selected = d
+                    break
+        if not selected:
+            selected = devices[0]
+
+        return selected
 
     def record(self) -> np.ndarray | None:
         """Record audio until stopped, with visualizer feedback."""
