@@ -96,9 +96,10 @@ class KeyboardHandler:
             self._insert_text_pynput(text)
 
     def _insert_text_linux(self, text: str):
-        """Insert text on Linux using xdotool"""
+        """Insert text on Linux using xdotool with keystroke delay"""
         try:
-            subprocess.run(['xdotool', 'type', '--', text], timeout=10)
+            # Add delay between keystrokes to prevent overwhelming reactive UIs
+            subprocess.run(['xdotool', 'type', '--delay', '15', '--', text], timeout=30)
         except FileNotFoundError:
             # xdotool not installed, fallback to pynput
             print("⚠ xdotool not found, using fallback method")
