@@ -11,12 +11,9 @@ if IS_LINUX and IS_X11:
     os.environ['SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR'] = '0'
 
 import numpy as np
+from config import config
 
-# Color palette
-ORANGE = (255, 120, 40)
-ORANGE_MID = (220, 80, 20)
-ORANGE_DIM = (120, 50, 15)
-ORANGE_GLOW = (255, 160, 60)
+# Background color
 BG_COLOR = (20, 20, 24)
 
 SIZE = 160
@@ -35,6 +32,13 @@ class Visualizer:
         self._ready = threading.Event()
         self.frame = 0
         self.global_level = 0.0
+
+        # Load theme colors from config
+        colors = config.get_theme_colors()
+        self.COLOR_MAIN = colors["main"]
+        self.COLOR_MID = colors["mid"]
+        self.COLOR_DIM = colors["dim"]
+        self.COLOR_GLOW = colors["glow"]
 
     def start(self):
         if self.running:
@@ -89,11 +93,10 @@ class Visualizer:
             import pygame
             pygame.init()
 
-            # Position at top right
+            # Get position from config
             info = pygame.display.Info()
             screen_w, screen_h = info.current_w, info.current_h
-            pos_x = screen_w - SIZE - 20
-            pos_y = 20
+            pos_x, pos_y = config.get_animation_position(screen_w, screen_h, SIZE)
 
             # Set window position (cross-platform approach)
             # SDL_VIDEO_WINDOW_POS works on most platforms
@@ -191,27 +194,27 @@ class Visualizer:
                 r = mid_radius + amp
                 glow_outer.append((center_x + math.cos(angle) * r, center_y + math.sin(angle) * r))
 
-            pygame.draw.polygon(glow_surf, (*ORANGE_DIM, glow_alpha), glow_outer, width=5)
+            pygame.draw.polygon(glow_surf, (*self.COLOR_DIM, glow_alpha), glow_outer, width=5)
             screen.blit(glow_surf, (0, 0))
 
         # Draw filled donut
         if len(outer_points) > 2 and len(inner_points) > 2:
             donut_shape = outer_points + inner_points[::-1]
-            pygame.draw.polygon(screen, ORANGE_MID, donut_shape)
+            pygame.draw.polygon(screen, self.COLOR_MID, donut_shape)
 
         # Outer edge
         if len(outer_points) > 2:
             intensity = min(1.0, 0.5 + global_level * 0.6)
             line_color = (
-                int(ORANGE_DIM[0] + (ORANGE[0] - ORANGE_DIM[0]) * intensity),
-                int(ORANGE_DIM[1] + (ORANGE[1] - ORANGE_DIM[1]) * intensity),
-                int(ORANGE_DIM[2] + (ORANGE[2] - ORANGE_DIM[2]) * intensity)
+                int(self.COLOR_DIM[0] + (self.COLOR_MAIN[0] - self.COLOR_DIM[0]) * intensity),
+                int(self.COLOR_DIM[1] + (self.COLOR_MAIN[1] - self.COLOR_DIM[1]) * intensity),
+                int(self.COLOR_DIM[2] + (self.COLOR_MAIN[2] - self.COLOR_DIM[2]) * intensity)
             )
             pygame.draw.polygon(screen, line_color, outer_points, width=2)
 
         # Inner edge
         if len(inner_points) > 2:
-            pygame.draw.polygon(screen, ORANGE_DIM, inner_points, width=2)
+            pygame.draw.polygon(screen, self.COLOR_DIM, inner_points, width=2)
 
         # Cut out center (draw circle with background color)
         pygame.draw.circle(screen, BG_COLOR, (center_x, center_y), inner_radius - 3)
@@ -219,7 +222,7 @@ class Visualizer:
         # Highlight
         if global_level > 0.2:
             highlight_surf = pygame.Surface((SIZE, SIZE), pygame.SRCALPHA)
-            pygame.draw.polygon(highlight_surf, (*ORANGE_GLOW, int(global_level * 180)), outer_points, width=1)
+            pygame.draw.polygon(highlight_surf, (*self.COLOR_GLOW, int(global_level * 180)), outer_points, width=1)
             screen.blit(highlight_surf, (0, 0))
 
         # Draw circular mask to make window appear round
