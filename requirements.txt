@@ -18,6 +18,10 @@ elevenlabs>=1.0.0
 # Audio visualizer
 pygame>=2.5.0
 
+# GPU-accelerated visualizer (VisPy with PyGlet backend)
+vispy>=0.14.0
+pyglet>=2.0.0
+
 # Cross-platform notifications (Windows/macOS fallback)
 plyer>=2.1.0
 
