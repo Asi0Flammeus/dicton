@@ -32,7 +32,16 @@ with suppress_stderr():
     import pyaudio
 
 from config import config
-from visualizer import get_visualizer
+
+# Import visualizer based on configured backend
+if config.VISUALIZER_BACKEND == "vispy":
+    try:
+        from visualizer_vispy import get_visualizer
+    except ImportError:
+        print("⚠ VisPy not available, falling back to pygame")
+        from visualizer import get_visualizer
+else:
+    from visualizer import get_visualizer
 
 # Try ElevenLabs import
 HAS_ELEVENLABS = False

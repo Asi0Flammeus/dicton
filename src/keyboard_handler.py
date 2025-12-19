@@ -6,8 +6,9 @@ from pynput.keyboard import Key, Controller as KeyboardController
 from config import config
 from platform_utils import IS_WINDOWS, IS_LINUX, IS_MACOS
 
-# Clipboard insertion mode - much faster and avoids React Error #185
-USE_CLIPBOARD = True
+# Clipboard insertion mode - faster but doesn't work in all apps (e.g., Claude Code CLI)
+# Set to False to use keystroke mode with speech-velocity delay (~350 words/min)
+USE_CLIPBOARD = False
 
 
 class KeyboardHandler:
@@ -110,10 +111,10 @@ class KeyboardHandler:
                 self._insert_text_pynput(text)
 
     def _insert_text_linux(self, text: str):
-        """Insert text on Linux using xdotool with keystroke delay"""
+        """Insert text on Linux using xdotool with speech-velocity delay"""
         try:
-            # Add delay between keystrokes to prevent overwhelming reactive UIs
-            subprocess.run(['xdotool', 'type', '--delay', '15', '--', text], timeout=30)
+            # 30ms delay mimics ~350 words/min speech pace, avoids React Error #185
+            subprocess.run(['xdotool', 'type', '--delay', '30', '--', text], timeout=60)
         except FileNotFoundError:
             # xdotool not installed, fallback to pynput
             print("⚠ xdotool not found, using fallback method")
@@ -129,7 +130,8 @@ class KeyboardHandler:
             import pyautogui
             # Disable fail-safe for text insertion
             pyautogui.FAILSAFE = False
-            pyautogui.write(text, interval=0.01)
+            # 30ms delay mimics ~350 words/min speech pace, avoids React Error #185
+            pyautogui.write(text, interval=0.03)
         except ImportError:
             # Fallback to pynput
             self._insert_text_pynput(text)
@@ -145,10 +147,10 @@ class KeyboardHandler:
     def _insert_text_pynput(self, text: str):
         """Insert text using pynput keyboard controller (cross-platform fallback)"""
         try:
-            # Type character by character with small delay
+            # 30ms delay mimics ~350 words/min speech pace, avoids React Error #185
             for char in text:
                 self._keyboard_controller.type(char)
-                time.sleep(0.005)  # Small delay for reliability
+                time.sleep(0.03)
         except Exception as e:
             print(f"⚠ Text insertion error: {e}")
 
