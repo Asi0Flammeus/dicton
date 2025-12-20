@@ -49,3 +49,4 @@ temp/
 *.mp3
 .serena
 .venv
+.claude
