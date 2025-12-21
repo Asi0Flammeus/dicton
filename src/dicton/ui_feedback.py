@@ -1,6 +1,6 @@
-"""Cross-platform notifications for Push-to-Write"""
+"""Cross-platform notifications for Dicton"""
 import subprocess
-from platform_utils import IS_WINDOWS, IS_LINUX, IS_MACOS
+from .platform_utils import IS_WINDOWS, IS_LINUX, IS_MACOS
 
 
 def notify(title: str, message: str, timeout: int = 2):
@@ -41,7 +41,7 @@ def _notify_windows(title: str, message: str, timeout: int):
             title=title,
             message=message,
             timeout=timeout,
-            app_name="Push-to-Write"
+            app_name="Dicton"
         )
     except ImportError:
         try:
@@ -82,7 +82,7 @@ def _notify_plyer(title: str, message: str, timeout: int):
             title=title,
             message=message,
             timeout=timeout,
-            app_name="Push-to-Write"
+            app_name="Dicton"
         )
     except ImportError:
         # plyer not installed

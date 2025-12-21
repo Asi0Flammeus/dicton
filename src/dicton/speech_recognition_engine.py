@@ -6,7 +6,7 @@ import contextlib
 
 import numpy as np
 
-from platform_utils import IS_LINUX, IS_WINDOWS
+from .platform_utils import IS_LINUX, IS_WINDOWS
 
 
 # Suppress audio system warnings (ALSA on Linux, etc.)
@@ -31,17 +31,17 @@ def suppress_stderr():
 with suppress_stderr():
     import pyaudio
 
-from config import config
+from .config import config
 
 # Import visualizer based on configured backend
 if config.VISUALIZER_BACKEND == "vispy":
     try:
-        from visualizer_vispy import get_visualizer
+        from .visualizer_vispy import get_visualizer
     except ImportError:
         print("⚠ VisPy not available, falling back to pygame")
-        from visualizer import get_visualizer
+        from .visualizer import get_visualizer
 else:
-    from visualizer import get_visualizer
+    from .visualizer import get_visualizer
 
 # Try ElevenLabs import
 HAS_ELEVENLABS = False

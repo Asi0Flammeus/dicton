@@ -3,7 +3,7 @@ import threading
 import numpy as np
 from abc import ABC, abstractmethod
 
-from config import config
+from .config import config
 
 # Use pyglet backend for VisPy (lighter than PyQt6, works well with X11)
 import vispy
@@ -559,7 +559,7 @@ class VisPyVisualizerCanvas(app.Canvas):
         app.Canvas.__init__(
             self,
             size=size,
-            title='P2W Visualizer',
+            title='Dicton',
             keys='interactive',
             resizable=False,
             decorate=False,  # Frameless window

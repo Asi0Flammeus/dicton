@@ -1,10 +1,10 @@
-"""Keyboard handler for Push-to-Write - Cross-platform"""
+"""Keyboard handler for Dicton - Cross-platform"""
 import subprocess
 import time
 from pynput import keyboard
 from pynput.keyboard import Key, Controller as KeyboardController
-from config import config
-from platform_utils import IS_WINDOWS, IS_LINUX, IS_MACOS
+from .config import config
+from .platform_utils import IS_WINDOWS, IS_LINUX, IS_MACOS
 
 class KeyboardHandler:
     """Handle hotkey toggle and text insertion"""

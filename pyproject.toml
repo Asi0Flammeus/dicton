@@ -1,0 +1,92 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "dicton"
+version = "1.0.0"
+description = "Cross-platform voice-to-text transcription with ElevenLabs"
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "asi0 flammeus", email = "asi0@crqpt.com" }
+]
+keywords = ["voice", "speech-to-text", "transcription", "elevenlabs", "dictation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+]
+requires-python = ">=3.10"
+dependencies = [
+    # Audio capture
+    "pyaudio>=0.2.14",
+    # Keyboard handling
+    "pynput>=1.7.7",
+    # Configuration
+    "python-dotenv>=1.0.1",
+    # Audio processing
+    "numpy>=1.24.0",
+    # ElevenLabs speech-to-text API
+    "elevenlabs>=1.0.0",
+    # Audio visualizer (default)
+    "pygame>=2.5.0",
+]
+
+[project.optional-dependencies]
+vispy = [
+    "vispy>=0.14.0",
+    "pyglet>=2.0.0",
+]
+notifications = [
+    "plyer>=2.1.0",
+]
+windows = [
+    "pyautogui>=0.9.54",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+]
+all = [
+    "dicton[vispy,notifications,windows,dev]",
+]
+
+[project.scripts]
+dicton = "dicton.main:main"
+
+[project.urls]
+Homepage = "https://github.com/asi0flammern/dicton"
+Repository = "https://github.com/asi0flammern/dicton"
+Issues = "https://github.com/asi0flammern/dicton/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dicton"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src/dicton",
+    "/README.md",
+    "/LICENSE",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-v --tb=short"

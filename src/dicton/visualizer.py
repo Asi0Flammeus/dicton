@@ -6,12 +6,12 @@ import threading
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 
 # Platform-specific SDL settings (only for X11/Linux)
-from platform_utils import IS_LINUX, IS_X11
+from .platform_utils import IS_LINUX, IS_X11
 if IS_LINUX and IS_X11:
     os.environ['SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR'] = '0'
 
 import numpy as np
-from config import config
+from .config import config
 
 # Background color
 BG_COLOR = (20, 20, 24)
@@ -104,7 +104,7 @@ class Visualizer:
             os.environ['SDL_VIDEO_WINDOW_POS'] = f'{pos_x},{pos_y}'
 
             screen = pygame.display.set_mode((SIZE, SIZE), pygame.NOFRAME)
-            pygame.display.set_caption("P2W")
+            pygame.display.set_caption("Dicton")
 
             clock = pygame.time.Clock()
             self._ready.set()

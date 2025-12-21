@@ -1,26 +1,22 @@
 #!/usr/bin/env python3
-"""Push-to-Write: Press Alt+T to record, press again to stop and transcribe"""
+"""Dicton: Press Alt+T to record, press again to stop and transcribe"""
 import os
-import sys
 import signal
 import threading
 import warnings
-from pathlib import Path
 
 # Suppress warnings
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
 warnings.filterwarnings('ignore')
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from platform_utils import IS_WINDOWS
-from config import config
-from speech_recognition_engine import SpeechRecognizer
-from keyboard_handler import KeyboardHandler
-from ui_feedback import notify
+from .platform_utils import IS_WINDOWS
+from .config import config
+from .speech_recognition_engine import SpeechRecognizer
+from .keyboard_handler import KeyboardHandler
+from .ui_feedback import notify
 
 
-class PushToWrite:
+class Dicton:
     """Main application - simple toggle recording"""
 
     def __init__(self):
@@ -75,7 +71,7 @@ class PushToWrite:
     def run(self):
         """Run the application"""
         print("\n" + "=" * 50)
-        print("🚀 Push-to-Write")
+        print("🚀 Dicton")
         print("=" * 50)
         print(f"Hotkey: {config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}")
         mode = "ElevenLabs realtime streaming" if self.recognizer.use_elevenlabs else "Local model"
@@ -85,7 +81,7 @@ class PushToWrite:
         print("=" * 50 + "\n")
 
         self.keyboard.start()
-        notify("P2W Ready", f"Press {config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}")
+        notify("Dicton Ready", f"Press {config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}")
 
         # Cross-platform wait loop
         try:
@@ -114,7 +110,7 @@ class PushToWrite:
 
 
 def main():
-    app = PushToWrite()
+    app = Dicton()
 
     def signal_handler(sig, frame):
         app.request_shutdown()
