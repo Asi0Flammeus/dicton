@@ -1,5 +1,5 @@
 @echo off
-REM Push-to-Write - Windows launcher
+REM Dicton - Windows launcher
 cd /d "%~dp0"
 
 REM Check if venv exists

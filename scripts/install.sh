@@ -1,13 +1,13 @@
 #!/bin/bash
-# Push-to-Write Installation Script
+# Dicton Installation Script
 
 set -e
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SERVICE_FILE="$PROJECT_DIR/scripts/p2w.service"
+SERVICE_FILE="$PROJECT_DIR/scripts/dicton.service"
 USER_SERVICE_DIR="$HOME/.config/systemd/user"
 
-echo "=== Push-to-Write Setup ==="
+echo "=== Dicton Setup ==="
 echo ""
 
 # Check for .env file
@@ -33,21 +33,21 @@ echo "Setting up systemd service..."
 mkdir -p "$USER_SERVICE_DIR"
 
 # Update service file with correct paths
-sed "s|/home/asi0/asi0-repos/S2T_P2W|$PROJECT_DIR|g" "$SERVICE_FILE" > "$USER_SERVICE_DIR/p2w.service"
+sed "s|/home/asi0/asi0-repos/S2T_P2W|$PROJECT_DIR|g" "$SERVICE_FILE" > "$USER_SERVICE_DIR/dicton.service"
 
 # Reload and enable
 systemctl --user daemon-reload
-systemctl --user enable p2w.service
+systemctl --user enable dicton.service
 
 echo ""
 echo "=== Setup Complete ==="
 echo ""
 echo "Commands:"
-echo "  Start now:     systemctl --user start p2w"
-echo "  Stop:          systemctl --user stop p2w"
-echo "  Status:        systemctl --user status p2w"
-echo "  Logs:          journalctl --user -u p2w -f"
-echo "  Disable:       systemctl --user disable p2w"
+echo "  Start now:     systemctl --user start dicton"
+echo "  Stop:          systemctl --user stop dicton"
+echo "  Status:        systemctl --user status dicton"
+echo "  Logs:          journalctl --user -u dicton -f"
+echo "  Disable:       systemctl --user disable dicton"
 echo ""
 echo "The service will auto-start on login."
 echo "Hotkey: Alt+T (hold to record, release to transcribe)"

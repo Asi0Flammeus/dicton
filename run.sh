@@ -1,5 +1,5 @@
 #!/bin/bash
-# Quick run script for Push-to-Write
+# Quick run script for Dicton
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then

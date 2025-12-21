@@ -1,4 +1,4 @@
-# Push-to-Write (P2W)
+# Dicton
 
 A fast voice-to-text application that transcribes your speech directly at the cursor position. Press `Alt+T` to start recording, press again to stop and transcribe!
 
@@ -42,7 +42,7 @@ A fast voice-to-text application that transcribes your speech directly at the cu
 **Option 1: Batch Script**
 ```cmd
 REM Clone or download the repository
-cd push-to-write
+cd dicton
 
 REM Run installer
 install.bat
@@ -59,7 +59,7 @@ run.bat
 **Option 2: PowerShell**
 ```powershell
 # Clone or download the repository
-cd push-to-write
+cd dicton
 
 # Run installer
 powershell -ExecutionPolicy Bypass -File scripts\install.ps1
@@ -85,8 +85,8 @@ Or download a wheel from: https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio
 **Quick Install (Local)**
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/push-to-write.git
-cd push-to-write
+git clone https://github.com/yourusername/dicton.git
+cd dicton
 
 # Run the install script
 chmod +x scripts/install.sh
@@ -97,23 +97,23 @@ nano .env
 # Set: ELEVENLABS_API_KEY=your_key_here
 
 # Start the service
-systemctl --user start p2w
+systemctl --user start dicton
 ```
 
 **System-wide Install (with sudo)**
 ```bash
-# Install system-wide to /opt/p2w
+# Install system-wide to /opt/dicton
 sudo ./install.sh install
 
 # Edit configuration
-sudo nano /opt/p2w/.env
+sudo nano /opt/dicton/.env
 
 # Run manually
-p2w
+dicton
 
 # Or enable as systemd service
-systemctl --user enable p2w
-systemctl --user start p2w
+systemctl --user enable dicton
+systemctl --user start dicton
 ```
 
 **System Dependencies (Linux)**
@@ -132,8 +132,8 @@ sudo pacman -S python portaudio xdotool libnotify
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/push-to-write.git
-cd push-to-write
+git clone https://github.com/yourusername/dicton.git
+cd dicton
 
 # Create virtual environment
 python3 -m venv venv
@@ -166,12 +166,12 @@ run.bat
 
 **Linux (Service - recommended):**
 ```bash
-systemctl --user start p2w
+systemctl --user start dicton
 ```
 
 **Linux/macOS (Command Line):**
 ```bash
-cd /path/to/push-to-write
+cd /path/to/dicton
 source venv/bin/activate  # or: venv\Scripts\activate on Windows
 python src/main.py
 ```
@@ -228,7 +228,7 @@ DEBUG=false
 ## Project Structure
 
 ```
-push-to-write/
+dicton/
 ├── src/
 │   ├── main.py                      # Main application entry point
 │   ├── config.py                    # Configuration management
@@ -240,7 +240,7 @@ push-to-write/
 ├── scripts/
 │   ├── install.sh                   # Linux installation script
 │   ├── install.ps1                  # Windows PowerShell installer
-│   └── p2w.service                  # Systemd service template
+│   └── dicton.service               # Systemd service template
 ├── assets/
 │   └── icon.png                     # Application icon
 ├── .env.example                     # Configuration template
@@ -290,22 +290,22 @@ Core dependencies (from `requirements.txt`):
 
 ```bash
 # Start the service
-systemctl --user start p2w
+systemctl --user start dicton
 
 # Stop the service
-systemctl --user stop p2w
+systemctl --user stop dicton
 
 # Enable auto-start on login
-systemctl --user enable p2w
+systemctl --user enable dicton
 
 # Disable auto-start
-systemctl --user disable p2w
+systemctl --user disable dicton
 
 # View status
-systemctl --user status p2w
+systemctl --user status dicton
 
 # View logs
-journalctl --user -u p2w -f
+journalctl --user -u dicton -f
 ```
 
 ## Troubleshooting
@@ -359,7 +359,7 @@ sudo usermod -aG input $USER
 
 ```bash
 # Check logs
-journalctl --user -u p2w -n 50
+journalctl --user -u dicton -n 50
 
 # Verify display is set
 echo $DISPLAY  # Should be :0 or :1
@@ -374,14 +374,14 @@ These are harmless! PyAudio scans multiple backends. The warnings are suppressed
 **Windows:**
 ```cmd
 REM Delete the project folder
-rmdir /s /q push-to-write
+rmdir /s /q dicton
 ```
 
 **Linux (Local installation):**
 ```bash
-systemctl --user stop p2w
-systemctl --user disable p2w
-rm ~/.config/systemd/user/p2w.service
+systemctl --user stop dicton
+systemctl --user disable dicton
+rm ~/.config/systemd/user/dicton.service
 systemctl --user daemon-reload
 ```
 

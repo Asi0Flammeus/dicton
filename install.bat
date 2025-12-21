@@ -1,7 +1,7 @@
 @echo off
-REM Push-to-Write - Windows installer
+REM Dicton - Windows installer
 echo ========================================
-echo Push-to-Write Windows Installer
+echo Dicton Windows Installer
 echo ========================================
 echo.
 

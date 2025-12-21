@@ -1,4 +1,4 @@
-"""Platform detection and cross-platform utilities for Push-to-Write"""
+"""Platform detection and cross-platform utilities for Dicton"""
 import sys
 import platform
 

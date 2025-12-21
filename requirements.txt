@@ -1,4 +1,4 @@
-# Push-to-Write dependencies
+# Dicton dependencies
 
 # Audio capture
 pyaudio==0.2.14

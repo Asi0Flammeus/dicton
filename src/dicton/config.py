@@ -1,4 +1,4 @@
-"""Configuration for Push-to-Write"""
+"""Configuration for Dicton"""
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -31,7 +31,7 @@ POSITION_PRESETS = {
 
 
 class Config:
-    """Configuration for Push-to-Write"""
+    """Configuration for Dicton"""
 
     # Paths
     BASE_DIR = Path(__file__).parent.parent

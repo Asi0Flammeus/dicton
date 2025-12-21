@@ -1,4 +1,4 @@
-# Push-to-Write Setup Guide
+# Dicton Setup Guide
 
 Voice transcription tool using ElevenLabs STT. Press hotkey to start recording, press again to stop and transcribe.
 
@@ -10,7 +10,7 @@ Voice transcription tool using ElevenLabs STT. Press hotkey to start recording, 
 
 ```bash
 # 1. Clone and enter directory
-cd /path/to/S2T_P2W
+cd /path/to/dicton
 
 # 2. Run install script
 chmod +x scripts/install.sh
@@ -21,14 +21,14 @@ nano .env
 # Set: ELEVENLABS_API_KEY=your_key_here
 
 # 4. Start the service
-systemctl --user start p2w
+systemctl --user start dicton
 ```
 
 ### Windows
 
 ```cmd
 REM 1. Enter directory
-cd path\to\S2T_P2W
+cd path\to\dicton
 
 REM 2. Run installer
 install.bat
@@ -46,7 +46,7 @@ run.bat
 
 ```bash
 # 1. Enter directory
-cd /path/to/S2T_P2W
+cd /path/to/dicton
 
 # 2. Create virtual environment
 python3 -m venv venv
@@ -124,34 +124,34 @@ DEBUG=false                     # show debug output
 
 ```bash
 # Start/stop
-systemctl --user start p2w
-systemctl --user stop p2w
+systemctl --user start dicton
+systemctl --user stop dicton
 
 # View status
-systemctl --user status p2w
+systemctl --user status dicton
 
 # View logs
-journalctl --user -u p2w -f
+journalctl --user -u dicton -f
 
 # Disable auto-start
-systemctl --user disable p2w
+systemctl --user disable dicton
 
 # Re-enable auto-start
-systemctl --user enable p2w
+systemctl --user enable dicton
 ```
 
 ## Manual Run (without service)
 
 **Linux/macOS:**
 ```bash
-cd /path/to/S2T_P2W
+cd /path/to/dicton
 source .venv/bin/activate  # or: source venv/bin/activate
 python src/main.py
 ```
 
 **Windows:**
 ```cmd
-cd path\to\S2T_P2W
+cd path\to\dicton
 venv\Scripts\activate.bat
 python src\main.py
 ```
@@ -163,11 +163,11 @@ python src\main.py
 ```bash
 # 1. Stop the application/service
 # Linux:
-systemctl --user stop p2w
+systemctl --user stop dicton
 # Windows/macOS: Close the application (Ctrl+C)
 
 # 2. Pull the latest changes
-cd /path/to/S2T_P2W
+cd /path/to/dicton
 git pull origin main
 
 # 3. Activate virtual environment
@@ -181,82 +181,82 @@ pip install -r requirements.txt --upgrade
 
 # 5. Restart
 # Linux:
-systemctl --user start p2w
+systemctl --user start dicton
 # Windows:
 run.bat
 # macOS:
 python src/main.py
 ```
 
-### System-wide Installation (Linux /opt/p2w)
+### System-wide Installation (Linux /opt/dicton)
 
-Pour mettre à jour une installation système dans `/opt/p2w`:
+Pour mettre à jour une installation système dans `/opt/dicton`:
 
 ```bash
 # 1. Stop the service
-systemctl --user stop p2w
+systemctl --user stop dicton
 
 # 2. Pull the latest changes (as root)
-cd /opt/p2w
+cd /opt/dicton
 sudo git pull origin main
 
 # 3. Update dependencies
-sudo /opt/p2w/.venv/bin/pip install -r requirements.txt --upgrade
+sudo /opt/dicton/.venv/bin/pip install -r requirements.txt --upgrade
 
 # 4. If the service file has changed, reload it
-sudo cp /opt/p2w/scripts/p2w.service /etc/systemd/user/p2w.service
+sudo cp /opt/dicton/scripts/dicton.service /etc/systemd/user/dicton.service
 systemctl --user daemon-reload
 
 # 5. Restart the service
-systemctl --user start p2w
+systemctl --user start dicton
 ```
 
 **Script de mise à jour rapide:**
 
 ```bash
 # Create update script
-sudo tee /opt/p2w/update.sh << 'EOF'
+sudo tee /opt/dicton/update.sh << 'EOF'
 #!/bin/bash
 set -e
 
-echo "Updating Push-to-Write..."
+echo "Updating Dicton..."
 
 # Stop service
-systemctl --user stop p2w 2>/dev/null || true
+systemctl --user stop dicton 2>/dev/null || true
 
 # Update code
-cd /opt/p2w
+cd /opt/dicton
 git pull origin main
 
 # Update dependencies
 .venv/bin/pip install -r requirements.txt --upgrade --quiet
 
 # Reload service if needed
-if [ -f /etc/systemd/user/p2w.service ]; then
-    cp scripts/p2w.service /etc/systemd/user/p2w.service
+if [ -f /etc/systemd/user/dicton.service ]; then
+    cp scripts/dicton.service /etc/systemd/user/dicton.service
     systemctl --user daemon-reload
 fi
 
 # Restart
-systemctl --user start p2w
+systemctl --user start dicton
 
 echo "Update complete!"
-systemctl --user status p2w --no-pager
+systemctl --user status dicton --no-pager
 EOF
 
-sudo chmod +x /opt/p2w/update.sh
+sudo chmod +x /opt/dicton/update.sh
 ```
 
 Ensuite, pour mettre à jour:
 ```bash
-sudo /opt/p2w/update.sh
+sudo /opt/dicton/update.sh
 ```
 
 ### Vérifier la version
 
 ```bash
 # Voir les derniers commits
-cd /opt/p2w  # ou le chemin de votre installation
+cd /opt/dicton  # ou le chemin de votre installation
 git log --oneline -5
 
 # Voir la branche actuelle
@@ -269,17 +269,17 @@ Si une mise à jour pose problème:
 
 ```bash
 # 1. Stop the service
-systemctl --user stop p2w
+systemctl --user stop dicton
 
 # 2. List available versions
-cd /opt/p2w
+cd /opt/dicton
 git log --oneline -20
 
 # 3. Revert to a specific commit
 git checkout <commit_hash>
 
 # 4. Restart
-systemctl --user start p2w
+systemctl --user start dicton
 ```
 
 Pour revenir à la dernière version après un rollback:
@@ -309,7 +309,7 @@ MIC_DEVICE=1
 
 ```bash
 # Check logs
-journalctl --user -u p2w -n 50
+journalctl --user -u dicton -n 50
 
 # Verify display
 echo $DISPLAY  # Should be :0 or :1
@@ -349,31 +349,31 @@ Or download from: https://www.lfd.uci.edu/~gohlke/pythonlibs/#pyaudio
 
 **Linux:**
 ```bash
-systemctl --user stop p2w
-systemctl --user disable p2w
-rm ~/.config/systemd/user/p2w.service
+systemctl --user stop dicton
+systemctl --user disable dicton
+rm ~/.config/systemd/user/dicton.service
 systemctl --user daemon-reload
-rm -rf /path/to/S2T_P2W
+rm -rf /path/to/dicton
 ```
 
 **Windows:**
 ```cmd
 REM Just delete the folder
-rmdir /s /q path\to\S2T_P2W
+rmdir /s /q path\to\dicton
 ```
 
 ### System-wide Installation (Linux)
 
 ```bash
-sudo /opt/p2w/install.sh uninstall
+sudo /opt/dicton/install.sh uninstall
 ```
 
 Ou manuellement:
 ```bash
-systemctl --user stop p2w
-systemctl --user disable p2w
-sudo rm /usr/local/bin/p2w
-sudo rm /etc/systemd/user/p2w.service
-sudo rm -rf /opt/p2w
+systemctl --user stop dicton
+systemctl --user disable dicton
+sudo rm /usr/local/bin/dicton
+sudo rm /etc/systemd/user/dicton.service
+sudo rm -rf /opt/dicton
 systemctl --user daemon-reload
 ```

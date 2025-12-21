@@ -1,4 +1,20 @@
-# CLAUDE.md - Project Guidelines
+# CLAUDE.md - Dicton Project Guidelines
+
+## Versioning Convention
+
+This project uses semantic versioning tied to `.claude/TODO.md` progress:
+
+- **## (Heading 2) completed** → Bump **minor version** (e.g., v1.0.0 → v1.1.0)
+  - Push tags: `git tag -a vX.Y.0 -m "Phase description"`
+  - Create GitHub release
+
+- **### (Heading 3) completed** → Bump **patch version** (e.g., v1.0.0 → v1.0.1)
+  - Push tags: `git tag -a vX.Y.Z -m "Section description"`
+  - Push to GitHub
+
+- **After ### release** → Remove that subsection from `.claude/TODO.md`
+  - Keep only pending work in TODO.md
+  - Completed sections are tracked via git tags/releases
 
 ## Commit Convention
 

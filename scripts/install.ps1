@@ -1,10 +1,10 @@
-# Push-to-Write - Windows PowerShell Installer
+# Dicton - Windows PowerShell Installer
 # Run as: powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================"
-Write-Host "Push-to-Write Windows Installer"
+Write-Host "Dicton Windows Installer"
 Write-Host "========================================"
 Write-Host ""
 
