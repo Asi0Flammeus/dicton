@@ -1,4 +1,5 @@
 """Pytest fixtures for Dicton tests."""
+
 import pytest
 
 
@@ -39,6 +40,7 @@ def clean_env(monkeypatch):
 @pytest.fixture
 def mock_platform(monkeypatch):
     """Mock platform detection values."""
+
     def _mock(system: str = "linux", session_type: str = "x11"):
         if system == "linux":
             monkeypatch.setattr("sys.platform", "linux")

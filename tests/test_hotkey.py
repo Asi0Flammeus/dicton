@@ -1,4 +1,5 @@
 """Tests for Dicton hotkey parsing logic."""
+
 import importlib
 
 import pytest
@@ -12,6 +13,7 @@ def reload_modules():
     """Reload config and keyboard_handler to pick up env changes."""
     import dicton.config as config_module
     import dicton.keyboard_handler as kb_module
+
     importlib.reload(config_module)
     importlib.reload(kb_module)
     return kb_module
@@ -27,7 +29,7 @@ class TestHotkeyParsing:
 
         kb_module = reload_modules()
         handler = kb_module.KeyboardHandler(on_toggle_callback=lambda: None)
-        handler.pressed_keys = {Key.alt, 'g'}
+        handler.pressed_keys = {Key.alt, "g"}
 
         assert handler._is_hotkey_pressed() is True
 
@@ -38,7 +40,7 @@ class TestHotkeyParsing:
 
         kb_module = reload_modules()
         handler = kb_module.KeyboardHandler(on_toggle_callback=lambda: None)
-        handler.pressed_keys = {Key.ctrl, 'h'}
+        handler.pressed_keys = {Key.ctrl, "h"}
 
         assert handler._is_hotkey_pressed() is True
 
@@ -49,7 +51,7 @@ class TestHotkeyParsing:
 
         kb_module = reload_modules()
         handler = kb_module.KeyboardHandler(on_toggle_callback=lambda: None)
-        handler.pressed_keys = {Key.alt_l, 'g'}
+        handler.pressed_keys = {Key.alt_l, "g"}
 
         assert handler._is_hotkey_pressed() is True
 
@@ -60,7 +62,7 @@ class TestHotkeyParsing:
 
         kb_module = reload_modules()
         handler = kb_module.KeyboardHandler(on_toggle_callback=lambda: None)
-        handler.pressed_keys = {'g'}  # Only key, no modifier
+        handler.pressed_keys = {"g"}  # Only key, no modifier
 
         assert handler._is_hotkey_pressed() is False
 
@@ -82,7 +84,7 @@ class TestHotkeyParsing:
 
         kb_module = reload_modules()
         handler = kb_module.KeyboardHandler(on_toggle_callback=lambda: None)
-        handler.pressed_keys = {Key.alt, 'g'}  # lowercase
+        handler.pressed_keys = {Key.alt, "g"}  # lowercase
 
         assert handler._is_hotkey_pressed() is True
 

@@ -1,13 +1,16 @@
 """VisPy-based audio visualizer with multiple professional styles"""
+
 import threading
-import numpy as np
 from abc import ABC, abstractmethod
 
-from .config import config
+import numpy as np
 
 # Use pyglet backend for VisPy (lighter than PyQt6, works well with X11)
 import vispy
-vispy.use('pyglet')
+
+from .config import config
+
+vispy.use("pyglet")
 
 # VisPy imports
 from vispy import app, gloo
@@ -82,29 +85,29 @@ class MinimalisticStyle(BaseVisualizerStyle):
         circle[:, 0] = np.cos(theta)
         circle[:, 1] = np.sin(theta)
 
-        self.program['a_position'] = circle
-        self.program['u_center'] = (0.0, 0.0)
-        self.program['u_radius'] = 0.3
-        self.program['u_pulse'] = 0.0
-        self.program['u_glow'] = 0.0
+        self.program["a_position"] = circle
+        self.program["u_center"] = (0.0, 0.0)
+        self.program["u_radius"] = 0.3
+        self.program["u_pulse"] = 0.0
+        self.program["u_glow"] = 0.0
 
         # Set color (normalize to 0-1)
-        main_color = self.colors['main']
-        self.program['u_color'] = (
+        main_color = self.colors["main"]
+        self.program["u_color"] = (
             main_color[0] / 255.0,
             main_color[1] / 255.0,
             main_color[2] / 255.0,
-            1.0
+            1.0,
         )
 
     def update(self, levels: np.ndarray, global_level: float, frame: int):
         # Smooth pulse based on bass frequencies
         bass_level = np.mean(levels[:8]) if len(levels) > 8 else global_level
-        self.program['u_pulse'] = float(bass_level)
-        self.program['u_glow'] = float(global_level)
+        self.program["u_pulse"] = float(bass_level)
+        self.program["u_glow"] = float(global_level)
 
     def draw(self):
-        self.program.draw('triangle_fan')
+        self.program.draw("triangle_fan")
 
 
 class ClassicStyle(BaseVisualizerStyle):
@@ -149,17 +152,15 @@ class ClassicStyle(BaseVisualizerStyle):
         self.bar_width = bar_width
         self.gap = bar_width * 0.1
 
-        self.program['a_position'] = self.vertices
-        self.program['a_level'] = self.levels_attr
-        self.program['u_bar_width'] = bar_width
-        self.program['u_max_height'] = 0.8
+        self.program["a_position"] = self.vertices
+        self.program["a_level"] = self.levels_attr
+        self.program["u_bar_width"] = bar_width
+        self.program["u_max_height"] = 0.8
 
         # Set colors
-        for color_name in ['main', 'mid', 'dim']:
+        for color_name in ["main", "mid", "dim"]:
             c = self.colors[color_name]
-            self.program[f'u_color_{color_name}'] = (
-                c[0] / 255.0, c[1] / 255.0, c[2] / 255.0, 1.0
-            )
+            self.program[f"u_color_{color_name}"] = (c[0] / 255.0, c[1] / 255.0, c[2] / 255.0, 1.0)
 
     def update(self, levels: np.ndarray, global_level: float, frame: int):
         bar_width = self.bar_width - self.gap
@@ -191,13 +192,13 @@ class ClassicStyle(BaseVisualizerStyle):
             self.vertices[idx + 11] = (x_left, -0.02 - height)
 
             # Set level for color
-            self.levels_attr[idx:idx + 12] = level
+            self.levels_attr[idx : idx + 12] = level
 
-        self.program['a_position'].set_data(self.vertices)
-        self.program['a_level'].set_data(self.levels_attr)
+        self.program["a_position"].set_data(self.vertices)
+        self.program["a_level"].set_data(self.levels_attr)
 
     def draw(self):
-        self.program.draw('triangles')
+        self.program.draw("triangles")
 
 
 class LegacyStyle(BaseVisualizerStyle):
@@ -251,15 +252,13 @@ class LegacyStyle(BaseVisualizerStyle):
         self.bar_width = bar_width
         self.gap = bar_width * 0.15
 
-        self.program['a_position'] = self.vertices
-        self.program['a_level'] = self.levels_attr
+        self.program["a_position"] = self.vertices
+        self.program["a_level"] = self.levels_attr
 
         # Set colors
-        for color_name in ['main', 'mid', 'dim', 'glow']:
+        for color_name in ["main", "mid", "dim", "glow"]:
             c = self.colors[color_name]
-            self.program[f'u_color_{color_name}'] = (
-                c[0] / 255.0, c[1] / 255.0, c[2] / 255.0, 1.0
-            )
+            self.program[f"u_color_{color_name}"] = (c[0] / 255.0, c[1] / 255.0, c[2] / 255.0, 1.0)
 
     def update(self, levels: np.ndarray, global_level: float, frame: int):
         bar_width = self.bar_width - self.gap
@@ -283,13 +282,13 @@ class LegacyStyle(BaseVisualizerStyle):
             self.vertices[idx + 4] = (x_right, y_top)
             self.vertices[idx + 5] = (x_left, y_top)
 
-            self.levels_attr[idx:idx + 6] = level
+            self.levels_attr[idx : idx + 6] = level
 
-        self.program['a_position'].set_data(self.vertices)
-        self.program['a_level'].set_data(self.levels_attr)
+        self.program["a_position"].set_data(self.vertices)
+        self.program["a_level"].set_data(self.levels_attr)
 
     def draw(self):
-        self.program.draw('triangles')
+        self.program.draw("triangles")
 
 
 class ToricStyle(BaseVisualizerStyle):
@@ -379,30 +378,27 @@ class ToricStyle(BaseVisualizerStyle):
             self.angles[i] = angle
             self.base_radii[i] = self.base_radius
             # Initial position
-            self.vertices[i] = (np.cos(angle) * self.base_radius,
-                               np.sin(angle) * self.base_radius)
+            self.vertices[i] = (np.cos(angle) * self.base_radius, np.sin(angle) * self.base_radius)
 
-        self.program['a_position'] = self.vertices
-        self.program['a_angle'] = self.angles
-        self.program['a_level'] = self.levels_attr
-        self.program['a_base_radius'] = self.base_radii
-        self.program['u_global_level'] = 0.0
-        self.program['u_time'] = 0.0
-        self.program['u_max_amplitude'] = self.max_amplitude
+        self.program["a_position"] = self.vertices
+        self.program["a_angle"] = self.angles
+        self.program["a_level"] = self.levels_attr
+        self.program["a_base_radius"] = self.base_radii
+        self.program["u_global_level"] = 0.0
+        self.program["u_time"] = 0.0
+        self.program["u_max_amplitude"] = self.max_amplitude
 
         # Set colors
-        for color_name in ['main', 'dim', 'glow']:
+        for color_name in ["main", "dim", "glow"]:
             c = self.colors[color_name]
-            self.program[f'u_color_{color_name}'] = (
-                c[0] / 255.0, c[1] / 255.0, c[2] / 255.0, 1.0
-            )
+            self.program[f"u_color_{color_name}"] = (c[0] / 255.0, c[1] / 255.0, c[2] / 255.0, 1.0)
 
         # Enable line smoothing
         gloo.set_line_width(2.0)
 
     def update(self, levels: np.ndarray, global_level: float, frame: int):
-        self.program['u_global_level'] = float(global_level)
-        self.program['u_time'] = float(frame) * 0.05  # Match original timing
+        self.program["u_global_level"] = float(global_level)
+        self.program["u_time"] = float(frame) * 0.05  # Match original timing
 
         # Smooth the levels like the original
         for i in range(self.n_segments):
@@ -410,10 +406,10 @@ class ToricStyle(BaseVisualizerStyle):
             self.smooth_levels[i] = self.smooth_levels[i] * 0.82 + level * 0.18
             self.levels_attr[i] = self.smooth_levels[i]
 
-        self.program['a_level'].set_data(self.levels_attr)
+        self.program["a_level"].set_data(self.levels_attr)
 
     def draw(self):
-        self.program.draw('line_loop')
+        self.program.draw("line_loop")
 
 
 class TerminalStyle(BaseVisualizerStyle):
@@ -485,20 +481,16 @@ class TerminalStyle(BaseVisualizerStyle):
                 self.positions[idx] = (x, y)
                 self.char_indices[idx] = float(col)
 
-        self.program['a_position'] = self.positions
-        self.program['a_level'] = self.levels_attr
-        self.program['a_char_idx'] = self.char_indices
-        self.program['u_point_size'] = 12.0
+        self.program["a_position"] = self.positions
+        self.program["a_level"] = self.levels_attr
+        self.program["a_char_idx"] = self.char_indices
+        self.program["u_point_size"] = 12.0
 
         # Set colors (green tint for terminal)
-        main = self.colors['main']
-        dim = self.colors['dim']
-        self.program['u_color_main'] = (
-            main[0] / 255.0, main[1] / 255.0, main[2] / 255.0, 1.0
-        )
-        self.program['u_color_dim'] = (
-            dim[0] / 255.0, dim[1] / 255.0, dim[2] / 255.0, 0.3
-        )
+        main = self.colors["main"]
+        dim = self.colors["dim"]
+        self.program["u_color_main"] = (main[0] / 255.0, main[1] / 255.0, main[2] / 255.0, 1.0)
+        self.program["u_color_dim"] = (dim[0] / 255.0, dim[1] / 255.0, dim[2] / 255.0, 0.3)
 
     def update(self, levels: np.ndarray, global_level: float, frame: int):
         # Map frequency bins to columns
@@ -523,35 +515,37 @@ class TerminalStyle(BaseVisualizerStyle):
                 else:
                     self.levels_attr[idx] = 0.1  # Dim background
 
-        self.program['a_level'].set_data(self.levels_attr)
+        self.program["a_level"].set_data(self.levels_attr)
 
     def draw(self):
-        self.program.draw('points')
+        self.program.draw("points")
 
 
 # Style registry
 VISUALIZER_STYLES = {
-    'minimalistic': MinimalisticStyle,
-    'classic': ClassicStyle,
-    'legacy': LegacyStyle,
-    'toric': ToricStyle,
-    'terminal': TerminalStyle,
+    "minimalistic": MinimalisticStyle,
+    "classic": ClassicStyle,
+    "legacy": LegacyStyle,
+    "toric": ToricStyle,
+    "terminal": TerminalStyle,
 }
 
 
 class VisPyVisualizerCanvas(app.Canvas):
     """VisPy canvas for audio visualization"""
 
-    def __init__(self, style_name: str = 'toric', size: tuple = (200, 200), transparent: bool = False):
+    def __init__(
+        self, style_name: str = "toric", size: tuple = (200, 200), transparent: bool = False
+    ):
         # Configure context for transparency if needed
         context_config = {}
         if transparent:
             # Request RGBA context with alpha channel
             context_config = {
-                'red_size': 8,
-                'green_size': 8,
-                'blue_size': 8,
-                'alpha_size': 8,
+                "red_size": 8,
+                "green_size": 8,
+                "blue_size": 8,
+                "alpha_size": 8,
             }
 
         # Get window position from config
@@ -559,8 +553,8 @@ class VisPyVisualizerCanvas(app.Canvas):
         app.Canvas.__init__(
             self,
             size=size,
-            title='Dicton',
-            keys='interactive',
+            title="Dicton",
+            keys="interactive",
             resizable=False,
             decorate=False,  # Frameless window
             config=context_config if context_config else None,
@@ -585,7 +579,7 @@ class VisPyVisualizerCanvas(app.Canvas):
         if transparent:
             gloo.set_clear_color(BG_COLOR_TRANSPARENT)
             # Enable blending for transparency
-            gloo.set_state(blend=True, blend_func=('src_alpha', 'one_minus_src_alpha'))
+            gloo.set_state(blend=True, blend_func=("src_alpha", "one_minus_src_alpha"))
         else:
             gloo.set_clear_color(BG_COLOR)
 
@@ -602,10 +596,7 @@ class VisPyVisualizerCanvas(app.Canvas):
 
         with self.lock:
             # Smooth the levels
-            self.smooth_levels = (
-                self.smooth_levels * (1 - SMOOTHING) +
-                self.levels * SMOOTHING
-            )
+            self.smooth_levels = self.smooth_levels * (1 - SMOOTHING) + self.levels * SMOOTHING
 
         # Update style
         self.style.update(self.smooth_levels, self.global_level, self.frame)
@@ -615,7 +606,7 @@ class VisPyVisualizerCanvas(app.Canvas):
         if self.transparent:
             # Clear with transparent color and enable blending
             gloo.clear(color=True, depth=True)
-            gloo.set_state(blend=True, blend_func=('src_alpha', 'one_minus_src_alpha'))
+            gloo.set_state(blend=True, blend_func=("src_alpha", "one_minus_src_alpha"))
         else:
             gloo.clear()
         self.style.draw()
@@ -681,7 +672,7 @@ class Visualizer:
         if self.canvas:
             try:
                 # Stop timer and close canvas safely
-                if hasattr(self.canvas, '_timer') and self.canvas._timer:
+                if hasattr(self.canvas, "_timer") and self.canvas._timer:
                     self.canvas._timer.stop()
                 self.canvas.close()
             except Exception:
@@ -708,16 +699,16 @@ class Visualizer:
 
             # Get size based on style
             size_map = {
-                'minimalistic': (100, 100),
-                'classic': (300, 150),
-                'legacy': (300, 150),
-                'toric': (200, 200),
-                'terminal': (320, 200),
+                "minimalistic": (100, 100),
+                "classic": (300, 150),
+                "legacy": (300, 150),
+                "toric": (200, 200),
+                "terminal": (320, 200),
             }
             size = size_map.get(style_name, (200, 200))
 
             # Enable transparency for toric style
-            use_transparent = style_name == 'toric'
+            use_transparent = style_name == "toric"
 
             # Get screen dimensions for positioning
             screen_w, screen_h = 1920, 1080  # Defaults
@@ -725,6 +716,7 @@ class Visualizer:
             # Try to detect screen size using pyglet
             try:
                 import pyglet
+
                 display = pyglet.canvas.get_display()
                 screen = display.get_default_screen()
                 screen_w = screen.width
@@ -737,9 +729,7 @@ class Visualizer:
 
             # Create canvas with position and transparency
             self.canvas = VisPyVisualizerCanvas(
-                style_name=style_name,
-                size=size,
-                transparent=use_transparent
+                style_name=style_name, size=size, transparent=use_transparent
             )
 
             # Set window position
@@ -752,13 +742,14 @@ class Visualizer:
             if use_transparent:
                 try:
                     import pyglet
+
                     # Get the native window from the canvas
                     native_window = self.canvas.native
-                    if hasattr(native_window, '_window'):
+                    if hasattr(native_window, "_window"):
                         # pyglet window
                         pyglet_window = native_window._window
                         # Set window to be transparent (works on compositing WMs)
-                        if hasattr(pyglet_window, 'set_transparent'):
+                        if hasattr(pyglet_window, "set_transparent"):
                             pyglet_window.set_transparent(True)
                 except Exception:
                     pass
@@ -778,6 +769,7 @@ class Visualizer:
         except Exception as e:
             print(f"VisPy Visualizer error: {e}")
             import traceback
+
             if config.DEBUG:
                 traceback.print_exc()
         finally:

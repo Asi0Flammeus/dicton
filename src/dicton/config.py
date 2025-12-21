@@ -1,6 +1,8 @@
 """Configuration for Dicton"""
+
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -8,14 +10,54 @@ load_dotenv()
 # Flexoki color palette - https://github.com/kepano/flexoki
 FLEXOKI_COLORS = {
     # Dark accent colors (600 values) - main colors
-    "red": {"main": (175, 48, 41), "mid": (140, 38, 33), "dim": (90, 25, 21), "glow": (209, 77, 65)},
-    "orange": {"main": (188, 82, 21), "mid": (150, 65, 17), "dim": (95, 42, 11), "glow": (218, 112, 44)},
-    "yellow": {"main": (173, 131, 1), "mid": (138, 105, 1), "dim": (87, 66, 1), "glow": (208, 162, 21)},
-    "green": {"main": (102, 128, 11), "mid": (82, 102, 9), "dim": (51, 64, 6), "glow": (135, 154, 57)},
-    "cyan": {"main": (36, 131, 123), "mid": (29, 105, 98), "dim": (18, 66, 62), "glow": (58, 169, 159)},
-    "blue": {"main": (32, 94, 166), "mid": (26, 75, 133), "dim": (16, 47, 83), "glow": (67, 133, 190)},
-    "purple": {"main": (94, 64, 157), "mid": (75, 51, 126), "dim": (47, 32, 79), "glow": (139, 126, 200)},
-    "magenta": {"main": (160, 47, 111), "mid": (128, 38, 89), "dim": (80, 24, 56), "glow": (206, 93, 151)},
+    "red": {
+        "main": (175, 48, 41),
+        "mid": (140, 38, 33),
+        "dim": (90, 25, 21),
+        "glow": (209, 77, 65),
+    },
+    "orange": {
+        "main": (188, 82, 21),
+        "mid": (150, 65, 17),
+        "dim": (95, 42, 11),
+        "glow": (218, 112, 44),
+    },
+    "yellow": {
+        "main": (173, 131, 1),
+        "mid": (138, 105, 1),
+        "dim": (87, 66, 1),
+        "glow": (208, 162, 21),
+    },
+    "green": {
+        "main": (102, 128, 11),
+        "mid": (82, 102, 9),
+        "dim": (51, 64, 6),
+        "glow": (135, 154, 57),
+    },
+    "cyan": {
+        "main": (36, 131, 123),
+        "mid": (29, 105, 98),
+        "dim": (18, 66, 62),
+        "glow": (58, 169, 159),
+    },
+    "blue": {
+        "main": (32, 94, 166),
+        "mid": (26, 75, 133),
+        "dim": (16, 47, 83),
+        "glow": (67, 133, 190),
+    },
+    "purple": {
+        "main": (94, 64, 157),
+        "mid": (75, 51, 126),
+        "dim": (47, 32, 79),
+        "glow": (139, 126, 200),
+    },
+    "magenta": {
+        "main": (160, 47, 111),
+        "mid": (128, 38, 89),
+        "dim": (80, 24, 56),
+        "glow": (206, 93, 151),
+    },
 }
 
 # Animation position options

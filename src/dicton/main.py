@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """Dicton: Press Alt+T to record, press again to stop and transcribe"""
+
 import os
 import signal
 import threading
 import warnings
 
 # Suppress warnings
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
-warnings.filterwarnings('ignore')
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+warnings.filterwarnings("ignore")
 
-from .platform_utils import IS_WINDOWS
 from .config import config
-from .speech_recognition_engine import SpeechRecognizer
 from .keyboard_handler import KeyboardHandler
+from .platform_utils import IS_WINDOWS
+from .speech_recognition_engine import SpeechRecognizer
 from .ui_feedback import notify
 
 

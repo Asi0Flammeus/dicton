@@ -1,10 +1,15 @@
 """Keyboard handler for Dicton - Cross-platform"""
+
 import subprocess
 import time
+
 from pynput import keyboard
-from pynput.keyboard import Key, Controller as KeyboardController
+from pynput.keyboard import Controller as KeyboardController
+from pynput.keyboard import Key
+
 from .config import config
-from .platform_utils import IS_WINDOWS, IS_LINUX, IS_MACOS
+from .platform_utils import IS_LINUX, IS_MACOS, IS_WINDOWS
+
 
 class KeyboardHandler:
     """Handle hotkey toggle and text insertion"""
@@ -18,10 +23,7 @@ class KeyboardHandler:
 
     def start(self):
         """Start keyboard listener"""
-        self.listener = keyboard.Listener(
-            on_press=self._on_press,
-            on_release=self._on_release
-        )
+        self.listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
         self.listener.start()
 
     def stop(self):
@@ -33,7 +35,7 @@ class KeyboardHandler:
         """Track key presses and detect hotkey"""
         try:
             # Track the key
-            if hasattr(key, 'char') and key.char:
+            if hasattr(key, "char") and key.char:
                 self.pressed_keys.add(key.char.lower())
             else:
                 self.pressed_keys.add(key)
@@ -49,7 +51,7 @@ class KeyboardHandler:
     def _on_release(self, key):
         """Track key releases"""
         try:
-            if hasattr(key, 'char') and key.char:
+            if hasattr(key, "char") and key.char:
                 self.pressed_keys.discard(key.char.lower())
             else:
                 self.pressed_keys.discard(key)
@@ -67,14 +69,18 @@ class KeyboardHandler:
 
         # Check modifier
         if mod in ("alt", "alt_l", "alt_r"):
-            if not (Key.alt in self.pressed_keys or
-                    Key.alt_l in self.pressed_keys or
-                    Key.alt_r in self.pressed_keys):
+            if not (
+                Key.alt in self.pressed_keys
+                or Key.alt_l in self.pressed_keys
+                or Key.alt_r in self.pressed_keys
+            ):
                 return False
         elif mod in ("ctrl", "ctrl_l", "ctrl_r"):
-            if not (Key.ctrl in self.pressed_keys or
-                    Key.ctrl_l in self.pressed_keys or
-                    Key.ctrl_r in self.pressed_keys):
+            if not (
+                Key.ctrl in self.pressed_keys
+                or Key.ctrl_l in self.pressed_keys
+                or Key.ctrl_r in self.pressed_keys
+            ):
                 return False
 
         return key in self.pressed_keys
@@ -97,7 +103,7 @@ class KeyboardHandler:
         """Insert text on Linux using xdotool with speech-velocity delay"""
         try:
             # 30ms delay mimics ~350 words/min speech pace, avoids React Error #185
-            subprocess.run(['xdotool', 'type', '--delay', '30', '--', text], timeout=60)
+            subprocess.run(["xdotool", "type", "--delay", "30", "--", text], timeout=60)
         except FileNotFoundError:
             # xdotool not installed, fallback to pynput
             print("⚠ xdotool not found, using fallback method")
@@ -111,6 +117,7 @@ class KeyboardHandler:
         try:
             # Try pyautogui first (better Unicode support)
             import pyautogui
+
             # Disable fail-safe for text insertion
             pyautogui.FAILSAFE = False
             # 30ms delay mimics ~350 words/min speech pace, avoids React Error #185
@@ -136,4 +143,3 @@ class KeyboardHandler:
                 time.sleep(0.03)
         except Exception as e:
             print(f"⚠ Text insertion error: {e}")
-

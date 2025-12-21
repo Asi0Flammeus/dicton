@@ -10,6 +10,7 @@ class TestConfigDefaults:
         import importlib
 
         import dicton.config as config_module
+
         importlib.reload(config_module)
 
         assert config_module.Config.HOTKEY_MODIFIER == "alt"
@@ -19,6 +20,7 @@ class TestConfigDefaults:
         import importlib
 
         import dicton.config as config_module
+
         importlib.reload(config_module)
 
         assert config_module.Config.HOTKEY_KEY == "g"
@@ -28,6 +30,7 @@ class TestConfigDefaults:
         import importlib
 
         import dicton.config as config_module
+
         importlib.reload(config_module)
 
         assert config_module.Config.THEME_COLOR == "orange"
@@ -37,6 +40,7 @@ class TestConfigDefaults:
         import importlib
 
         import dicton.config as config_module
+
         importlib.reload(config_module)
 
         assert config_module.Config.VISUALIZER_BACKEND == "pygame"
@@ -46,6 +50,7 @@ class TestConfigDefaults:
         import importlib
 
         import dicton.config as config_module
+
         importlib.reload(config_module)
 
         assert config_module.Config.VISUALIZER_STYLE == "toric"
@@ -55,6 +60,7 @@ class TestConfigDefaults:
         import importlib
 
         import dicton.config as config_module
+
         importlib.reload(config_module)
 
         assert config_module.Config.DEBUG is False
@@ -71,6 +77,7 @@ class TestConfigFromEnv:
         import importlib
 
         import dicton.config as config_module
+
         importlib.reload(config_module)
 
         assert config_module.Config.HOTKEY_MODIFIER == "ctrl"
@@ -83,6 +90,7 @@ class TestConfigFromEnv:
         import importlib
 
         import dicton.config as config_module
+
         importlib.reload(config_module)
 
         assert config_module.Config.THEME_COLOR == "blue"
@@ -94,6 +102,7 @@ class TestConfigFromEnv:
         import importlib
 
         import dicton.config as config_module
+
         importlib.reload(config_module)
 
         assert config_module.Config.DEBUG is True
@@ -105,6 +114,7 @@ class TestConfigFromEnv:
         import importlib
 
         import dicton.config as config_module
+
         importlib.reload(config_module)
 
         assert config_module.Config.LANGUAGE == "fr"
@@ -139,7 +149,9 @@ class TestFlexokiColors:
             for key, value in color_data.items():
                 assert isinstance(value, tuple), f"{color_name}.{key} is not a tuple"
                 assert len(value) == 3, f"{color_name}.{key} is not RGB (3 values)"
-                assert all(0 <= v <= 255 for v in value), f"{color_name}.{key} has invalid RGB values"
+                assert all(0 <= v <= 255 for v in value), (
+                    f"{color_name}.{key} has invalid RGB values"
+                )
 
 
 class TestPositionPresets:
@@ -150,9 +162,13 @@ class TestPositionPresets:
         from dicton.config import POSITION_PRESETS
 
         expected = [
-            "top-right", "top-left", "top-center",
-            "bottom-right", "bottom-left", "bottom-center",
-            "center"
+            "top-right",
+            "top-left",
+            "top-center",
+            "bottom-right",
+            "bottom-left",
+            "bottom-center",
+            "center",
         ]
         for position in expected:
             assert position in POSITION_PRESETS
@@ -189,6 +205,7 @@ class TestConfigMethods:
         import importlib
 
         import dicton.config as config_module
+
         importlib.reload(config_module)
 
         colors = config_module.Config.get_theme_colors()
@@ -202,11 +219,13 @@ class TestConfigMethods:
         import importlib
 
         import dicton.config as config_module
+
         importlib.reload(config_module)
 
         colors = config_module.Config.get_theme_colors()
         # Should fallback to orange
         from dicton.config import FLEXOKI_COLORS
+
         assert colors == FLEXOKI_COLORS["orange"]
 
     def test_get_animation_position_valid(self, clean_env, monkeypatch):
@@ -216,6 +235,7 @@ class TestConfigMethods:
         import importlib
 
         import dicton.config as config_module
+
         importlib.reload(config_module)
 
         x, y = config_module.Config.get_animation_position(1920, 1080, 100)
@@ -229,6 +249,7 @@ class TestConfigMethods:
         import importlib
 
         import dicton.config as config_module
+
         importlib.reload(config_module)
 
         x, y = config_module.Config.get_animation_position(1920, 1080, 100)

@@ -1,8 +1,9 @@
 """Speech recognition - ElevenLabs STT (capture then transcribe) - Cross-platform"""
-import os
-import io
-import wave
+
 import contextlib
+import io
+import os
+import wave
 
 import numpy as np
 
@@ -47,6 +48,7 @@ else:
 HAS_ELEVENLABS = False
 try:
     from elevenlabs.client import ElevenLabs
+
     HAS_ELEVENLABS = True
 except ImportError as e:
     print(f"ElevenLabs import error: {e}")
@@ -98,12 +100,14 @@ class SpeechRecognizer:
                 try:
                     info = self.audio.get_device_info_by_index(i)
                     if info["maxInputChannels"] > 0:
-                        devices.append({
-                            "index": i,
-                            "name": info["name"],
-                            "rate": int(info["defaultSampleRate"]),
-                            "is_default": i == default_idx,
-                        })
+                        devices.append(
+                            {
+                                "index": i,
+                                "name": info["name"],
+                                "rate": int(info["defaultSampleRate"]),
+                                "is_default": i == default_idx,
+                            }
+                        )
                 except Exception:
                     continue
 
@@ -256,6 +260,7 @@ class SpeechRecognizer:
             print(f"❌ Transcription error: {e}")
             if config.DEBUG:
                 import traceback
+
                 traceback.print_exc()
             return None
 
@@ -268,9 +273,22 @@ class SpeechRecognizer:
 
         # Common noise phrases
         noise = {
-            "thanks for watching", "thank you for watching", "subscribe",
-            "you", "thank you", "merci", "bye", "ok", "okay", "um", "uh",
-            "hmm", "huh", "ah", "oh", "eh",
+            "thanks for watching",
+            "thank you for watching",
+            "subscribe",
+            "you",
+            "thank you",
+            "merci",
+            "bye",
+            "ok",
+            "okay",
+            "um",
+            "uh",
+            "hmm",
+            "huh",
+            "ah",
+            "oh",
+            "eh",
         }
         if lower in noise:
             return None

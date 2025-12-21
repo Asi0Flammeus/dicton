@@ -1,16 +1,19 @@
 """Elegant circular audio visualizer - donut waveform with dark background"""
-import os
+
 import math
+import os
 import threading
 
-os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 
 # Platform-specific SDL settings (only for X11/Linux)
 from .platform_utils import IS_LINUX, IS_X11
+
 if IS_LINUX and IS_X11:
-    os.environ['SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR'] = '0'
+    os.environ["SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR"] = "0"
 
 import numpy as np
+
 from .config import config
 
 # Background color
@@ -92,6 +95,7 @@ class Visualizer:
     def _run(self):
         try:
             import pygame
+
             pygame.init()
 
             # Get position from config
@@ -101,7 +105,7 @@ class Visualizer:
 
             # Set window position (cross-platform approach)
             # SDL_VIDEO_WINDOW_POS works on most platforms
-            os.environ['SDL_VIDEO_WINDOW_POS'] = f'{pos_x},{pos_y}'
+            os.environ["SDL_VIDEO_WINDOW_POS"] = f"{pos_x},{pos_y}"
 
             screen = pygame.display.set_mode((SIZE, SIZE), pygame.NOFRAME)
             pygame.display.set_caption("Dicton")
@@ -161,19 +165,17 @@ class Visualizer:
 
             base_wave = (wave1 + wave2 + wave3) * max_amplitude * 0.3
             amplitude = level * max_amplitude * 0.9 + base_wave
-            amplitude *= (0.4 + global_level * 0.9)
+            amplitude *= 0.4 + global_level * 0.9
 
             outer_r = mid_radius + amplitude
-            outer_points.append((
-                center_x + math.cos(angle) * outer_r,
-                center_y + math.sin(angle) * outer_r
-            ))
+            outer_points.append(
+                (center_x + math.cos(angle) * outer_r, center_y + math.sin(angle) * outer_r)
+            )
 
             inner_r = max(inner_radius, mid_radius - amplitude)
-            inner_points.append((
-                center_x + math.cos(angle) * inner_r,
-                center_y + math.sin(angle) * inner_r
-            ))
+            inner_points.append(
+                (center_x + math.cos(angle) * inner_r, center_y + math.sin(angle) * inner_r)
+            )
 
         # Draw glow
         if global_level > 0.05:
@@ -186,7 +188,7 @@ class Visualizer:
                 level = self.smooth_levels[i]
                 wave = math.sin(self.frame * 0.05 + angle * 3) * 0.15
                 amp = (level * max_amplitude * 0.9 + wave * max_amplitude * 0.3) * 1.2
-                amp *= (0.4 + global_level * 0.9)
+                amp *= 0.4 + global_level * 0.9
                 r = mid_radius + amp
                 glow_outer.append((center_x + math.cos(angle) * r, center_y + math.sin(angle) * r))
 
@@ -204,7 +206,7 @@ class Visualizer:
             line_color = (
                 int(self.COLOR_DIM[0] + (self.COLOR_MAIN[0] - self.COLOR_DIM[0]) * intensity),
                 int(self.COLOR_DIM[1] + (self.COLOR_MAIN[1] - self.COLOR_DIM[1]) * intensity),
-                int(self.COLOR_DIM[2] + (self.COLOR_MAIN[2] - self.COLOR_DIM[2]) * intensity)
+                int(self.COLOR_DIM[2] + (self.COLOR_MAIN[2] - self.COLOR_DIM[2]) * intensity),
             )
             pygame.draw.polygon(screen, line_color, outer_points, width=2)
 
@@ -218,7 +220,9 @@ class Visualizer:
         # Highlight
         if global_level > 0.2:
             highlight_surf = pygame.Surface((SIZE, SIZE), pygame.SRCALPHA)
-            pygame.draw.polygon(highlight_surf, (*self.COLOR_GLOW, int(global_level * 180)), outer_points, width=1)
+            pygame.draw.polygon(
+                highlight_surf, (*self.COLOR_GLOW, int(global_level * 180)), outer_points, width=1
+            )
             screen.blit(highlight_surf, (0, 0))
 
         pygame.display.flip()

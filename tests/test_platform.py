@@ -1,4 +1,5 @@
 """Tests for Dicton platform detection module."""
+
 import sys
 
 import pytest
@@ -19,11 +20,11 @@ class TestPlatformConstants:
         """Test current platform is detected correctly."""
         from dicton.platform_utils import IS_LINUX, IS_MACOS, IS_WINDOWS
 
-        if sys.platform == 'win32':
+        if sys.platform == "win32":
             assert IS_WINDOWS is True
-        elif sys.platform.startswith('linux'):
+        elif sys.platform.startswith("linux"):
             assert IS_LINUX is True
-        elif sys.platform == 'darwin':
+        elif sys.platform == "darwin":
             assert IS_MACOS is True
 
 
@@ -43,8 +44,16 @@ class TestGetPlatformInfo:
 
         info = get_platform_info()
         required_keys = [
-            'system', 'release', 'version', 'machine', 'python_version',
-            'is_windows', 'is_linux', 'is_macos', 'is_x11', 'is_wayland'
+            "system",
+            "release",
+            "version",
+            "machine",
+            "python_version",
+            "is_windows",
+            "is_linux",
+            "is_macos",
+            "is_x11",
+            "is_wayland",
         ]
         for key in required_keys:
             assert key in info, f"Missing key: {key}"
@@ -54,7 +63,7 @@ class TestGetPlatformInfo:
         from dicton.platform_utils import get_platform_info
 
         info = get_platform_info()
-        bool_keys = ['is_windows', 'is_linux', 'is_macos', 'is_x11', 'is_wayland']
+        bool_keys = ["is_windows", "is_linux", "is_macos", "is_x11", "is_wayland"]
         for key in bool_keys:
             assert isinstance(info[key], bool), f"{key} is not a boolean"
 
@@ -63,7 +72,7 @@ class TestGetPlatformInfo:
         from dicton.platform_utils import get_platform_info
 
         info = get_platform_info()
-        string_keys = ['system', 'machine', 'python_version']
+        string_keys = ["system", "machine", "python_version"]
         for key in string_keys:
             assert isinstance(info[key], str), f"{key} is not a string"
             assert len(info[key]) > 0, f"{key} is empty"
@@ -72,7 +81,7 @@ class TestGetPlatformInfo:
 class TestLinuxDisplayDetection:
     """Test Linux display system detection (X11/Wayland)."""
 
-    @pytest.mark.skipif(not sys.platform.startswith('linux'), reason="Linux only")
+    @pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Linux only")
     def test_display_detection_on_linux(self):
         """Test display system is detected on Linux."""
         from dicton.platform_utils import IS_LINUX, IS_WAYLAND, IS_X11
@@ -83,7 +92,7 @@ class TestLinuxDisplayDetection:
             assert isinstance(IS_X11, bool)
             assert isinstance(IS_WAYLAND, bool)
 
-    @pytest.mark.skipif(sys.platform.startswith('linux'), reason="Non-Linux only")
+    @pytest.mark.skipif(sys.platform.startswith("linux"), reason="Non-Linux only")
     def test_display_detection_on_non_linux(self):
         """Test display flags are False on non-Linux."""
         from dicton.platform_utils import IS_WAYLAND, IS_X11
