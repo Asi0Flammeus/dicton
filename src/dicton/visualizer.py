@@ -1,4 +1,4 @@
-"""Elegant circular audio visualizer - donut waveform with dark background"""
+"""Elegant circular audio visualizer - donut waveform with transparent background"""
 
 import math
 import os
@@ -7,7 +7,7 @@ import threading
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 
 # Platform-specific SDL settings (only for X11/Linux)
-from .platform_utils import IS_LINUX, IS_X11
+from .platform_utils import IS_LINUX, IS_WINDOWS, IS_X11
 
 if IS_LINUX and IS_X11:
     os.environ["SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR"] = "0"
@@ -16,15 +16,15 @@ import numpy as np
 
 from .config import config
 
-# Background color
-BG_COLOR = (20, 20, 24)
+# Transparency colorkey (magenta - unlikely to be used in the visualizer)
+TRANSPARENT_COLORKEY = (255, 0, 255)
 
 SIZE = 160
 WAVE_POINTS = 90
 
 
 class Visualizer:
-    """Circular donut audio visualizer"""
+    """Circular donut audio visualizer with transparent background"""
 
     def __init__(self):
         self.running = False
@@ -35,6 +35,7 @@ class Visualizer:
         self._ready = threading.Event()
         self.frame = 0
         self.global_level = 0.0
+        self.transparent = True  # Enable transparent background
 
         # Load theme colors from config
         colors = config.get_theme_colors()
@@ -110,6 +111,10 @@ class Visualizer:
             screen = pygame.display.set_mode((SIZE, SIZE), pygame.NOFRAME)
             pygame.display.set_caption("Dicton")
 
+            # Enable transparency on Windows using layered window
+            if IS_WINDOWS and self.transparent:
+                self._setup_windows_transparency(pygame)
+
             clock = pygame.time.Clock()
             self._ready.set()
 
@@ -129,8 +134,37 @@ class Visualizer:
             print(f"Visualizer error: {e}")
             self._ready.set()
 
+    def _setup_windows_transparency(self, pygame):
+        """Set up transparent window on Windows using layered window API"""
+        try:
+            import win32api
+            import win32con
+            import win32gui
+
+            hwnd = pygame.display.get_wm_info()["window"]
+            # Add layered window style
+            win32gui.SetWindowLong(
+                hwnd,
+                win32con.GWL_EXSTYLE,
+                win32gui.GetWindowLong(hwnd, win32con.GWL_EXSTYLE) | win32con.WS_EX_LAYERED,
+            )
+            # Set colorkey for transparency (magenta becomes transparent)
+            win32gui.SetLayeredWindowAttributes(
+                hwnd,
+                win32api.RGB(*TRANSPARENT_COLORKEY),
+                0,
+                win32con.LWA_COLORKEY,
+            )
+        except ImportError:
+            # pywin32 not installed, transparency not available
+            self.transparent = False
+        except Exception:
+            self.transparent = False
+
     def _draw(self, screen, pygame):
-        screen.fill(BG_COLOR)
+        # Use transparent colorkey background on Windows, dark background elsewhere
+        bg_color = TRANSPARENT_COLORKEY if (IS_WINDOWS and self.transparent) else (20, 20, 24)
+        screen.fill(bg_color)
 
         center_x = SIZE // 2
         center_y = SIZE // 2
@@ -177,7 +211,7 @@ class Visualizer:
                 (center_x + math.cos(angle) * inner_r, center_y + math.sin(angle) * inner_r)
             )
 
-        # Draw glow
+        # Draw glow (using SRCALPHA surface for proper blending)
         if global_level > 0.05:
             glow_surf = pygame.Surface((SIZE, SIZE), pygame.SRCALPHA)
             glow_alpha = int(60 + global_level * 80)
@@ -214,8 +248,8 @@ class Visualizer:
         if len(inner_points) > 2:
             pygame.draw.polygon(screen, self.COLOR_DIM, inner_points, width=2)
 
-        # Cut out center
-        pygame.draw.circle(screen, BG_COLOR, (center_x, center_y), inner_radius - 3)
+        # Cut out center with transparent colorkey for ring-only mode
+        pygame.draw.circle(screen, bg_color, (center_x, center_y), inner_radius - 3)
 
         # Highlight
         if global_level > 0.2:
