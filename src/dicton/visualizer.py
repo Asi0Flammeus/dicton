@@ -44,6 +44,7 @@ class Visualizer:
         self.frame = 0
         self.global_level = 0.0
         self.transparent = True  # Enable transparent background
+        self.linux_opacity_mode = False  # Set by _setup_linux_transparency
 
         # Adaptive gain control
         self.adaptive_gain = DEFAULT_GAIN
@@ -69,6 +70,7 @@ class Visualizer:
         self.adaptive_gain = DEFAULT_GAIN
         self.peak_level = 0.0
         self.peak_hold_counter = 0
+        self.linux_opacity_mode = False
         self._ready.clear()
 
         self.thread = threading.Thread(target=self._run, daemon=True)
@@ -172,9 +174,11 @@ class Visualizer:
             screen = pygame.display.set_mode((SIZE, SIZE), pygame.NOFRAME)
             pygame.display.set_caption("Dicton")
 
-            # Enable transparency on Windows using layered window
+            # Enable transparency based on platform
             if IS_WINDOWS and self.transparent:
                 self._setup_windows_transparency(pygame)
+            elif IS_LINUX and IS_X11 and self.transparent:
+                self._setup_linux_transparency(pygame)
 
             clock = pygame.time.Clock()
             self._ready.set()
@@ -220,6 +224,43 @@ class Visualizer:
             # pywin32 not installed, transparency not available
             self.transparent = False
         except Exception:
+            self.transparent = False
+
+    def _setup_linux_transparency(self, pygame):
+        """Set up transparent window on Linux X11 using compositor.
+
+        Requires a compositor (picom, compton, mutter, kwin) to be running.
+        Uses SDL's window opacity feature for semi-transparent effect.
+
+        Note: True per-pixel transparency like Windows colorkey is not
+        available through pygame/SDL2 on X11. This provides a usable
+        alternative with uniform window opacity.
+
+        Configure with VISUALIZER_OPACITY env var (0.0-1.0, default 0.85).
+        """
+        try:
+            # Try using pygame's SDL2 video module for window opacity
+            # This requires pygame 2.0+ with SDL2 backend
+            from pygame._sdl2.video import Window
+
+            sdl_window = Window.from_display_module()
+            # Set window opacity from config (0.0 = fully transparent, 1.0 = fully opaque)
+            opacity = max(0.0, min(1.0, config.VISUALIZER_OPACITY))
+            sdl_window.opacity = opacity
+            self.linux_opacity_mode = True
+            if config.DEBUG:
+                print(f"✓ Linux X11 transparency enabled (opacity: {opacity})")
+        except (ImportError, AttributeError) as e:
+            # SDL2 video module not available
+            if config.DEBUG:
+                print(f"⚠ Linux transparency not available: {e}")
+            self.linux_opacity_mode = False
+            self.transparent = False
+        except Exception as e:
+            # Opacity not supported by compositor/window manager
+            if config.DEBUG:
+                print(f"⚠ Window opacity failed (compositor running?): {e}")
+            self.linux_opacity_mode = False
             self.transparent = False
 
     def _draw(self, screen, pygame):

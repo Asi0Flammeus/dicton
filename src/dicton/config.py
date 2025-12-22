@@ -101,6 +101,10 @@ class Config:
     # Visualizer backend (vispy, pygame)
     VISUALIZER_BACKEND = os.getenv("VISUALIZER_BACKEND", "pygame").lower()
 
+    # Visualizer window opacity for Linux (0.0-1.0, requires compositor)
+    # Lower values = more transparent. Default 0.85 for visible ring with subtle background
+    VISUALIZER_OPACITY = float(os.getenv("VISUALIZER_OPACITY", "0.85"))
+
     # Audio settings
     SAMPLE_RATE = 16000
     CHUNK_SIZE = 1024
