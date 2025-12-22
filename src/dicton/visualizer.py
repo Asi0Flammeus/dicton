@@ -22,6 +22,14 @@ TRANSPARENT_COLORKEY = (255, 0, 255)
 SIZE = 160
 WAVE_POINTS = 90
 
+# Adaptive gain settings
+DEFAULT_GAIN = 0.7  # Reduced from implicit 1.0 for lower default saturation
+MIN_GAIN = 0.3  # Minimum gain floor
+MAX_GAIN = 1.5  # Maximum gain ceiling
+GAIN_ATTACK = 0.02  # How fast gain decreases (fast attack for loud sounds)
+GAIN_RELEASE = 0.005  # How slow gain increases (slow release for recovery)
+PEAK_HOLD_FRAMES = 30  # Frames to hold peak before decay (~0.5s at 60fps)
+
 
 class Visualizer:
     """Circular donut audio visualizer with transparent background"""
@@ -36,6 +44,11 @@ class Visualizer:
         self.frame = 0
         self.global_level = 0.0
         self.transparent = True  # Enable transparent background
+
+        # Adaptive gain control
+        self.adaptive_gain = DEFAULT_GAIN
+        self.peak_level = 0.0
+        self.peak_hold_counter = 0
 
         # Load theme colors from config
         colors = config.get_theme_colors()
@@ -53,6 +66,9 @@ class Visualizer:
         self.smooth_levels = np.zeros(WAVE_POINTS)
         self.frame = 0
         self.global_level = 0.0
+        self.adaptive_gain = DEFAULT_GAIN
+        self.peak_level = 0.0
+        self.peak_hold_counter = 0
         self._ready.clear()
 
         self.thread = threading.Thread(target=self._run, daemon=True)
@@ -73,25 +89,70 @@ class Visualizer:
             if len(data) == 0:
                 return
 
-            rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / 8000
-            rms = min(1.0, rms * 1.8)
+            # Calculate raw RMS (before gain)
+            raw_rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / 8000
+
+            # Adaptive gain adjustment based on peak levels
+            with self.lock:
+                # Track peak level with hold and decay
+                if raw_rms > self.peak_level:
+                    self.peak_level = raw_rms
+                    self.peak_hold_counter = PEAK_HOLD_FRAMES
+                elif self.peak_hold_counter > 0:
+                    self.peak_hold_counter -= 1
+                else:
+                    # Slow decay of peak level
+                    self.peak_level *= 0.995
+
+                # Adjust gain based on peak level to prevent clipping
+                if self.peak_level > 0.7:
+                    # Reduce gain quickly when loud (attack)
+                    target_gain = 0.7 / max(self.peak_level, 0.01)
+                    target_gain = max(MIN_GAIN, min(MAX_GAIN, target_gain))
+                    self.adaptive_gain += (target_gain - self.adaptive_gain) * GAIN_ATTACK
+                else:
+                    # Slowly return to default gain (release)
+                    self.adaptive_gain += (DEFAULT_GAIN - self.adaptive_gain) * GAIN_RELEASE
+
+                # Clamp gain to valid range
+                self.adaptive_gain = max(MIN_GAIN, min(MAX_GAIN, self.adaptive_gain))
+
+                # Apply adaptive gain and soft compression
+                rms = self._soft_compress(raw_rms * self.adaptive_gain)
+                self.global_level = self.global_level * 0.7 + rms * 0.3
 
             fft_data = np.abs(np.fft.rfft(data))
             fft_size = len(fft_data)
 
             with self.lock:
-                self.global_level = self.global_level * 0.7 + rms * 0.3
-
                 for i in range(WAVE_POINTS):
                     # Skip DC component (bin 0) which is always high
                     freq_idx = 1 + int((i / WAVE_POINTS) * (fft_size - 1) * 0.7)
                     freq_idx = min(freq_idx, fft_size - 1)
+                    # Apply adaptive gain and soft compression to FFT levels
                     level = fft_data[freq_idx] / 35000
-                    level = min(1.0, level * 1.8)
+                    level = self._soft_compress(level * self.adaptive_gain)
                     self.levels[i] = self.levels[i] * 0.4 + level * 0.6
 
         except Exception:
             pass
+
+    def _soft_compress(self, value: float) -> float:
+        """Apply soft compression to prevent visual clipping.
+
+        Uses a smooth saturation curve that approaches 1.0 asymptotically.
+        Values below 0.5 pass through nearly unchanged.
+        Values above 0.5 are progressively compressed.
+        """
+        if value <= 0.0:
+            return 0.0
+        if value < 0.5:
+            # Linear region for quiet sounds
+            return value
+        # Soft knee compression: 1 - e^(-x) curve shifted to knee point
+        # This gives smooth saturation approaching 1.0
+        compressed = 0.5 + 0.5 * (1.0 - math.exp(-(value - 0.5) * 2.0))
+        return min(1.0, compressed)
 
     def _run(self):
         try:
@@ -212,21 +273,24 @@ class Visualizer:
             )
 
         # Draw glow (using SRCALPHA surface for proper blending)
-        if global_level > 0.05:
+        # Reduced glow threshold and intensity for lower saturation
+        if global_level > 0.1:
             glow_surf = pygame.Surface((SIZE, SIZE), pygame.SRCALPHA)
-            glow_alpha = int(60 + global_level * 80)
+            # Reduced glow alpha: was 60 + 80*level, now 40 + 50*level
+            glow_alpha = int(40 + global_level * 50)
 
             glow_outer = []
             for i in range(WAVE_POINTS):
                 angle = (i / WAVE_POINTS) * 2 * math.pi + angle_offset
                 level = self.smooth_levels[i]
                 wave = math.sin(self.frame * 0.05 + angle * 3) * 0.15
-                amp = (level * max_amplitude * 0.9 + wave * max_amplitude * 0.3) * 1.2
+                # Reduced glow expansion: was 1.2, now 1.1
+                amp = (level * max_amplitude * 0.9 + wave * max_amplitude * 0.3) * 1.1
                 amp *= 0.4 + global_level * 0.9
                 r = mid_radius + amp
                 glow_outer.append((center_x + math.cos(angle) * r, center_y + math.sin(angle) * r))
 
-            pygame.draw.polygon(glow_surf, (*self.COLOR_DIM, glow_alpha), glow_outer, width=5)
+            pygame.draw.polygon(glow_surf, (*self.COLOR_DIM, glow_alpha), glow_outer, width=4)
             screen.blit(glow_surf, (0, 0))
 
         # Draw filled donut
@@ -251,11 +315,12 @@ class Visualizer:
         # Cut out center with transparent colorkey for ring-only mode
         pygame.draw.circle(screen, bg_color, (center_x, center_y), inner_radius - 3)
 
-        # Highlight
-        if global_level > 0.2:
+        # Highlight (reduced intensity for lower saturation)
+        if global_level > 0.25:
             highlight_surf = pygame.Surface((SIZE, SIZE), pygame.SRCALPHA)
+            # Reduced highlight alpha: was 180*level, now 120*level
             pygame.draw.polygon(
-                highlight_surf, (*self.COLOR_GLOW, int(global_level * 180)), outer_points, width=1
+                highlight_surf, (*self.COLOR_GLOW, int(global_level * 120)), outer_points, width=1
             )
             screen.blit(highlight_surf, (0, 0))
 
