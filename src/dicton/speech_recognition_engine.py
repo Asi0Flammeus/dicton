@@ -33,6 +33,7 @@ with suppress_stderr():
     import pyaudio
 
 from .config import config
+from .text_processor import get_text_processor
 
 # Import visualizer based on configured backend
 if config.VISUALIZER_BACKEND == "vispy":
@@ -265,7 +266,7 @@ class SpeechRecognizer:
             return None
 
     def _filter(self, text: str) -> str | None:
-        """Filter out noise and common false positives."""
+        """Filter out noise, apply custom dictionary, and clean up text."""
         if not text or len(text) < 3:
             return None
 
@@ -296,6 +297,10 @@ class SpeechRecognizer:
         # Single short words are usually noise
         if len(text.split()) == 1 and len(text) < 10:
             return None
+
+        # Apply custom dictionary replacements
+        processor = get_text_processor()
+        text = processor.process(text)
 
         return text
 
