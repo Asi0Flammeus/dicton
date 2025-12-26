@@ -347,7 +347,87 @@ class Dicton:
         self._shutdown_event.set()
 
 
+def show_latency_report():
+    """Show latency report from log file"""
+    from .latency_tracker import LatencyTracker
+
+    tracker = LatencyTracker(enabled=True)
+    count = tracker.load_from_log()
+
+    if count == 0:
+        print("No latency data found.")
+        print(f"Log file: {tracker.log_path}")
+        print("\nRun dicton with DEBUG=true to collect latency data.")
+        return
+
+    print(f"\n📊 Dicton Latency Report ({count} sessions)")
+    tracker.print_summary()
+    print(f"\nLog file: {tracker.log_path}")
+
+
+def clear_latency_log():
+    """Clear the latency log file"""
+    from .latency_tracker import LatencyTracker
+
+    tracker = LatencyTracker(enabled=True)
+    tracker.clear_log()
+    print(f"✓ Cleared latency log: {tracker.log_path}")
+
+
 def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Dicton: Voice-to-text dictation tool",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Hotkeys (FN key mode):
+  FN (hold)        Push-to-talk recording
+  FN (double-tap)  Toggle recording mode
+  FN + Ctrl        Translation mode (Green ring)
+  FN + Shift       Reformulation mode (Purple ring)
+  FN + Space       Act on Text mode (Magenta ring)
+  FN + Alt         Raw mode (Yellow ring)
+
+Examples:
+  dicton                  Start dictation service
+  dicton --benchmark      Show latency statistics
+  dicton --clear-log      Clear latency history
+""",
+    )
+    parser.add_argument(
+        "--benchmark",
+        action="store_true",
+        help="Show latency report from previous sessions",
+    )
+    parser.add_argument(
+        "--clear-log",
+        action="store_true",
+        help="Clear the latency log file",
+    )
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="Show version information",
+    )
+
+    args = parser.parse_args()
+
+    if args.version:
+        from . import __version__
+
+        print(f"Dicton v{__version__}")
+        return
+
+    if args.clear_log:
+        clear_latency_log()
+        return
+
+    if args.benchmark:
+        show_latency_report()
+        return
+
+    # Normal operation
     app = Dicton()
 
     def signal_handler(sig, frame):
