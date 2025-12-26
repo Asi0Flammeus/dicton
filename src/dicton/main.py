@@ -12,6 +12,7 @@ warnings.filterwarnings("ignore")
 
 from .config import config
 from .keyboard_handler import KeyboardHandler
+from .latency_tracker import get_latency_tracker
 from .platform_utils import IS_LINUX, IS_WINDOWS
 from .processing_mode import ProcessingMode, get_mode_color
 from .speech_recognition_engine import SpeechRecognizer
@@ -118,6 +119,7 @@ class Dicton:
     def _record_and_transcribe(self):
         """Record audio and process based on current mode"""
         mode = self._current_mode
+        tracker = get_latency_tracker()
         mode_names = {
             ProcessingMode.BASIC: "Recording",
             ProcessingMode.ACT_ON_TEXT: "Act on Text",
@@ -130,42 +132,61 @@ class Dicton:
         try:
             mode_name = mode_names.get(mode, "Recording")
 
+            # Start latency tracking session
+            tracker.start_session()
+
             # For Act on Text, check selection first
             selected_text = None
             if mode == ProcessingMode.ACT_ON_TEXT:
                 selected_text = self._get_selection_for_act_on_text()
                 if not selected_text:
+                    tracker.end_session()
                     return  # Already notified user
 
             notify(f"🎤 {mode_name}", "Press FN to stop")
 
             # Record until stopped
-            audio = self.recognizer.record()
+            with tracker.measure("audio_capture", mode=mode.name):
+                audio = self.recognizer.record()
 
             if audio is None or len(audio) == 0:
                 print("No audio captured")
+                tracker.end_session()
                 return
 
             print("⏳ Processing...")
-            text = self.recognizer.transcribe(audio)
+
+            # Transcribe audio
+            with tracker.measure("stt_transcription"):
+                text = self.recognizer.transcribe(audio)
 
             if not text:
                 print("No speech detected")
                 notify("⚠ No speech", "Try again")
+                tracker.end_session()
                 return
 
             # Route to appropriate processor based on mode
-            result = self._process_text(text, mode, selected_text)
+            with tracker.measure("text_processing", mode=mode.name):
+                result = self._process_text(text, mode, selected_text)
 
             if result:
-                self._output_result(result, mode, selected_text is not None)
+                with tracker.measure("text_output"):
+                    self._output_result(result, mode, selected_text is not None)
             else:
                 print("Processing failed")
                 notify("⚠ Processing failed", "Check logs")
 
+            # End session and log
+            session = tracker.end_session()
+            if config.DEBUG and session:
+                total_ms = session.total_duration_ms()
+                print(f"⏱ Total latency: {total_ms:.0f}ms")
+
         except Exception as e:
             print(f"Error: {e}")
             notify("❌ Error", str(e)[:50])
+            tracker.end_session()
         finally:
             self.recording = False
 
