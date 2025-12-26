@@ -234,23 +234,23 @@ class FnKeyHandler:
     def _detect_mode(self) -> ProcessingMode:
         """Detect processing mode based on current modifier states.
 
-        Priority order (matching TODO.md hotkey matrix):
-        - FN + Space → ACT_ON_TEXT (Magenta)
+        Priority order:
         - FN + Ctrl + Shift → TRANSLATE_REFORMAT (Cyan)
         - FN + Ctrl → TRANSLATION (Green)
         - FN + Shift → REFORMULATION (Purple)
-        - FN + Alt → RAW (Yellow)
+        - FN + Alt → ACT_ON_TEXT (Magenta)
+        - FN + Space → RAW (Yellow)
         - FN only → BASIC (Orange)
         """
-        if self._space_pressed:
-            return ProcessingMode.ACT_ON_TEXT
-        elif self._ctrl_pressed and self._shift_pressed:
+        if self._ctrl_pressed and self._shift_pressed:
             return ProcessingMode.TRANSLATE_REFORMAT
         elif self._ctrl_pressed:
             return ProcessingMode.TRANSLATION
         elif self._shift_pressed:
             return ProcessingMode.REFORMULATION
         elif self._alt_pressed:
+            return ProcessingMode.ACT_ON_TEXT
+        elif self._space_pressed:
             return ProcessingMode.RAW
         else:
             return ProcessingMode.BASIC
