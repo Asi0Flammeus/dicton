@@ -52,9 +52,28 @@ install_deps() {
     apt-get install -y  \
         python3-pip python3-venv python3-dev \
         portaudio19-dev libportaudio2 \
-        xdotool libnotify-bin \
+        xdotool xclip libnotify-bin \
         libgtk-3-dev libcairo2-dev libgirepository1.0-dev gir1.2-gtk-3.0
     echo -e "${GREEN}✓ Dependencies installed${NC}"
+}
+
+setup_input_group() {
+    # Add user to input group for FN key access via evdev
+    local REAL_USER="${SUDO_USER:-$USER}"
+
+    if [ -z "$REAL_USER" ] || [ "$REAL_USER" = "root" ]; then
+        echo -e "${YELLOW}⚠ Could not determine user for input group${NC}"
+        return
+    fi
+
+    if groups "$REAL_USER" | grep -q '\binput\b'; then
+        echo -e "${GREEN}✓ User '$REAL_USER' already in input group${NC}"
+    else
+        echo -e "${YELLOW}Adding '$REAL_USER' to input group for FN key support...${NC}"
+        usermod -aG input "$REAL_USER"
+        echo -e "${GREEN}✓ User '$REAL_USER' added to input group${NC}"
+        echo -e "${YELLOW}⚠ Log out and back in for group change to take effect${NC}"
+    fi
 }
 
 install_dicton() {
@@ -64,6 +83,9 @@ install_dicton() {
 
     # Install system deps
     install_deps
+
+    # Setup input group for FN key
+    setup_input_group
 
     # Create install directory
     mkdir -p "$INSTALL_DIR"
@@ -81,7 +103,7 @@ install_dicton() {
     "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
 
     echo -e "${YELLOW}Installing Python packages...${NC}"
-    "$INSTALL_DIR/venv/bin/pip" install "$INSTALL_DIR[xshape]"
+    "$INSTALL_DIR/venv/bin/pip" install "$INSTALL_DIR[xshape,fnkey,llm]"
     echo -e "${GREEN}✓ Python packages installed${NC}"
 
     # Create config if not exists
@@ -126,7 +148,14 @@ EOF
     echo "  systemctl --user enable dicton   - Enable autostart"
     echo "  systemctl --user start dicton    - Start as service"
     echo ""
+    echo "Hotkeys:"
+    echo "  FN (hold)           - Push-to-talk"
+    echo "  FN (double-tap)     - Toggle recording"
+    echo "  FN + Space          - Act on Text (LLM)"
+    echo ""
     echo "Config: $INSTALL_DIR/.env"
+    echo ""
+    echo -e "${YELLOW}⚠ IMPORTANT: Log out and back in for FN key to work${NC}"
 }
 
 update_dicton() {
@@ -154,9 +183,12 @@ update_dicton() {
         "$INSTALL_DIR/venv/bin/pip" install --upgrade pip
     fi
 
+    # Setup input group for FN key (in case it wasn't done before)
+    setup_input_group
+
     # Update packages
     echo -e "${YELLOW}Updating Python packages...${NC}"
-    "$INSTALL_DIR/venv/bin/pip" install --upgrade "$INSTALL_DIR[xshape]"
+    "$INSTALL_DIR/venv/bin/pip" install --upgrade "$INSTALL_DIR[xshape,fnkey,llm]"
     echo -e "${GREEN}✓ Python packages updated${NC}"
 
     # Restore config
