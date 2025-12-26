@@ -306,3 +306,26 @@ def get_text_processor() -> TextProcessor:
             language=config.LANGUAGE,
         )
     return _text_processor
+
+
+def filter_filler_words(text: str, language: str | None = None) -> str:
+    """Filter filler words from text.
+
+    Convenience function for simple filler removal without dictionary processing.
+
+    Args:
+        text: The text to filter.
+        language: Optional language code. If None, uses config setting.
+
+    Returns:
+        Text with filler words removed.
+    """
+    processor = get_text_processor()
+    if language is not None and language != processor.language:
+        # Create temporary processor with specific language
+        temp_processor = TextProcessor(
+            filter_fillers=True,
+            language=language,
+        )
+        return temp_processor.process(text)
+    return processor.process(text)
