@@ -223,7 +223,12 @@ class Dicton:
                 return llm_processor.act_on_text(selected_text, text)
 
             elif mode == ProcessingMode.REFORMULATION:
-                return llm_processor.reformulate(text)
+                # Check if LLM reformulation is enabled
+                if config.ENABLE_REFORMULATION:
+                    return llm_processor.reformulate(text)
+                else:
+                    # Fallback to local filler removal only
+                    return self._filter_fillers_local(text)
 
             elif mode == ProcessingMode.TRANSLATION:
                 return llm_processor.translate(text, "English")

@@ -135,6 +135,10 @@ class Config:
     # Filler word filtering: "true" to enable removal of filler words (um, uh, like, etc.)
     FILTER_FILLERS = os.getenv("FILTER_FILLERS", "true").lower() == "true"
 
+    # LLM-based reformulation: "true" to enable light reformulation via Gemini
+    # When enabled, FN+Shift uses LLM for smarter cleanup. When disabled, uses local filler removal only.
+    ENABLE_REFORMULATION = os.getenv("ENABLE_REFORMULATION", "true").lower() == "true"
+
     DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
     @classmethod
