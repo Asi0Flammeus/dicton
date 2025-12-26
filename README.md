@@ -19,7 +19,7 @@ A fast, low-latency voice-to-text dictation tool for Linux. Press the FN key to 
 - **Multiple Processing Modes**: Basic transcription, translation, LLM reformulation
 - **Real-time Visualizer**: Animated toric ring shows audio levels with mode-specific colors
 - **ElevenLabs STT**: Fast, accurate transcription via ElevenLabs Scribe API
-- **LLM Enhancement**: Optional Gemini-powered text cleanup and translation
+- **LLM Enhancement**: Optional text cleanup and translation via Gemini or Anthropic (with automatic fallback)
 - **System-wide**: Works in any application where you can type
 - **Low Latency**: Optimized pipeline for natural dictation flow
 
@@ -57,7 +57,9 @@ Dicton uses the **FN key** (XF86WakeUp) as the primary trigger, with modifier ke
 - X11 or Wayland (with XWayland)
 - System packages: `xdotool`, `libnotify-bin`, `xclip` (or `wl-clipboard` for Wayland)
 - ElevenLabs API key ([get one here](https://elevenlabs.io/))
-- Gemini API key (optional, for LLM features)
+- LLM API key (optional, for text cleanup and translation):
+  - Gemini API key ([get one here](https://aistudio.google.com/app/apikey)), or
+  - Anthropic API key ([get one here](https://console.anthropic.com/settings/keys))
 
 ### Other Platforms
 - Windows and macOS have basic support but FN key mode is Linux-only
@@ -78,7 +80,8 @@ sudo ./install.sh install
 # Configure API keys
 sudo nano /opt/dicton/.env
 # Set: ELEVENLABS_API_KEY=your_key
-# Set: GEMINI_API_KEY=your_key (optional)
+# Set: GEMINI_API_KEY=your_key (optional, for LLM features)
+# Or:  ANTHROPIC_API_KEY=your_key (alternative LLM provider)
 
 # Add user to input group (required for FN key)
 sudo usermod -aG input $USER
@@ -99,7 +102,9 @@ mkdir -p ~/.config/dicton
 
 # Add API keys
 echo "ELEVENLABS_API_KEY=your_key" > ~/.config/dicton/.env
+# Add one or both LLM providers (Gemini is default, Anthropic as fallback)
 echo "GEMINI_API_KEY=your_key" >> ~/.config/dicton/.env
+echo "ANTHROPIC_API_KEY=your_key" >> ~/.config/dicton/.env
 
 # Run
 dicton
@@ -134,9 +139,11 @@ Configuration is read from (in order):
 # Required
 ELEVENLABS_API_KEY=your_elevenlabs_key
 
-# Optional - LLM Features (Gemini)
+# Optional - LLM Features
+LLM_PROVIDER=gemini             # "gemini" (default) or "anthropic"
 GEMINI_API_KEY=your_gemini_key
-ENABLE_REFORMULATION=true
+ANTHROPIC_API_KEY=your_anthropic_key
+ENABLE_REFORMULATION=true       # Enable LLM-powered text cleanup
 
 # Hotkey Settings
 HOTKEY_BASE=fn                    # "fn" for FN key, "alt+g" for legacy
@@ -259,7 +266,7 @@ dicton/
 │   ├── config.py                  # Configuration management
 │   ├── fn_key_handler.py          # FN key capture via evdev
 │   ├── speech_recognition_engine.py # ElevenLabs STT
-│   ├── llm_processor.py           # Gemini LLM integration
+│   ├── llm_processor.py           # LLM integration (Gemini/Anthropic)
 │   ├── keyboard_handler.py        # Text insertion (xdotool)
 │   ├── visualizer.py              # Toric ring visualizer
 │   ├── selection_handler.py       # X11/Wayland selection
@@ -275,6 +282,7 @@ dicton/
 |---------|---------|
 | `elevenlabs` | Speech-to-text API |
 | `google-genai` | Gemini LLM API |
+| `anthropic` | Anthropic LLM API (alternative) |
 | `evdev` | FN key capture (Linux) |
 | `pyaudio` | Audio capture |
 | `pygame` | Audio visualizer |
@@ -306,4 +314,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - [ElevenLabs](https://elevenlabs.io/) - Speech-to-text API
 - [Google Gemini](https://ai.google.dev/) - LLM for text processing
+- [Anthropic Claude](https://www.anthropic.com/) - Alternative LLM provider
 - [Flexoki](https://github.com/kepano/flexoki) - Color palette for mode indicators
