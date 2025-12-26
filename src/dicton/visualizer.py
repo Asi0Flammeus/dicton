@@ -59,6 +59,25 @@ class Visualizer:
         self.COLOR_DIM = colors["dim"]
         self.COLOR_GLOW = colors["glow"]
 
+    def set_colors(self, color_name: str):
+        """Dynamically switch ring color by Flexoki color name.
+
+        Args:
+            color_name: One of 'red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'magenta'
+        """
+        from .config import FLEXOKI_COLORS
+
+        color_name = color_name.lower()
+        if color_name not in FLEXOKI_COLORS:
+            color_name = "orange"  # fallback
+
+        colors = FLEXOKI_COLORS[color_name]
+        with self.lock:
+            self.COLOR_MAIN = colors["main"]
+            self.COLOR_MID = colors["mid"]
+            self.COLOR_DIM = colors["dim"]
+            self.COLOR_GLOW = colors["glow"]
+
     def start(self):
         if self.running:
             return

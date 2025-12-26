@@ -83,6 +83,10 @@ class Config:
     # ElevenLabs API
     ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
 
+    # Gemini API (for Act on Text, reformulation, translation)
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+
     # ElevenLabs STT model
     ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "scribe_v1")
 

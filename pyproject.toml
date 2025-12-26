@@ -51,6 +51,9 @@ gtk = [
 fnkey = [
     "evdev>=1.6.0",
 ]
+llm = [
+    "google-genai>=1.0.0",
+]
 xshape = [
     "python-xlib>=0.33",
 ]
@@ -66,7 +69,7 @@ dev = [
     "ruff>=0.1.0",
 ]
 all = [
-    "dicton[vispy,gtk,fnkey,notifications,windows,dev]",
+    "dicton[vispy,gtk,fnkey,llm,notifications,windows,dev]",
 ]
 
 [project.scripts]
