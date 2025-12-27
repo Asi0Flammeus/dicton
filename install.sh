@@ -336,6 +336,18 @@ update_dicton() {
     echo -e "${YELLOW}Checking for new config options...${NC}"
     sync_env_config "$INSTALL_DIR/.env" "$INSTALL_DIR/.env.example"
 
+    # Ensure launcher script exists
+    if [ ! -f "$BIN_LINK" ]; then
+        echo -e "${YELLOW}Creating launcher script...${NC}"
+        cat > "$BIN_LINK" <<'EOF'
+#!/bin/bash
+cd /opt/dicton
+exec /opt/dicton/venv/bin/dicton "$@"
+EOF
+        chmod +x "$BIN_LINK"
+        echo -e "${GREEN}✓ Launcher created${NC}"
+    fi
+
     # Update user-level service file if it exists
     sync_user_service_file
 
