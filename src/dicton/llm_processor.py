@@ -215,7 +215,7 @@ IMPORTANT RULES:
 8. Keep changes to the strict minimum to stay as close to the original
 9. Return ONLY the cleaned text, no explanations
 10. Convert spoken numbers to digits (e.g., "twenty-three" → "23", "three hundred" → "300", "vingt-trois" → "23")
-11. Format enumerated items as bullet lists when the speaker uses "first", "second", "one", "two", "premier", "deuxième", etc. to introduce points
+11. Format enumerated items as lists when the speaker introduces points sequentially. Use numbered lists (1. 2. 3.) when speaker uses ordinals like "first", "second", "premier", "deuxième", or bullet points for other enumerations
 12. Interpret dictation commands and replace them with actual punctuation/formatting:
     - "new line" / "à la ligne" → actual line break
     - "new paragraph" / "nouveau paragraphe" → double line break
@@ -263,7 +263,7 @@ IMPORTANT RULES:
    - Interpret dictation commands (new line, dash, parentheses, etc.) and apply them
 2. Provide an accurate, natural translation to {target_language}
 3. Preserve the original tone and style
-4. Format enumerated items as bullet lists when the speaker uses "first", "second", etc.
+4. Format enumerated items as lists: numbered (1. 2. 3.) for ordinals, bullet points otherwise
 5. Keep the translation close to the original meaning while being natural
 6. Return ONLY the translated text, no explanations
 
