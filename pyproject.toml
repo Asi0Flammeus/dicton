@@ -69,6 +69,10 @@ dev = [
     "pytest-cov>=4.0.0",
     "ruff>=0.1.0",
 ]
+configui = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.27.0",
+]
 linux = [
     # Linux production: all Linux-specific features
     # Note: gtk excluded - requires system deps (libgirepository-2.0-dev) not available on all distros
@@ -76,7 +80,7 @@ linux = [
     "dicton[fnkey,llm,xshape,notifications]",
 ]
 all = [
-    "dicton[vispy,gtk,fnkey,llm,xshape,notifications,windows,dev]",
+    "dicton[vispy,gtk,fnkey,llm,xshape,notifications,windows,dev,configui]",
 ]
 
 [project.scripts]

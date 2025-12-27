@@ -206,8 +206,8 @@ class Dicton:
     def _capture_selection_for_act_on_text(self) -> str | None:
         """Capture selected text for Act on Text mode (called before recording starts)"""
         try:
-            from .selection_handler import get_primary_selection, has_selection
             from .platform_utils import IS_WAYLAND
+            from .selection_handler import get_primary_selection, has_selection
 
             if not has_selection():
                 print("⚠ No text selected")
@@ -413,6 +413,7 @@ Hotkeys (FN key mode):
 
 Examples:
   dicton                  Start dictation service
+  dicton --config-ui      Open settings in browser
   dicton --benchmark      Show latency statistics
   dicton --check-update   Check for new version
   dicton --clear-log      Clear latency history
@@ -438,6 +439,17 @@ Examples:
         action="store_true",
         help="Show version information",
     )
+    parser.add_argument(
+        "--config-ui",
+        action="store_true",
+        help="Launch configuration web UI in browser",
+    )
+    parser.add_argument(
+        "--config-port",
+        type=int,
+        default=9876,
+        help="Port for config UI server (default: 9876)",
+    )
 
     args = parser.parse_args()
 
@@ -445,6 +457,16 @@ Examples:
         from . import __version__
 
         print(f"Dicton v{__version__}")
+        return
+
+    if args.config_ui:
+        try:
+            from .config_server import run_config_server
+
+            run_config_server(port=args.config_port)
+        except ImportError:
+            print("Error: Configuration UI requires additional dependencies.")
+            print("Install with: pip install dicton[configui]")
         return
 
     if args.check_update:
