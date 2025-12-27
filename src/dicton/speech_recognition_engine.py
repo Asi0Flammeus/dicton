@@ -233,6 +233,56 @@ class SpeechRecognizer:
         """Stop recording (will process audio)."""
         self.recording = False
 
+    def record_for_duration(self, duration_seconds: float) -> np.ndarray | None:
+        """Record audio for a fixed duration (for latency testing)."""
+        if not self.use_elevenlabs:
+            print("⚠ ElevenLabs not available")
+            return None
+
+        stream = None
+        frames = []
+
+        try:
+            with suppress_stderr():
+                stream = self.audio.open(
+                    format=pyaudio.paInt16,
+                    channels=1,
+                    rate=config.SAMPLE_RATE,
+                    input=True,
+                    input_device_index=self.input_device,
+                    frames_per_buffer=config.CHUNK_SIZE,
+                )
+
+            # Calculate number of chunks needed
+            chunks_needed = int(duration_seconds * config.SAMPLE_RATE / config.CHUNK_SIZE)
+
+            for _ in range(chunks_needed):
+                try:
+                    data = stream.read(config.CHUNK_SIZE, exception_on_overflow=False)
+                    frames.append(data)
+                except Exception as e:
+                    if config.DEBUG:
+                        print(f"⚠ Read error: {e}")
+                    break
+
+        except Exception as e:
+            print(f"❌ Recording error: {e}")
+            return None
+
+        finally:
+            if stream:
+                stream.stop_stream()
+                stream.close()
+
+        if not frames:
+            return None
+
+        # Convert to numpy array
+        audio_data = b"".join(frames)
+        audio_array = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
+
+        return audio_array
+
     def cancel(self):
         """Cancel recording (discard audio, tap detected)."""
         self._cancelled = True
