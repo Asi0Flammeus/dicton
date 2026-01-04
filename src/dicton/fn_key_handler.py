@@ -118,11 +118,39 @@ class FnKeyHandler:
 
         # evdev devices
         self._device = None  # Primary device (laptop keyboard for FN key)
-        self._secondary_device = None  # Secondary device (e.g., ZSA for secondary hotkey)
+        self._secondary_devices = []  # All keyboards for secondary hotkey
         self._evdev_available = False
 
-        # Secondary hotkey (alternative to FN key)
-        self._secondary_keycode = SECONDARY_HOTKEY_MAP.get(config.SECONDARY_HOTKEY, None)
+        # Secondary hotkeys: mapping of keycode → ProcessingMode
+        # Each secondary hotkey triggers a specific mode directly (ignores modifier keys)
+        self._secondary_hotkeys: dict[int, ProcessingMode] = {}
+        self._build_secondary_hotkeys_map()
+
+        # Track if current recording was started via secondary hotkey (mode is locked)
+        self._secondary_hotkey_active = False
+
+    def _build_secondary_hotkeys_map(self):
+        """Build mapping of secondary hotkey keycodes to their processing modes."""
+        self._secondary_hotkeys = {}
+
+        # Debug: show what config values we're reading
+        if config.DEBUG:
+            print(f"Secondary hotkey config: basic={config.SECONDARY_HOTKEY}, translation={config.SECONDARY_HOTKEY_TRANSLATION}, act={config.SECONDARY_HOTKEY_ACT_ON_TEXT}")
+
+        # Basic mode (F1 by default)
+        keycode = SECONDARY_HOTKEY_MAP.get(config.SECONDARY_HOTKEY)
+        if keycode:
+            self._secondary_hotkeys[keycode] = ProcessingMode.BASIC
+
+        # Translation mode (F2 by default)
+        keycode = SECONDARY_HOTKEY_MAP.get(config.SECONDARY_HOTKEY_TRANSLATION)
+        if keycode:
+            self._secondary_hotkeys[keycode] = ProcessingMode.TRANSLATION
+
+        # Act on Text mode (F3 by default)
+        keycode = SECONDARY_HOTKEY_MAP.get(config.SECONDARY_HOTKEY_ACT_ON_TEXT)
+        if keycode:
+            self._secondary_hotkeys[keycode] = ProcessingMode.ACT_ON_TEXT
 
     def start(self):
         """Start the FN key listener"""
@@ -140,8 +168,8 @@ class FnKeyHandler:
             return False
 
         # Find keyboard devices
-        self._device, self._secondary_device = self._find_keyboard_devices()
-        if not self._device and not self._secondary_device:
+        self._device, self._secondary_devices = self._find_keyboard_devices()
+        if not self._device and not self._secondary_devices:
             print("No keyboard device found")
             print("You may need to run with sudo or add user to 'input' group")
             return False
@@ -153,8 +181,14 @@ class FnKeyHandler:
         # Log devices
         if self._device:
             print(f"FN key handler started on device: {self._device.name}")
-        if self._secondary_device and self._secondary_keycode:
-            print(f"Secondary hotkey: '{config.SECONDARY_HOTKEY}' → code {self._secondary_keycode} on {self._secondary_device.name}")
+        if self._secondary_hotkeys:
+            for keycode, mode in self._secondary_hotkeys.items():
+                # Find the key name from the keycode
+                key_name = next((k for k, v in SECONDARY_HOTKEY_MAP.items() if v == keycode), str(keycode))
+                print(f"Secondary hotkey: '{key_name}' → {mode.name}")
+            if self._secondary_devices:
+                device_names = [d.name for d in self._secondary_devices]
+                print(f"Secondary hotkeys listening on {len(device_names)} device(s): {', '.join(device_names)}")
 
         return True
 
@@ -166,9 +200,9 @@ class FnKeyHandler:
                 self._device.close()
             except Exception:
                 pass
-        if self._secondary_device:
+        for device in self._secondary_devices:
             try:
-                self._secondary_device.close()
+                device.close()
             except Exception:
                 pass
         if self._listener_thread:
@@ -178,9 +212,9 @@ class FnKeyHandler:
         """Find keyboard devices for FN key and secondary hotkey.
 
         Returns:
-            Tuple of (primary_device, secondary_device):
-            - primary_device: Laptop keyboard for FN/KEY_WAKEUP (skips external keyboards)
-            - secondary_device: External keyboard (ZSA etc.) for secondary hotkey
+            Tuple of (primary_device, secondary_devices):
+            - primary_device: Laptop keyboard for FN/KEY_WAKEUP
+            - secondary_devices: List of ALL keyboards for secondary hotkey
         """
         try:
             import evdev
@@ -206,7 +240,7 @@ class FnKeyHandler:
                             print(f"  {device.path}: {device.name} (WAKEUP={has_wakeup}, external={is_ext})")
 
             primary_device = None
-            secondary_device = None
+            secondary_devices = []
 
             # Find primary device: laptop keyboard with KEY_WAKEUP (skip external)
             for device in devices:
@@ -219,18 +253,19 @@ class FnKeyHandler:
                         primary_device = device
                         break
 
-            # Find secondary device: external keyboard with secondary hotkey
-            if self._secondary_keycode:
+            # Find ALL keyboards that support any secondary hotkey
+            if self._secondary_hotkeys:
                 for device in devices:
-                    if not is_external_keyboard(device.name):
+                    # Skip the primary device (already listening on it)
+                    if device == primary_device:
                         continue
                     caps = device.capabilities()
                     if ecodes.EV_KEY in caps:
                         keys = caps[ecodes.EV_KEY]
-                        # Must have secondary key AND be a full keyboard
-                        if self._secondary_keycode in keys and ecodes.KEY_A in keys:
-                            secondary_device = device
-                            break
+                        # Must have at least one secondary hotkey AND be a full keyboard (has A-Z keys)
+                        has_secondary = any(kc in keys for kc in self._secondary_hotkeys.keys())
+                        if has_secondary and ecodes.KEY_A in keys:
+                            secondary_devices.append(device)
 
             # Fallback for primary: any laptop keyboard
             if not primary_device:
@@ -246,15 +281,15 @@ class FnKeyHandler:
                             primary_device = device
                             break
 
-            return primary_device, secondary_device
+            return primary_device, secondary_devices
         except PermissionError:
             print("Permission denied accessing input devices")
             print("Add user to 'input' group: sudo usermod -aG input $USER")
-            return None, None
+            return None, []
         except Exception as e:
             if config.DEBUG:
                 print(f"Error finding keyboard device: {e}")
-            return None, None
+            return None, []
 
     def _listen_loop(self):
         """Main event loop for evdev - reads from both primary and secondary devices"""
@@ -268,10 +303,10 @@ class FnKeyHandler:
                 devices[self._device.fd] = self._device
                 if config.DEBUG:
                     print(f"Listening for FN key on: {self._device.name}")
-            if self._secondary_device:
-                devices[self._secondary_device.fd] = self._secondary_device
+            for sec_device in self._secondary_devices:
+                devices[sec_device.fd] = sec_device
                 if config.DEBUG:
-                    print(f"Listening for secondary hotkey on: {self._secondary_device.name}")
+                    print(f"Listening for secondary hotkey on: {sec_device.name}")
 
             if not devices:
                 return
@@ -297,21 +332,30 @@ class FnKeyHandler:
                         # Track modifier key states
                         self._update_modifier_state(event.code, event.value)
 
-                        # Determine if this is a trigger key based on which device
-                        is_trigger_key = False
+                        # Check if this is the FN key (primary trigger)
+                        is_fn_key = False
                         if device == self._device:
-                            # Primary device: check for FN key (KEY_WAKEUP or KEY_FN)
-                            is_trigger_key = event.code == KEY_WAKEUP or event.code == 464
-                        elif device == self._secondary_device:
-                            # Secondary device: check for secondary hotkey
-                            is_trigger_key = self._secondary_keycode and event.code == self._secondary_keycode
+                            is_fn_key = event.code == KEY_WAKEUP or event.code == 464
 
-                        if is_trigger_key:
+                        # Check if this is a secondary hotkey (on any device)
+                        secondary_mode = self._secondary_hotkeys.get(event.code)
+
+                        if is_fn_key:
+                            # FN key: use modifier-based mode detection
                             if event.value == 1:  # Key down
+                                self._secondary_hotkey_active = False
                                 self._on_fn_key_down()
                             elif event.value == 0:  # Key up
                                 self._on_fn_key_up()
-                            # value == 2 is key repeat, ignored
+                        elif secondary_mode is not None:
+                            # Secondary hotkey: use the specific mode for this key
+                            if event.value == 1:  # Key down
+                                self._secondary_hotkey_active = True
+                                self._current_mode = secondary_mode
+                                self._on_fn_key_down()
+                            elif event.value == 0:  # Key up
+                                self._on_fn_key_up()
+                        # value == 2 is key repeat, ignored
 
         except Exception as e:
             if self._running and config.DEBUG:
@@ -359,22 +403,26 @@ class FnKeyHandler:
 
         Behavior depends on mode:
         - BASIC (FN only): PTT with hold (after delay), toggle with double-tap
-        - Advanced modes (FN+modifier): Toggle-only (press to start, press to stop)
+        - Advanced modes (FN+modifier or secondary hotkey): Toggle-only (press to start, press to stop)
         """
         now = time.time()
 
         with self._state_lock:
             if self._state == HotkeyState.IDLE:
                 self._key_down_time = now
-                self._current_mode = self._detect_mode()
 
-                # Advanced modes (with modifiers) use toggle-only behavior
-                if self._current_mode != ProcessingMode.BASIC:
+                # For secondary hotkeys, mode is already set; for FN key, detect from modifiers
+                if not self._secondary_hotkey_active:
+                    self._current_mode = self._detect_mode()
+
+                # Advanced modes (with modifiers or secondary hotkey) use toggle-only behavior
+                # Secondary hotkeys always use toggle behavior (even for BASIC mode)
+                if self._current_mode != ProcessingMode.BASIC or self._secondary_hotkey_active:
                     self._state = HotkeyState.RECORDING_TOGGLE
                     self._toggle_first_release = True  # Ignore first release
                     self._trigger_start_recording()
                 else:
-                    # BASIC mode: Wait for activation delay before starting
+                    # BASIC mode via FN: Wait for activation delay before starting
                     self._state = HotkeyState.WAITING_ACTIVATION
                     self._start_activation_timer()
 
@@ -388,8 +436,9 @@ class FnKeyHandler:
                 else:
                     # Window expired, treat as new press
                     self._key_down_time = now
-                    self._current_mode = self._detect_mode()
-                    if self._current_mode != ProcessingMode.BASIC:
+                    if not self._secondary_hotkey_active:
+                        self._current_mode = self._detect_mode()
+                    if self._current_mode != ProcessingMode.BASIC or self._secondary_hotkey_active:
                         self._state = HotkeyState.RECORDING_TOGGLE
                         self._toggle_first_release = True
                         self._trigger_start_recording()

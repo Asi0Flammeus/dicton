@@ -7,11 +7,17 @@ from dotenv import load_dotenv
 
 
 def _load_env_files():
-    """Load .env from multiple possible locations (first found wins)."""
+    """Load .env from multiple possible locations (first found wins).
+
+    Priority order:
+    1. User config dir (~/.config/dicton/) - where dashboard saves settings
+    2. Current working directory - for development
+    3. System install (/opt/dicton/) - read-only defaults
+    """
     locations = [
+        Path.home() / ".config" / "dicton" / ".env",  # User config dir - FIRST!
         Path.cwd() / ".env",  # Current working directory
-        Path.home() / ".config" / "dicton" / ".env",  # User config dir
-        Path("/opt/dicton/.env"),  # System install
+        Path("/opt/dicton/.env"),  # System install (read-only fallback)
     ]
 
     for env_path in locations:
@@ -133,9 +139,11 @@ class Config:
     # Activation delay in ms - wait before starting recording to distinguish from double-tap
     HOTKEY_ACTIVATION_DELAY_MS = int(os.getenv("HOTKEY_ACTIVATION_DELAY_MS", "50"))
 
-    # Secondary hotkey - alternative key that works like FN (for keyboards without KEY_WAKEUP)
+    # Secondary hotkeys - alternative keys that work like FN (for keyboards without KEY_WAKEUP)
     # Options: escape, f1-f12, capslock, pause, insert, home, end, pageup, pagedown, none
-    SECONDARY_HOTKEY = os.getenv("SECONDARY_HOTKEY", "f1").lower()
+    SECONDARY_HOTKEY = os.getenv("SECONDARY_HOTKEY", "none").lower()  # Basic/Reformulation mode
+    SECONDARY_HOTKEY_TRANSLATION = os.getenv("SECONDARY_HOTKEY_TRANSLATION", "none").lower()  # Translation mode
+    SECONDARY_HOTKEY_ACT_ON_TEXT = os.getenv("SECONDARY_HOTKEY_ACT_ON_TEXT", "none").lower()  # Act on Text mode
 
     # Visualizer theme color (red, orange, yellow, green, cyan, blue, purple, magenta)
     THEME_COLOR = os.getenv("THEME_COLOR", "orange").lower()

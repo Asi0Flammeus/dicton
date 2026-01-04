@@ -682,22 +682,40 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             </div>
 
             <div class="section">
-                <div class="section-title">Secondary Hotkey</div>
+                <div class="section-title">Secondary Hotkeys</div>
+                <div class="hint" style="margin-bottom: 12px;">Alternative hotkeys that work on all keyboards (laptop + external). Each key triggers a specific mode directly.</div>
+
+                <!-- Basic Mode Hotkey -->
                 <div class="form-group">
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="secondary_hotkey_enabled" onchange="onSecondaryHotkeyToggle()">
-                        <label class="checkbox-label">Enable Secondary Hotkey</label>
-                    </div>
-                    <div class="hint">A backup hotkey that works on all keyboards (laptop + external)</div>
-                </div>
-                <div class="form-group" id="secondary-hotkey-config" style="display: none;">
-                    <label>Secondary Hotkey Key</label>
+                    <label>Basic Mode (Dictation + Reformulation)</label>
                     <div class="hotkey-input-row">
-                        <div class="hotkey-value" id="secondary-hotkey-value">Not set</div>
-                        <button class="btn btn-secondary" onclick="captureSecondaryHotkey()">Change</button>
+                        <div class="hotkey-value" id="secondary-hotkey-basic-value">Not set</div>
+                        <button class="btn btn-secondary" onclick="captureSecondaryHotkey('basic')">Change</button>
+                        <button class="btn btn-secondary" onclick="clearSecondaryHotkey('basic')">Clear</button>
                     </div>
                     <input type="hidden" id="secondary_hotkey" value="none">
-                    <div class="hint">Press a single key (F1-F12, Escape, CapsLock, etc.)</div>
+                </div>
+
+                <!-- Translation Mode Hotkey -->
+                <div class="form-group">
+                    <label>Translation Mode (Transcribe + Translate to EN)</label>
+                    <div class="hotkey-input-row">
+                        <div class="hotkey-value" id="secondary-hotkey-translation-value">Not set</div>
+                        <button class="btn btn-secondary" onclick="captureSecondaryHotkey('translation')">Change</button>
+                        <button class="btn btn-secondary" onclick="clearSecondaryHotkey('translation')">Clear</button>
+                    </div>
+                    <input type="hidden" id="secondary_hotkey_translation" value="none">
+                </div>
+
+                <!-- Act on Text Mode Hotkey -->
+                <div class="form-group">
+                    <label>Act on Text Mode (Voice command on selected text)</label>
+                    <div class="hotkey-input-row">
+                        <div class="hotkey-value" id="secondary-hotkey-act-value">Not set</div>
+                        <button class="btn btn-secondary" onclick="captureSecondaryHotkey('act')">Change</button>
+                        <button class="btn btn-secondary" onclick="clearSecondaryHotkey('act')">Clear</button>
+                    </div>
+                    <input type="hidden" id="secondary_hotkey_act_on_text" value="none">
                 </div>
             </div>
 
@@ -882,6 +900,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             // Hotkey settings
             document.getElementById('custom_hotkey_value').value = cfg.custom_hotkey_value || 'alt+g';
             document.getElementById('secondary_hotkey').value = cfg.secondary_hotkey || 'none';
+            document.getElementById('secondary_hotkey_translation').value = cfg.secondary_hotkey_translation || 'none';
+            document.getElementById('secondary_hotkey_act_on_text').value = cfg.secondary_hotkey_act_on_text || 'none';
 
             // Update color selection
             document.querySelectorAll('.color-option').forEach(el => {
@@ -908,7 +928,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 language: document.getElementById('language').value,
                 debug: document.getElementById('debug').checked,
                 custom_hotkey_value: document.getElementById('custom_hotkey_value').value || 'alt+g',
-                secondary_hotkey: document.getElementById('secondary_hotkey').value || 'none'
+                secondary_hotkey: document.getElementById('secondary_hotkey').value || 'none',
+                secondary_hotkey_translation: document.getElementById('secondary_hotkey_translation').value || 'none',
+                secondary_hotkey_act_on_text: document.getElementById('secondary_hotkey_act_on_text').value || 'none'
             };
 
             // Only include API keys if they were changed (not masked)
@@ -928,6 +950,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         async function saveConfig() {
             try {
                 const data = getFormData();
+                console.log('Saving config:', data);
+                console.log('Secondary hotkeys:', {
+                    basic: data.secondary_hotkey,
+                    translation: data.secondary_hotkey_translation,
+                    act: data.secondary_hotkey_act_on_text
+                });
                 const res = await fetch(API_BASE + '/api/config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -935,11 +963,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 });
                 if (res.ok) {
                     showStatus('Configuration saved! Restart Dicton to apply changes.', 'success');
+                    // Reload config from server
+                    const reloaded = await fetch(API_BASE + '/api/config').then(r => r.json());
+                    console.log('Reloaded config from server:', reloaded);
+                    console.log('Reloaded secondary hotkeys:', {
+                        basic: reloaded.secondary_hotkey,
+                        translation: reloaded.secondary_hotkey_translation,
+                        act: reloaded.secondary_hotkey_act_on_text
+                    });
                     loadConfig(); // Reload to update statuses
                 } else {
                     showStatus('Failed to save configuration', 'error');
                 }
             } catch (e) {
+                console.error('Save error:', e);
                 showStatus('Failed to save configuration', 'error');
             }
         }
@@ -1099,7 +1136,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         // Hotkey Capture Logic
         // =====================
 
-        let captureMode = null; // 'primary' or 'secondary'
+        let captureMode = null; // 'primary', 'secondary-basic', 'secondary-translation', 'secondary-act'
         let capturedKey = null;
 
         // Key mapping for secondary hotkey (single keys)
@@ -1130,17 +1167,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }
         }
 
-        // Toggle secondary hotkey config visibility
-        function onSecondaryHotkeyToggle() {
-            const enabled = document.getElementById('secondary_hotkey_enabled').checked;
-            const config = document.getElementById('secondary-hotkey-config');
-            config.style.display = enabled ? 'block' : 'none';
-
-            if (!enabled) {
-                document.getElementById('secondary_hotkey').value = 'none';
-            }
-        }
-
         // Start capturing primary hotkey (modifier combo)
         function capturePrimaryHotkey() {
             captureMode = 'primary';
@@ -1156,17 +1182,41 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         // Start capturing secondary hotkey (single key)
-        function captureSecondaryHotkey() {
-            captureMode = 'secondary';
+        // mode: 'basic', 'translation', or 'act'
+        function captureSecondaryHotkey(mode) {
+            captureMode = 'secondary-' + mode;
             capturedKey = null;
 
-            document.getElementById('modal-title').textContent = 'Capture Secondary Hotkey';
+            const modeLabels = {
+                'basic': 'Basic Mode',
+                'translation': 'Translation Mode',
+                'act': 'Act on Text Mode'
+            };
+
+            document.getElementById('modal-title').textContent = 'Capture ' + modeLabels[mode] + ' Hotkey';
             document.getElementById('modal-hint').textContent = 'Press a single key (F1-F12, Escape, CapsLock, etc.)';
             document.getElementById('key-display').textContent = 'Waiting for input...';
             document.getElementById('key-display').className = 'key-display waiting';
             document.getElementById('confirm-key-btn').disabled = true;
 
             showModal();
+        }
+
+        // Clear a secondary hotkey
+        function clearSecondaryHotkey(mode) {
+            const inputMap = {
+                'basic': 'secondary_hotkey',
+                'translation': 'secondary_hotkey_translation',
+                'act': 'secondary_hotkey_act_on_text'
+            };
+            const displayMap = {
+                'basic': 'secondary-hotkey-basic-value',
+                'translation': 'secondary-hotkey-translation-value',
+                'act': 'secondary-hotkey-act-value'
+            };
+
+            document.getElementById(inputMap[mode]).value = 'none';
+            document.getElementById(displayMap[mode]).textContent = 'Not set';
         }
 
         function showModal() {
@@ -1192,9 +1242,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             if (captureMode === 'primary') {
                 document.getElementById('custom_hotkey_value').value = capturedKey;
                 document.getElementById('primary-hotkey-value').textContent = formatHotkeyDisplay(capturedKey);
-            } else if (captureMode === 'secondary') {
+            } else if (captureMode === 'secondary-basic') {
                 document.getElementById('secondary_hotkey').value = capturedKey;
-                document.getElementById('secondary-hotkey-value').textContent = formatHotkeyDisplay(capturedKey);
+                document.getElementById('secondary-hotkey-basic-value').textContent = formatHotkeyDisplay(capturedKey);
+            } else if (captureMode === 'secondary-translation') {
+                document.getElementById('secondary_hotkey_translation').value = capturedKey;
+                document.getElementById('secondary-hotkey-translation-value').textContent = formatHotkeyDisplay(capturedKey);
+            } else if (captureMode === 'secondary-act') {
+                document.getElementById('secondary_hotkey_act_on_text').value = capturedKey;
+                document.getElementById('secondary-hotkey-act-value').textContent = formatHotkeyDisplay(capturedKey);
             }
 
             hideModal();
@@ -1236,7 +1292,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 keyDisplay.className = 'key-display captured';
                 confirmBtn.disabled = false;
 
-            } else if (captureMode === 'secondary') {
+            } else if (captureMode && captureMode.startsWith('secondary-')) {
                 // For secondary: single key only
                 const key = e.key;
 
@@ -1280,15 +1336,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 document.getElementById('primary-hotkey-value').textContent = formatHotkeyDisplay(customValue);
             }
 
-            // Secondary hotkey
-            const secondaryValue = document.getElementById('secondary_hotkey').value;
-            const secondaryEnabled = secondaryValue && secondaryValue !== 'none';
-            document.getElementById('secondary_hotkey_enabled').checked = secondaryEnabled;
-            onSecondaryHotkeyToggle();
+            // Secondary hotkeys - update display for all modes
+            const secondaryBasic = document.getElementById('secondary_hotkey').value || 'none';
+            const secondaryTranslation = document.getElementById('secondary_hotkey_translation').value || 'none';
+            const secondaryAct = document.getElementById('secondary_hotkey_act_on_text').value || 'none';
 
-            if (secondaryEnabled) {
-                document.getElementById('secondary-hotkey-value').textContent = formatHotkeyDisplay(secondaryValue);
-            }
+            document.getElementById('secondary-hotkey-basic-value').textContent =
+                secondaryBasic !== 'none' ? formatHotkeyDisplay(secondaryBasic) : 'Not set';
+            document.getElementById('secondary-hotkey-translation-value').textContent =
+                secondaryTranslation !== 'none' ? formatHotkeyDisplay(secondaryTranslation) : 'Not set';
+            document.getElementById('secondary-hotkey-act-value').textContent =
+                secondaryAct !== 'none' ? formatHotkeyDisplay(secondaryAct) : 'Not set';
         }
 
         // Load config on page load
@@ -1305,11 +1363,11 @@ def get_env_path() -> Path:
 
 
 def _find_env_file() -> Path | None:
-    """Find .env file using same fallback logic as config.py."""
+    """Find .env file - prioritize user config over system config."""
     locations = [
+        Config.CONFIG_DIR / ".env",  # User config dir (~/.config/dicton/) - FIRST!
         Path.cwd() / ".env",  # Current working directory
-        Config.CONFIG_DIR / ".env",  # User config dir (~/.config/dicton/)
-        Path("/opt/dicton/.env"),  # System install
+        Path("/opt/dicton/.env"),  # System install (read-only fallback)
     ]
     for env_path in locations:
         if env_path.exists():
@@ -1399,6 +1457,8 @@ def get_current_config() -> dict[str, Any]:
         # Hotkey settings
         "custom_hotkey_value": env_vars.get("CUSTOM_HOTKEY_VALUE", "alt+g"),
         "secondary_hotkey": env_vars.get("SECONDARY_HOTKEY", "none"),
+        "secondary_hotkey_translation": env_vars.get("SECONDARY_HOTKEY_TRANSLATION", "none"),
+        "secondary_hotkey_act_on_text": env_vars.get("SECONDARY_HOTKEY_ACT_ON_TEXT", "none"),
     }
 
 
@@ -1425,6 +1485,8 @@ def save_config(data: dict[str, Any]) -> None:
         "debug": "DEBUG",
         "custom_hotkey_value": "CUSTOM_HOTKEY_VALUE",
         "secondary_hotkey": "SECONDARY_HOTKEY",
+        "secondary_hotkey_translation": "SECONDARY_HOTKEY_TRANSLATION",
+        "secondary_hotkey_act_on_text": "SECONDARY_HOTKEY_ACT_ON_TEXT",
     }
 
     for ui_field, env_var in field_map.items():
@@ -1566,6 +1628,10 @@ def create_app():
         enable_reformulation: bool | None = None
         language: str | None = None
         debug: bool | None = None
+        custom_hotkey_value: str | None = None
+        secondary_hotkey: str | None = None
+        secondary_hotkey_translation: str | None = None
+        secondary_hotkey_act_on_text: str | None = None
 
     @app.get("/", response_class=HTMLResponse)
     async def root():
@@ -1577,8 +1643,18 @@ def create_app():
 
     @app.post("/api/config")
     async def api_save_config(data: ConfigData):
-        save_config(data.model_dump(exclude_none=True))
-        return {"status": "ok"}
+        try:
+            config_dict = data.model_dump(exclude_none=True)
+            print(f"[DEBUG] Received config data: {config_dict}")
+            print(f"[DEBUG] Secondary hotkeys: basic={config_dict.get('secondary_hotkey')}, translation={config_dict.get('secondary_hotkey_translation')}, act={config_dict.get('secondary_hotkey_act_on_text')}")
+            print(f"[DEBUG] Writing to: {get_env_path()}")
+            save_config(config_dict)
+            return {"status": "ok"}
+        except Exception as e:
+            import traceback
+            print(f"[ERROR] Save config failed: {e}")
+            traceback.print_exc()
+            return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
 
     @app.get("/api/dictionary")
     async def api_get_dictionary():
