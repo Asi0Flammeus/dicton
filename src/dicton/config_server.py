@@ -343,6 +343,104 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             color: var(--tx);
             line-height: 1.5;
         }
+        /* Key Capture Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+        }
+        .modal-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal {
+            background: var(--bg-2);
+            border: 1px solid var(--ui-2);
+            border-radius: 12px;
+            padding: 2rem;
+            min-width: 320px;
+            max-width: 400px;
+            text-align: center;
+        }
+        .modal-title {
+            font-size: 1.1rem;
+            color: var(--tx);
+            margin-bottom: 0.5rem;
+        }
+        .modal-hint {
+            font-size: 0.85rem;
+            color: var(--tx-2);
+            margin-bottom: 1.5rem;
+        }
+        .key-display {
+            background: var(--bg);
+            border: 2px solid var(--ui-2);
+            border-radius: 8px;
+            padding: 1.5rem;
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: var(--tx);
+            margin-bottom: 1.5rem;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .key-display.waiting {
+            color: var(--tx-3);
+            font-size: 1rem;
+        }
+        .key-display.captured {
+            border-color: var(--green);
+            color: var(--green);
+        }
+        .key-display.error {
+            border-color: var(--red);
+            color: var(--red);
+        }
+        .modal-buttons {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: center;
+        }
+        /* Hotkey input row */
+        .hotkey-input-row {
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+        }
+        .hotkey-input-row select {
+            flex: 1;
+        }
+        .hotkey-input-row .btn {
+            flex-shrink: 0;
+        }
+        .hotkey-value {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            background: var(--bg);
+            border: 1px solid var(--ui-2);
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: var(--tx);
+        }
+        .hotkey-value.disabled {
+            color: var(--tx-3);
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -564,14 +662,47 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <!-- Hotkeys Tab -->
         <div id="tab-hotkeys" class="tab-content">
             <div class="section">
-                <div class="section-title">Hotkey Settings</div>
+                <div class="section-title">Primary Hotkey</div>
                 <div class="form-group">
-                    <label>Base Hotkey</label>
-                    <select id="hotkey_base">
-                        <option value="fn">FN Key</option>
-                        <option value="alt+g">Alt+G (legacy)</option>
-                    </select>
+                    <label>Hotkey Type</label>
+                    <div class="hotkey-input-row">
+                        <select id="hotkey_base" onchange="onHotkeyBaseChange()">
+                            <option value="fn">FN Key (recommended)</option>
+                            <option value="custom">Custom Modifier Combo</option>
+                        </select>
+                        <button id="capture-primary-btn" class="btn btn-secondary" onclick="capturePrimaryHotkey()" style="display: none;">Capture</button>
+                    </div>
+                    <div class="hint">FN key works on internal keyboards only. Use custom for external keyboards.</div>
                 </div>
+                <div class="form-group" id="custom-hotkey-display" style="display: none;">
+                    <label>Current Custom Hotkey</label>
+                    <div class="hotkey-value" id="primary-hotkey-value">Alt+G</div>
+                    <input type="hidden" id="custom_hotkey_value" value="alt+g">
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Secondary Hotkey</div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="secondary_hotkey_enabled" onchange="onSecondaryHotkeyToggle()">
+                        <label class="checkbox-label">Enable Secondary Hotkey</label>
+                    </div>
+                    <div class="hint">A backup hotkey that works on all keyboards (laptop + external)</div>
+                </div>
+                <div class="form-group" id="secondary-hotkey-config" style="display: none;">
+                    <label>Secondary Hotkey Key</label>
+                    <div class="hotkey-input-row">
+                        <div class="hotkey-value" id="secondary-hotkey-value">Not set</div>
+                        <button class="btn btn-secondary" onclick="captureSecondaryHotkey()">Change</button>
+                    </div>
+                    <input type="hidden" id="secondary_hotkey" value="none">
+                    <div class="hint">Press a single key (F1-F12, Escape, CapsLock, etc.)</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">Timing Settings</div>
                 <div class="grid-2">
                     <div class="form-group">
                         <label>Hold Threshold (ms)</label>
@@ -589,6 +720,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <div class="btn-group">
                 <button class="btn btn-primary" onclick="saveConfig()">Save Configuration</button>
                 <button class="btn btn-secondary" onclick="loadConfig()">Reset to Current</button>
+            </div>
+        </div>
+
+        <!-- Key Capture Modal -->
+        <div id="key-capture-modal" class="modal-overlay">
+            <div class="modal">
+                <div class="modal-title" id="modal-title">Press a key...</div>
+                <div class="modal-hint" id="modal-hint">Press the key combination you want to use</div>
+                <div class="key-display waiting" id="key-display">Waiting for input...</div>
+                <div class="modal-buttons">
+                    <button class="btn btn-secondary" onclick="cancelKeyCapture()">Cancel</button>
+                    <button class="btn btn-primary" id="confirm-key-btn" onclick="confirmKeyCapture()" disabled>Confirm</button>
+                </div>
             </div>
         </div>
 
@@ -735,26 +879,36 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             document.getElementById('language').value = cfg.language || 'auto';
             document.getElementById('debug').checked = cfg.debug === true;
 
+            // Hotkey settings
+            document.getElementById('custom_hotkey_value').value = cfg.custom_hotkey_value || 'alt+g';
+            document.getElementById('secondary_hotkey').value = cfg.secondary_hotkey || 'none';
+
             // Update color selection
             document.querySelectorAll('.color-option').forEach(el => {
                 el.classList.toggle('selected', el.dataset.color === (cfg.theme_color || 'orange'));
             });
+
+            // Update hotkey UI state
+            updateHotkeyUI();
         }
 
         function getFormData() {
+            const hotkeyBase = document.getElementById('hotkey_base').value;
             const data = {
                 llm_provider: document.getElementById('llm_provider').value,
                 theme_color: document.querySelector('.color-option.selected')?.dataset.color || 'orange',
                 visualizer_style: document.getElementById('visualizer_style').value,
                 animation_position: document.getElementById('animation_position').value,
                 visualizer_backend: document.getElementById('visualizer_backend').value,
-                hotkey_base: document.getElementById('hotkey_base').value,
+                hotkey_base: hotkeyBase,
                 hotkey_hold_threshold_ms: document.getElementById('hotkey_hold_threshold_ms').value,
                 hotkey_double_tap_window_ms: document.getElementById('hotkey_double_tap_window_ms').value,
                 filter_fillers: document.getElementById('filter_fillers').checked,
                 enable_reformulation: document.getElementById('enable_reformulation').checked,
                 language: document.getElementById('language').value,
-                debug: document.getElementById('debug').checked
+                debug: document.getElementById('debug').checked,
+                custom_hotkey_value: document.getElementById('custom_hotkey_value').value || 'alt+g',
+                secondary_hotkey: document.getElementById('secondary_hotkey').value || 'none'
             };
 
             // Only include API keys if they were changed (not masked)
@@ -941,6 +1095,202 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             });
         });
 
+        // =====================
+        // Hotkey Capture Logic
+        // =====================
+
+        let captureMode = null; // 'primary' or 'secondary'
+        let capturedKey = null;
+
+        // Key mapping for secondary hotkey (single keys)
+        const SECONDARY_KEY_MAP = {
+            'Escape': 'escape',
+            'F1': 'f1', 'F2': 'f2', 'F3': 'f3', 'F4': 'f4',
+            'F5': 'f5', 'F6': 'f6', 'F7': 'f7', 'F8': 'f8',
+            'F9': 'f9', 'F10': 'f10', 'F11': 'f11', 'F12': 'f12',
+            'CapsLock': 'capslock',
+            'Pause': 'pause',
+            'Insert': 'insert',
+            'Home': 'home', 'End': 'end',
+            'PageUp': 'pageup', 'PageDown': 'pagedown',
+        };
+
+        // Show/hide UI based on hotkey type selection
+        function onHotkeyBaseChange() {
+            const select = document.getElementById('hotkey_base');
+            const captureBtn = document.getElementById('capture-primary-btn');
+            const customDisplay = document.getElementById('custom-hotkey-display');
+
+            if (select.value === 'custom') {
+                captureBtn.style.display = 'block';
+                customDisplay.style.display = 'block';
+            } else {
+                captureBtn.style.display = 'none';
+                customDisplay.style.display = 'none';
+            }
+        }
+
+        // Toggle secondary hotkey config visibility
+        function onSecondaryHotkeyToggle() {
+            const enabled = document.getElementById('secondary_hotkey_enabled').checked;
+            const config = document.getElementById('secondary-hotkey-config');
+            config.style.display = enabled ? 'block' : 'none';
+
+            if (!enabled) {
+                document.getElementById('secondary_hotkey').value = 'none';
+            }
+        }
+
+        // Start capturing primary hotkey (modifier combo)
+        function capturePrimaryHotkey() {
+            captureMode = 'primary';
+            capturedKey = null;
+
+            document.getElementById('modal-title').textContent = 'Capture Primary Hotkey';
+            document.getElementById('modal-hint').textContent = 'Press a modifier combination (e.g., Alt+G, Ctrl+Shift+X)';
+            document.getElementById('key-display').textContent = 'Waiting for input...';
+            document.getElementById('key-display').className = 'key-display waiting';
+            document.getElementById('confirm-key-btn').disabled = true;
+
+            showModal();
+        }
+
+        // Start capturing secondary hotkey (single key)
+        function captureSecondaryHotkey() {
+            captureMode = 'secondary';
+            capturedKey = null;
+
+            document.getElementById('modal-title').textContent = 'Capture Secondary Hotkey';
+            document.getElementById('modal-hint').textContent = 'Press a single key (F1-F12, Escape, CapsLock, etc.)';
+            document.getElementById('key-display').textContent = 'Waiting for input...';
+            document.getElementById('key-display').className = 'key-display waiting';
+            document.getElementById('confirm-key-btn').disabled = true;
+
+            showModal();
+        }
+
+        function showModal() {
+            const modal = document.getElementById('key-capture-modal');
+            modal.classList.add('show');
+            document.addEventListener('keydown', handleKeyCapture);
+        }
+
+        function hideModal() {
+            const modal = document.getElementById('key-capture-modal');
+            modal.classList.remove('show');
+            document.removeEventListener('keydown', handleKeyCapture);
+            captureMode = null;
+        }
+
+        function cancelKeyCapture() {
+            hideModal();
+        }
+
+        function confirmKeyCapture() {
+            if (!capturedKey) return;
+
+            if (captureMode === 'primary') {
+                document.getElementById('custom_hotkey_value').value = capturedKey;
+                document.getElementById('primary-hotkey-value').textContent = formatHotkeyDisplay(capturedKey);
+            } else if (captureMode === 'secondary') {
+                document.getElementById('secondary_hotkey').value = capturedKey;
+                document.getElementById('secondary-hotkey-value').textContent = formatHotkeyDisplay(capturedKey);
+            }
+
+            hideModal();
+        }
+
+        function handleKeyCapture(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const keyDisplay = document.getElementById('key-display');
+            const confirmBtn = document.getElementById('confirm-key-btn');
+
+            if (captureMode === 'primary') {
+                // For primary: require at least one modifier
+                const modifiers = [];
+                if (e.ctrlKey) modifiers.push('ctrl');
+                if (e.altKey) modifiers.push('alt');
+                if (e.shiftKey) modifiers.push('shift');
+                if (e.metaKey) modifiers.push('meta');
+
+                const key = e.key.toLowerCase();
+
+                // Don't capture modifier-only presses
+                if (['control', 'alt', 'shift', 'meta'].includes(key)) {
+                    keyDisplay.textContent = modifiers.join('+') + '+...';
+                    keyDisplay.className = 'key-display waiting';
+                    return;
+                }
+
+                if (modifiers.length === 0) {
+                    keyDisplay.textContent = 'Need at least one modifier (Ctrl, Alt, Shift)';
+                    keyDisplay.className = 'key-display error';
+                    confirmBtn.disabled = true;
+                    return;
+                }
+
+                capturedKey = modifiers.join('+') + '+' + key;
+                keyDisplay.textContent = formatHotkeyDisplay(capturedKey);
+                keyDisplay.className = 'key-display captured';
+                confirmBtn.disabled = false;
+
+            } else if (captureMode === 'secondary') {
+                // For secondary: single key only
+                const key = e.key;
+
+                // Reject modifier keys themselves
+                if (['Control', 'Alt', 'Shift', 'Meta'].includes(key)) {
+                    keyDisplay.textContent = 'Modifier keys not allowed for secondary';
+                    keyDisplay.className = 'key-display error';
+                    confirmBtn.disabled = true;
+                    return;
+                }
+
+                // Check if key is in allowed list
+                if (SECONDARY_KEY_MAP[key]) {
+                    capturedKey = SECONDARY_KEY_MAP[key];
+                    keyDisplay.textContent = key;
+                    keyDisplay.className = 'key-display captured';
+                    confirmBtn.disabled = false;
+                } else {
+                    keyDisplay.textContent = 'Unsupported key: ' + key;
+                    keyDisplay.className = 'key-display error';
+                    confirmBtn.disabled = true;
+                }
+            }
+        }
+
+        function formatHotkeyDisplay(hotkeyStr) {
+            if (!hotkeyStr || hotkeyStr === 'none') return 'None';
+            return hotkeyStr.split('+').map(part =>
+                part.charAt(0).toUpperCase() + part.slice(1)
+            ).join(' + ');
+        }
+
+        // Update UI from config values
+        function updateHotkeyUI() {
+            // Primary hotkey
+            const hotkeyBase = document.getElementById('hotkey_base').value;
+            onHotkeyBaseChange();
+
+            if (hotkeyBase === 'custom') {
+                const customValue = document.getElementById('custom_hotkey_value').value || 'alt+g';
+                document.getElementById('primary-hotkey-value').textContent = formatHotkeyDisplay(customValue);
+            }
+
+            // Secondary hotkey
+            const secondaryValue = document.getElementById('secondary_hotkey').value;
+            const secondaryEnabled = secondaryValue && secondaryValue !== 'none';
+            document.getElementById('secondary_hotkey_enabled').checked = secondaryEnabled;
+            onSecondaryHotkeyToggle();
+
+            if (secondaryEnabled) {
+                document.getElementById('secondary-hotkey-value').textContent = formatHotkeyDisplay(secondaryValue);
+            }
+        }
+
         // Load config on page load
         loadConfig();
     </script>
@@ -1046,6 +1396,9 @@ def get_current_config() -> dict[str, Any]:
         "enable_reformulation": env_vars.get("ENABLE_REFORMULATION", "true").lower() == "true",
         "language": env_vars.get("LANGUAGE", config.LANGUAGE),
         "debug": env_vars.get("DEBUG", "false").lower() == "true",
+        # Hotkey settings
+        "custom_hotkey_value": env_vars.get("CUSTOM_HOTKEY_VALUE", "alt+g"),
+        "secondary_hotkey": env_vars.get("SECONDARY_HOTKEY", "none"),
     }
 
 
@@ -1070,6 +1423,8 @@ def save_config(data: dict[str, Any]) -> None:
         "enable_reformulation": "ENABLE_REFORMULATION",
         "language": "LANGUAGE",
         "debug": "DEBUG",
+        "custom_hotkey_value": "CUSTOM_HOTKEY_VALUE",
+        "secondary_hotkey": "SECONDARY_HOTKEY",
     }
 
     for ui_field, env_var in field_map.items():
