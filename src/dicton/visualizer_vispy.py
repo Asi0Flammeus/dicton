@@ -1,5 +1,6 @@
 """VisPy-based audio visualizer with multiple professional styles"""
 
+import math
 import threading
 from abc import ABC, abstractmethod
 
@@ -571,6 +572,9 @@ class VisPyVisualizerCanvas(app.Canvas):
         self.frame = 0
         self.lock = threading.Lock()
 
+        # Processing mode (pulsing loader animation)
+        self.processing = False
+
         # Initialize style
         style_class = VISUALIZER_STYLES.get(style_name, ToricStyle)
         self.style = style_class(self, self.colors)
@@ -595,11 +599,30 @@ class VisPyVisualizerCanvas(app.Canvas):
         self.frame += 1
 
         with self.lock:
-            # Smooth the levels
-            self.smooth_levels = self.smooth_levels * (1 - SMOOTHING) + self.levels * SMOOTHING
+            is_processing = self.processing
 
-        # Update style
-        self.style.update(self.smooth_levels, self.global_level, self.frame)
+        if is_processing:
+            # Processing mode: simple pulsing - uniform levels that expand/contract
+            pulse_phase = self.frame * 0.03  # Slow, calm pulse
+            pulse = (math.sin(pulse_phase) + 1) / 2  # 0 to 1
+
+            # Simple uniform pulse level (no wave variation)
+            pulse_level = pulse * 0.5
+            synthetic_levels = np.full(FFT_BINS, pulse_level, dtype=np.float32)
+
+            self.smooth_levels = synthetic_levels
+            synthetic_global = pulse * 0.4
+
+            # Update style with synthetic data
+            self.style.update(self.smooth_levels, synthetic_global, self.frame)
+        else:
+            # Normal mode: smooth the levels from audio
+            with self.lock:
+                self.smooth_levels = self.smooth_levels * (1 - SMOOTHING) + self.levels * SMOOTHING
+
+            # Update style
+            self.style.update(self.smooth_levels, self.global_level, self.frame)
+
         self.update()
 
     def on_draw(self, event):
@@ -652,6 +675,7 @@ class Visualizer:
         self._ready = threading.Event()
         self.canvas = None
         self._stop_event = threading.Event()
+        self.processing = False  # Processing mode (pulsing loader animation)
 
     def start(self):
         if self.running:
@@ -666,6 +690,8 @@ class Visualizer:
         self._ready.wait(timeout=3.0)
 
     def stop(self):
+        """Stop the visualizer completely."""
+        self.processing = False
         self.running = False
         self._stop_event.set()
 
@@ -686,6 +712,20 @@ class Visualizer:
 
         if self.thread:
             self.thread.join(timeout=1.0)
+
+    def start_processing(self):
+        """Switch to processing mode (pulsing loader animation).
+
+        Called when recording stops but processing (transcription + LLM) is starting.
+        The ring will pulse rhythmically until stop() is called.
+        """
+        self.processing = True
+        if self.canvas:
+            self.canvas.processing = True
+            # Reset audio levels for clean pulsing animation
+            self.canvas.fft_data = np.zeros(FFT_BINS)
+            self.canvas.smooth_fft = np.zeros(FFT_BINS)
+            self.canvas.rms = 0.0
 
     def update(self, audio_chunk: bytes):
         """Update visualizer with audio data"""

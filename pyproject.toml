@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dicton"
-version = "1.0.0"
+version = "1.1.0"
 description = "Cross-platform voice-to-text transcription with ElevenLabs"
 readme = "README.md"
 license = "MIT"

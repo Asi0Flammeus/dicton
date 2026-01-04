@@ -170,7 +170,12 @@ class SpeechRecognizer:
         return selected
 
     def record(self) -> np.ndarray | None:
-        """Record audio until stopped, with visualizer feedback."""
+        """Record audio until stopped, with visualizer feedback.
+
+        Note: After recording stops, the visualizer switches to processing mode
+        (pulsing animation) instead of stopping. The caller is responsible for
+        calling viz.stop() after processing is complete.
+        """
         if not self.use_elevenlabs:
             print("⚠ ElevenLabs not available")
             return None
@@ -207,21 +212,27 @@ class SpeechRecognizer:
 
         except Exception as e:
             print(f"❌ Recording error: {e}")
+            viz.stop()  # Stop visualizer on error
             return None
 
         finally:
             self.recording = False
-            viz.stop()
             if stream:
                 stream.stop_stream()
                 stream.close()
 
         # Check if recording was cancelled (tap detected)
         if self._cancelled:
+            viz.stop()  # Stop visualizer on cancel
             return None
 
         if not frames:
+            viz.stop()  # Stop visualizer if no frames
             return None
+
+        # Switch visualizer to processing mode (pulsing animation)
+        # Caller will call viz.stop() after transcription/LLM processing completes
+        viz.start_processing()
 
         # Convert to numpy array
         audio_data = b"".join(frames)

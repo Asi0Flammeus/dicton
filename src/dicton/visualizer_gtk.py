@@ -83,6 +83,9 @@ class TransparentVisualizerWindow(Gtk.Window):
         self.frame = 0
         self.lock = threading.Lock()
 
+        # Processing mode (pulsing loader animation)
+        self.processing = False
+
         # Adaptive gain
         self.adaptive_gain = DEFAULT_GAIN
         self.peak_level = 0.0
@@ -155,11 +158,38 @@ class TransparentVisualizerWindow(Gtk.Window):
         with self.lock:
             global_level = self.global_level
             levels = self.smooth_levels.copy()
+            is_processing = self.processing
 
         # Rotation offset: start from top
         angle_offset = math.pi / 2
 
-        # Calculate wave points
+        if is_processing:
+            # Simple pulsing: ring shrinks to center and expands back
+            pulse_phase = self.frame * 0.03  # Slow, calm pulse
+            pulse = (math.sin(pulse_phase) + 1) / 2  # 0 to 1
+
+            # Ring radius pulses between inner and outer
+            min_ring_radius = inner_radius + 15
+            max_ring_radius = outer_radius - 5
+            ring_radius = min_ring_radius + pulse * (max_ring_radius - min_ring_radius)
+            ring_width = 4
+
+            # Draw simple pulsing ring with glow
+            glow_alpha = 0.15 + pulse * 0.1
+            cr.set_source_rgba(*self.color_dim, glow_alpha)
+            cr.set_line_width(ring_width + 4)
+            cr.arc(center_x, center_y, ring_radius + 2, 0, 2 * math.pi)
+            cr.stroke()
+
+            # Main ring
+            cr.set_source_rgba(*self.color_main, 1.0)
+            cr.set_line_width(ring_width)
+            cr.arc(center_x, center_y, ring_radius, 0, 2 * math.pi)
+            cr.stroke()
+
+            return False
+
+        # Normal audio-reactive animation (existing code)
         outer_points = []
         inner_points = []
 
@@ -345,6 +375,7 @@ class Visualizer:
         self.thread = None
         self._ready = threading.Event()
         self.window = None
+        self.processing = False  # Processing mode (pulsing loader animation)
 
     def start(self):
         """Start the visualizer in a separate thread."""
@@ -359,7 +390,8 @@ class Visualizer:
         self._ready.wait(timeout=3.0)
 
     def stop(self):
-        """Stop the visualizer."""
+        """Stop the visualizer completely."""
+        self.processing = False
         self.running = False
 
         if self.window:
@@ -368,6 +400,20 @@ class Visualizer:
 
         if self.thread:
             self.thread.join(timeout=1.0)
+
+    def start_processing(self):
+        """Switch to processing mode (pulsing loader animation).
+
+        Called when recording stops but processing (transcription + LLM) is starting.
+        The ring will pulse rhythmically until stop() is called.
+        """
+        self.processing = True
+        if self.window:
+            self.window.processing = True
+            # Reset audio levels for clean pulsing animation
+            self.window.levels = [0.0] * WAVE_POINTS
+            self.window.smooth_levels = [0.0] * WAVE_POINTS
+            self.window.global_level = 0.0
 
     def _destroy_window(self):
         """Destroy window from GTK thread."""

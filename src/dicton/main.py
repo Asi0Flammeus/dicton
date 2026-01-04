@@ -140,6 +140,29 @@ class Dicton:
             ProcessingMode.RAW: "Raw Mode",
         }
 
+        # Get visualizer reference (use same import logic as speech_recognition_engine)
+        viz = None
+        try:
+            if config.VISUALIZER_BACKEND == "gtk":
+                try:
+                    from .visualizer_gtk import get_visualizer
+                    viz = get_visualizer()
+                except ImportError:
+                    from .visualizer import get_visualizer
+                    viz = get_visualizer()
+            elif config.VISUALIZER_BACKEND == "vispy":
+                try:
+                    from .visualizer_vispy import get_visualizer
+                    viz = get_visualizer()
+                except ImportError:
+                    from .visualizer import get_visualizer
+                    viz = get_visualizer()
+            else:
+                from .visualizer import get_visualizer
+                viz = get_visualizer()
+        except Exception:
+            viz = None
+
         try:
             mode_name = mode_names.get(mode, "Recording")
 
@@ -184,6 +207,11 @@ class Dicton:
                 result = self._process_text(text, mode, selected_text)
 
             if result:
+                # Stop visualizer before outputting text
+                if viz:
+                    viz.stop()
+                    viz = None  # Don't stop again in finally
+
                 with tracker.measure("text_output"):
                     self._output_result(result, mode, selected_text is not None)
             else:
@@ -202,6 +230,9 @@ class Dicton:
             tracker.end_session()
         finally:
             self.recording = False
+            # Stop visualizer if not already stopped
+            if viz:
+                viz.stop()
 
     def _capture_selection_for_act_on_text(self) -> str | None:
         """Capture selected text for Act on Text mode (called before recording starts)"""

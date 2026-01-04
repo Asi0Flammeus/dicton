@@ -47,6 +47,9 @@ class Visualizer:
         self.linux_opacity_mode = False  # Set by _setup_linux_transparency
         self.xshape_mode = False  # Set by _setup_xshape_circular
 
+        # Processing mode (pulsing loader animation)
+        self.processing = False
+
         # Adaptive gain control
         self.adaptive_gain = DEFAULT_GAIN
         self.peak_level = 0.0
@@ -98,9 +101,24 @@ class Visualizer:
         self._ready.wait(timeout=2.0)
 
     def stop(self):
+        """Stop the visualizer completely."""
+        self.processing = False
         self.running = False
         if self.thread:
             self.thread.join(timeout=1.0)
+
+    def start_processing(self):
+        """Switch to processing mode (pulsing loader animation).
+
+        Called when recording stops but processing (transcription + LLM) is starting.
+        The ring will pulse rhythmically until stop() is called.
+        """
+        with self.lock:
+            self.processing = True
+            # Reset levels for clean pulsing animation
+            self.levels = np.zeros(WAVE_POINTS)
+            self.smooth_levels = np.zeros(WAVE_POINTS)
+            self.global_level = 0.0
 
     def update(self, audio_chunk: bytes):
         if not self.running:
@@ -378,10 +396,38 @@ class Visualizer:
         mid_radius = (outer_radius + inner_radius) // 2
         max_amplitude = (outer_radius - inner_radius) // 2 - 2
 
+        # Check if we're in processing mode (pulsing loader)
         with self.lock:
+            is_processing = self.processing
             levels_copy = self.levels.copy()
             global_level = self.global_level
 
+        if is_processing:
+            # Simple pulsing: ring shrinks to center and expands back
+            pulse_phase = self.frame * 0.03  # Slow, calm pulse
+            pulse = (math.sin(pulse_phase) + 1) / 2  # 0 to 1
+
+            # Ring radius pulses between inner_radius+10 and outer_radius
+            min_ring_radius = inner_radius + 15
+            max_ring_radius = outer_radius - 5
+            ring_radius = min_ring_radius + pulse * (max_ring_radius - min_ring_radius)
+
+            # Ring thickness stays constant
+            ring_width = 4
+
+            # Draw simple pulsing ring
+            pygame.draw.circle(screen, self.COLOR_MAIN, (center_x, center_y), int(ring_radius), ring_width)
+
+            # Subtle glow that pulses with the ring
+            glow_surf = pygame.Surface((SIZE, SIZE), pygame.SRCALPHA)
+            glow_alpha = int(40 + pulse * 30)
+            pygame.draw.circle(glow_surf, (*self.COLOR_DIM, glow_alpha), (center_x, center_y), int(ring_radius) + 3, ring_width + 4)
+            screen.blit(glow_surf, (0, 0))
+
+            pygame.display.flip()
+            return
+
+        # Normal audio-reactive animation (existing code)
         for i in range(WAVE_POINTS):
             self.smooth_levels[i] = self.smooth_levels[i] * 0.82 + levels_copy[i] * 0.18
 
