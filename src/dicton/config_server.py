@@ -375,11 +375,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                         <span id="lat-recording" class="latency-value">--</span>
                     </div>
                     <div class="latency-item">
-                        <span class="latency-label">STT (ElevenLabs)</span>
+                        <span id="lat-stt-label" class="latency-label">STT</span>
                         <span id="lat-stt" class="latency-value">--</span>
                     </div>
                     <div class="latency-item">
-                        <span class="latency-label">LLM Processing</span>
+                        <span id="lat-llm-label" class="latency-label">LLM Processing</span>
                         <span id="lat-llm" class="latency-value">--</span>
                     </div>
                     <div class="latency-item latency-total">
@@ -587,11 +587,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div id="tab-dictionary" class="tab-content">
             <div class="section">
                 <div class="section-title">Custom Dictionary</div>
-                <div class="hint" style="margin-bottom: 1rem">Custom word replacements. Changes are saved automatically.</div>
+                <div class="hint" style="margin-bottom: 1rem">Add words that should be recognized correctly. Similar-sounding misspellings will be auto-corrected (e.g., "rogzy" → "Roxy").</div>
                 <div class="dictionary-list" id="dictionary-list"></div>
                 <div class="dictionary-entry">
-                    <input type="text" id="new-from" placeholder="Original word">
-                    <input type="text" id="new-to" placeholder="Replacement">
+                    <input type="text" id="new-word" placeholder="Correct word (e.g., Roxy)" style="flex: 2">
                     <button class="btn btn-secondary btn-icon" onclick="addDictionaryEntry()">+</button>
                 </div>
             </div>
@@ -629,7 +628,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 dictionary = await res.json();
                 renderDictionary();
             } catch (e) {
-                dictionary = { replacements: {}, case_sensitive: {} };
+                dictionary = { similarity_words: [] };
                 renderDictionary();
             }
         }
@@ -638,15 +637,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const list = document.getElementById('dictionary-list');
             list.innerHTML = '';
 
-            const all = { ...dictionary.replacements, ...dictionary.case_sensitive };
-            for (const [from, to] of Object.entries(all)) {
-                if (from.startsWith('_')) continue;
+            const words = dictionary.similarity_words || [];
+            for (const word of words) {
+                if (word.startsWith('_')) continue;
                 const entry = document.createElement('div');
                 entry.className = 'dictionary-entry';
                 entry.innerHTML = `
-                    <input type="text" value="${escapeHtml(from)}" readonly>
-                    <input type="text" value="${escapeHtml(to)}" readonly>
-                    <button class="btn btn-secondary btn-icon" onclick="removeDictionaryEntry('${escapeHtml(from)}')">−</button>
+                    <input type="text" value="${escapeHtml(word)}" readonly style="flex: 2">
+                    <button class="btn btn-secondary btn-icon" onclick="removeDictionaryEntry('${escapeHtml(word)}')">−</button>
                 `;
                 list.appendChild(entry);
             }
@@ -659,36 +657,34 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         async function addDictionaryEntry() {
-            const from = document.getElementById('new-from').value.trim();
-            const to = document.getElementById('new-to').value.trim();
-            if (!from || !to) return;
+            const word = document.getElementById('new-word').value.trim();
+            if (!word) return;
 
             try {
                 await fetch(API_BASE + '/api/dictionary', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ from, to })
+                    body: JSON.stringify({ word })
                 });
-                document.getElementById('new-from').value = '';
-                document.getElementById('new-to').value = '';
+                document.getElementById('new-word').value = '';
                 await loadDictionary();
-                showStatus('Dictionary entry added', 'success');
+                showStatus('Word added to dictionary', 'success');
             } catch (e) {
-                showStatus('Failed to add entry', 'error');
+                showStatus('Failed to add word', 'error');
             }
         }
 
-        async function removeDictionaryEntry(from) {
+        async function removeDictionaryEntry(word) {
             try {
                 await fetch(API_BASE + '/api/dictionary', {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ from })
+                    body: JSON.stringify({ word })
                 });
                 await loadDictionary();
-                showStatus('Dictionary entry removed', 'success');
+                showStatus('Word removed from dictionary', 'success');
             } catch (e) {
-                showStatus('Failed to remove entry', 'error');
+                showStatus('Failed to remove word', 'error');
             }
         }
 
@@ -883,6 +879,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             const transcription = document.getElementById('transcription-result');
             const status = document.getElementById('test-status');
 
+            // Update provider labels
+            const sttProvider = data.stt_provider || 'STT';
+            const llmProvider = data.llm_provider || 'LLM Processing';
+            document.getElementById('lat-stt-label').textContent = `STT (${sttProvider})`;
+            document.getElementById('lat-llm-label').textContent = `LLM (${llmProvider})`;
+
             // Update latency values
             document.getElementById('lat-recording').textContent = formatMs(data.latency?.recording);
             document.getElementById('lat-stt').textContent = formatMs(data.latency?.stt);
@@ -939,14 +941,27 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
 
 def get_env_path() -> Path:
-    """Get the .env file path (user config dir)."""
+    """Get the .env file path for writing (always user config dir)."""
     return Config.CONFIG_DIR / ".env"
 
 
+def _find_env_file() -> Path | None:
+    """Find .env file using same fallback logic as config.py."""
+    locations = [
+        Path.cwd() / ".env",  # Current working directory
+        Config.CONFIG_DIR / ".env",  # User config dir (~/.config/dicton/)
+        Path("/opt/dicton/.env"),  # System install
+    ]
+    for env_path in locations:
+        if env_path.exists():
+            return env_path
+    return None
+
+
 def read_env_file() -> dict[str, str]:
-    """Read the .env file and return as dict."""
-    env_path = get_env_path()
-    if not env_path.exists():
+    """Read the .env file and return as dict (checks multiple locations)."""
+    env_path = _find_env_file()
+    if env_path is None:
         return {}
 
     env_vars: dict[str, str] = {}
@@ -1062,13 +1077,17 @@ def get_dictionary() -> dict[str, Any]:
     """Get dictionary contents."""
     dictionary_path = Config.CONFIG_DIR / "dictionary.json"
     if not dictionary_path.exists():
-        return {"replacements": {}, "case_sensitive": {}, "patterns": []}
+        return {"similarity_words": [], "replacements": {}, "case_sensitive": {}, "patterns": []}
 
     try:
         with open(dictionary_path, encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            # Ensure similarity_words exists
+            if "similarity_words" not in data:
+                data["similarity_words"] = []
+            return data
     except (json.JSONDecodeError, OSError):
-        return {"replacements": {}, "case_sensitive": {}, "patterns": []}
+        return {"similarity_words": [], "replacements": {}, "case_sensitive": {}, "patterns": []}
 
 
 def save_dictionary(data: dict[str, Any]) -> None:
@@ -1080,29 +1099,78 @@ def save_dictionary(data: dict[str, Any]) -> None:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
 
-def add_dictionary_entry(from_word: str, to_word: str) -> None:
-    """Add a dictionary entry."""
+def add_similarity_word(word: str) -> None:
+    """Add a word to the similarity dictionary."""
     data = get_dictionary()
-    data["replacements"][from_word] = to_word
-    save_dictionary(data)
+    if "similarity_words" not in data:
+        data["similarity_words"] = []
+    if word not in data["similarity_words"]:
+        data["similarity_words"].append(word)
+        save_dictionary(data)
 
 
-def remove_dictionary_entry(from_word: str) -> None:
-    """Remove a dictionary entry."""
+def remove_similarity_word(word: str) -> None:
+    """Remove a word from the similarity dictionary."""
     data = get_dictionary()
-    if from_word in data.get("replacements", {}):
-        del data["replacements"][from_word]
-    if from_word in data.get("case_sensitive", {}):
-        del data["case_sensitive"][from_word]
-    save_dictionary(data)
+    if word in data.get("similarity_words", []):
+        data["similarity_words"].remove(word)
+        save_dictionary(data)
 
 
 # Test recording state
 _test_state = {
     "recording": False,
     "audio_data": None,
+    "recognizer": None,
+    "record_thread": None,
+    "frames": [],
+    "stream": None,
     "start_time": None,
 }
+
+
+def _background_record():
+    """Background thread function to record audio."""
+    import pyaudio
+    import numpy as np
+    from .speech_recognition_engine import suppress_stderr
+
+    if _test_state["recognizer"] is None:
+        return
+
+    recognizer = _test_state["recognizer"]
+    _test_state["frames"] = []
+
+    try:
+        with suppress_stderr():
+            stream = recognizer.audio.open(
+                format=pyaudio.paInt16,
+                channels=1,
+                rate=config.SAMPLE_RATE,
+                input=True,
+                input_device_index=recognizer.input_device,
+                frames_per_buffer=config.CHUNK_SIZE,
+            )
+        _test_state["stream"] = stream
+
+        while _test_state["recording"]:
+            try:
+                data = stream.read(config.CHUNK_SIZE, exception_on_overflow=False)
+                _test_state["frames"].append(data)
+            except Exception:
+                break
+
+    except Exception as e:
+        print(f"❌ Background recording error: {e}")
+
+    finally:
+        if _test_state["stream"]:
+            try:
+                _test_state["stream"].stop_stream()
+                _test_state["stream"].close()
+            except Exception:
+                pass
+            _test_state["stream"] = None
 
 
 def create_app():
@@ -1153,116 +1221,136 @@ def create_app():
         return JSONResponse(get_dictionary())
 
     @app.post("/api/dictionary")
-    async def api_add_dictionary_entry(data: dict):
-        from_word = data.get("from", "")
-        to_word = data.get("to", "")
-        if from_word and to_word:
-            add_dictionary_entry(from_word, to_word)
+    async def api_add_similarity_word(data: dict):
+        word = data.get("word", "")
+        if word:
+            add_similarity_word(word)
             return {"status": "ok"}
-        return JSONResponse({"error": "Missing from/to"}, status_code=400)
+        return JSONResponse({"error": "Missing word"}, status_code=400)
 
     @app.delete("/api/dictionary")
-    async def api_remove_dictionary_entry(data: dict):
-        from_word = data.get("from", "")
-        if from_word:
-            remove_dictionary_entry(from_word)
+    async def api_remove_similarity_word(data: dict):
+        word = data.get("word", "")
+        if word:
+            remove_similarity_word(word)
             return {"status": "ok"}
-        return JSONResponse({"error": "Missing from"}, status_code=400)
+        return JSONResponse({"error": "Missing word"}, status_code=400)
 
     @app.post("/api/test/start")
     async def api_test_start():
         """Start recording for latency test."""
         import time
+        import threading
+        from .speech_recognition_engine import SpeechRecognizer
 
-        _test_state["recording"] = True
+        # Clean up any previous test state
+        if _test_state["recording"]:
+            _test_state["recording"] = False
+            if _test_state["record_thread"]:
+                _test_state["record_thread"].join(timeout=1.0)
+
+        # Initialize recognizer
+        _test_state["recognizer"] = SpeechRecognizer()
+        _test_state["frames"] = []
         _test_state["audio_data"] = None
         _test_state["start_time"] = time.time()
+        _test_state["recording"] = True
+
+        # Start background recording thread
+        _test_state["record_thread"] = threading.Thread(target=_background_record)
+        _test_state["record_thread"].start()
+
         return {"status": "recording"}
 
     @app.post("/api/test/stop")
     async def api_test_stop():
-        """Stop recording and run transcription test."""
+        """Stop recording and run transcription test - mirrors exact production flow."""
         import time
+        import numpy as np
 
         if not _test_state["recording"]:
             return JSONResponse({"error": "Not recording"}, status_code=400)
 
+        # Stop recording
         _test_state["recording"] = False
         record_end_time = time.time()
-        record_duration = (record_end_time - _test_state["start_time"]) * 1000
+        record_duration_ms = (record_end_time - _test_state["start_time"]) * 1000
 
-        # Run actual transcription test
+        # Wait for recording thread to finish
+        if _test_state["record_thread"]:
+            _test_state["record_thread"].join(timeout=2.0)
+
+        # Convert captured frames to audio array
+        frames = _test_state["frames"]
+        if not frames:
+            return JSONResponse({"error": "No audio captured"}, status_code=400)
+
+        audio_data = b"".join(frames)
+        audio_array = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
+
+        # Get the recognizer used for recording (same instance for transcription)
+        recognizer = _test_state["recognizer"]
+        if not recognizer:
+            return JSONResponse({"error": "Recognizer not available"}, status_code=500)
+
+        result = {
+            "latency": {
+                "recording": record_duration_ms,
+                "stt": 0,
+                "llm": 0,
+                "total": 0,
+            },
+            "text": "",
+            "stt_provider": "ElevenLabs" if recognizer.use_elevenlabs else "None",
+        }
+
         try:
-            result = run_transcription_test(record_duration)
-            return JSONResponse(result)
+            # === STEP 1: STT Transcription (mirrors production) ===
+            stt_start = time.time()
+            text = recognizer.transcribe(audio_array)
+            result["latency"]["stt"] = (time.time() - stt_start) * 1000
+
+            if not text:
+                result["error"] = "No speech detected"
+                return JSONResponse(result)
+
+            # === STEP 2: LLM Processing (mirrors production _process_text for BASIC mode) ===
+            llm_start = time.time()
+            try:
+                from . import llm_processor
+
+                if config.ENABLE_REFORMULATION and llm_processor.is_available():
+                    processed = llm_processor.reformulate(text)
+                    if processed:
+                        text = processed
+                    result["llm_provider"] = config.LLM_PROVIDER.capitalize()
+                else:
+                    result["llm_provider"] = "Disabled" if not config.ENABLE_REFORMULATION else "Not configured"
+            except ImportError:
+                result["llm_provider"] = "Not available"
+
+            result["latency"]["llm"] = (time.time() - llm_start) * 1000
+
+            result["text"] = text
+            result["latency"]["total"] = (
+                result["latency"]["recording"]
+                + result["latency"]["stt"]
+                + result["latency"]["llm"]
+            )
+
         except Exception as e:
-            return JSONResponse({"error": str(e)}, status_code=500)
+            result["error"] = str(e)
+
+        finally:
+            # Cleanup
+            if _test_state["recognizer"]:
+                _test_state["recognizer"].cleanup()
+                _test_state["recognizer"] = None
+            _test_state["frames"] = []
+
+        return JSONResponse(result)
 
     return app
-
-
-def run_transcription_test(record_duration_ms: float) -> dict[str, Any]:
-    """Run a transcription test and return timing data."""
-    import time
-
-    from .speech_recognition_engine import SpeechRecognizer
-
-    result = {
-        "latency": {
-            "recording": record_duration_ms,
-            "stt": 0,
-            "llm": 0,
-            "total": 0,
-        },
-        "text": "",
-    }
-
-    try:
-        recognizer = SpeechRecognizer()
-
-        # Record audio (simulated with short duration for test)
-        record_start = time.time()
-        audio = recognizer.record_for_duration(min(record_duration_ms / 1000, 5.0))
-        record_actual = (time.time() - record_start) * 1000
-        result["latency"]["recording"] = record_actual
-
-        if audio is None or len(audio) == 0:
-            result["error"] = "No audio captured"
-            return result
-
-        # Transcribe
-        stt_start = time.time()
-        text = recognizer.transcribe(audio)
-        result["latency"]["stt"] = (time.time() - stt_start) * 1000
-
-        if not text:
-            result["error"] = "No speech detected"
-            return result
-
-        # LLM processing (if enabled)
-        llm_start = time.time()
-        try:
-            from . import llm_processor
-
-            if config.ENABLE_REFORMULATION and llm_processor.is_available():
-                text = llm_processor.reformulate(text) or text
-        except ImportError:
-            pass
-        result["latency"]["llm"] = (time.time() - llm_start) * 1000
-
-        result["text"] = text
-        result["latency"]["total"] = (
-            result["latency"]["recording"]
-            + result["latency"]["stt"]
-            + result["latency"]["llm"]
-        )
-
-        recognizer.cleanup()
-
-    except Exception as e:
-        result["error"] = str(e)
-
-    return result
 
 
 def find_available_port(start_port: int = 6873, max_attempts: int = 10) -> int:
