@@ -1,0 +1,101 @@
+{
+  "profiles": {
+    "editor_python": {
+      "match": {
+        "wm_class": ["code", "Code", "pycharm", "PyCharm", "sublime_text", "Sublime"],
+        "file_extension": [".py"]
+      },
+      "llm_preamble": "User is writing Python code. Preserve technical terms, snake_case identifiers, and code keywords. Use precise technical vocabulary.",
+      "typing_speed": "fast",
+      "formatting": "preserve_whitespace",
+      "priority": 10
+    },
+    "editor_javascript": {
+      "match": {
+        "wm_class": ["code", "Code", "webstorm", "WebStorm"],
+        "file_extension": [".js", ".ts", ".jsx", ".tsx"]
+      },
+      "llm_preamble": "User is writing JavaScript/TypeScript code. Preserve camelCase identifiers, technical terms, and code keywords.",
+      "typing_speed": "fast",
+      "formatting": "preserve_whitespace",
+      "priority": 10
+    },
+    "editor_generic": {
+      "match": {
+        "wm_class": ["code", "Code", "sublime_text", "atom", "gedit", "kate", "vim", "nvim", "emacs"]
+      },
+      "llm_preamble": "User is in a code editor. Preserve technical terms and identifiers. Maintain formatting and whitespace.",
+      "typing_speed": "fast",
+      "formatting": "preserve_whitespace",
+      "priority": 5
+    },
+    "terminal": {
+      "match": {
+        "wm_class": ["gnome-terminal", "Gnome-terminal", "kitty", "alacritty", "terminator", "konsole", "xterm", "tilix", "wezterm"]
+      },
+      "llm_preamble": "User is in a terminal. Preserve command syntax, flags, paths, and technical vocabulary. Output should be suitable for command-line input.",
+      "typing_speed": "slow",
+      "formatting": "raw",
+      "priority": 8
+    },
+    "email_compose": {
+      "match": {
+        "wm_class": ["thunderbird", "Thunderbird", "evolution", "Evolution", "geary", "mailspring"],
+        "window_title_contains": ["compose", "Compose", "new message", "New Message", "écrire", "nouveau"]
+      },
+      "llm_preamble": "User is composing an email. Use professional tone with complete sentences. Include appropriate greetings and sign-offs when contextually appropriate.",
+      "typing_speed": "normal",
+      "formatting": "paragraphs",
+      "priority": 7
+    },
+    "messaging": {
+      "match": {
+        "wm_class": ["slack", "Slack", "discord", "Discord", "telegram-desktop", "signal", "Signal", "element", "teams", "Teams"]
+      },
+      "llm_preamble": "User is in a messaging app. Keep messages concise and conversational. Casual tone is acceptable.",
+      "typing_speed": "fast",
+      "formatting": "short",
+      "priority": 6
+    },
+    "browser_docs": {
+      "match": {
+        "wm_class": ["firefox", "Firefox", "chrome", "Chrome", "chromium", "Chromium", "brave", "Brave"],
+        "url_contains": ["docs.", "documentation", "readme", "wiki", "github.com", "stackoverflow"]
+      },
+      "llm_preamble": "User is reading technical documentation. Be precise with technical references and terminology.",
+      "typing_speed": "normal",
+      "formatting": "auto",
+      "priority": 5
+    },
+    "browser_generic": {
+      "match": {
+        "wm_class": ["firefox", "Firefox", "chrome", "Chrome", "chromium", "Chromium", "brave", "Brave"]
+      },
+      "llm_preamble": "User is in a web browser. Adapt tone to web form context.",
+      "typing_speed": "normal",
+      "formatting": "auto",
+      "priority": 1
+    },
+    "office_document": {
+      "match": {
+        "wm_class": ["libreoffice", "LibreOffice", "soffice", "Word", "WINWORD"],
+        "window_title_contains": [".doc", ".odt", ".rtf"]
+      },
+      "llm_preamble": "User is writing a document. Use formal, clear language with complete sentences and proper paragraph structure.",
+      "typing_speed": "normal",
+      "formatting": "paragraphs",
+      "priority": 6
+    },
+    "default": {
+      "llm_preamble": "",
+      "typing_speed": "normal",
+      "formatting": "auto",
+      "priority": 0
+    }
+  },
+  "typing_speeds": {
+    "fast": 0.01,
+    "normal": 0.02,
+    "slow": 0.05
+  }
+}
