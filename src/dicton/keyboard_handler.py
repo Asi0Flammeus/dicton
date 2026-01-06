@@ -107,7 +107,28 @@ class KeyboardHandler:
             self._insert_text_pynput(text)
 
     def _insert_text_linux(self, text: str):
-        """Insert text on Linux using xdotool with speech-velocity delay"""
+        """Insert text on Linux - uses paste for long texts, streaming for short.
+
+        For texts exceeding PASTE_THRESHOLD_WORDS, uses clipboard paste (instant).
+        For shorter texts, uses xdotool streaming (typewriter effect).
+        """
+        # Count words to determine method
+        word_count = len(text.split())
+        threshold = config.PASTE_THRESHOLD_WORDS
+
+        # Use paste for long texts (threshold > 0 and exceeded) or always (-1)
+        use_paste = threshold == -1 or (threshold > 0 and word_count > threshold)
+
+        if use_paste:
+            if config.DEBUG:
+                print(f"📋 Using paste for {word_count} words (threshold: {threshold})")
+            if self._paste_text_linux(text):
+                return
+            # Fallback to streaming if paste failed
+            if config.DEBUG:
+                print("⚠ Paste failed, falling back to streaming")
+
+        # Use streaming (xdotool type) for short texts or as fallback
         try:
             # 50ms delay (~200 words/min) prevents React Error #185 in React apps
             subprocess.run(["xdotool", "type", "--delay", "50", "--", text], timeout=60)
@@ -118,6 +139,50 @@ class KeyboardHandler:
         except Exception as e:
             print(f"⚠ xdotool error: {e}, using fallback")
             self._insert_text_pynput(text)
+
+    def _paste_text_linux(self, text: str) -> bool:
+        """Paste text on Linux using clipboard + Ctrl+Shift+V (terminal-compatible).
+
+        Uses Ctrl+Shift+V for maximum compatibility:
+        - Works in terminal apps (Claude Code, terminals)
+        - Works in GUI apps (treated as paste or paste-without-formatting)
+
+        Preserves original clipboard content.
+        """
+        from .selection_handler import get_clipboard, set_clipboard
+
+        try:
+            # Save current clipboard
+            original_clipboard = get_clipboard()
+
+            # Set new text to clipboard
+            if not set_clipboard(text):
+                print("⚠ Failed to set clipboard, falling back to streaming")
+                return False
+
+            # Small delay to ensure clipboard is ready
+            time.sleep(0.05)
+
+            # Try Ctrl+Shift+V first (works in terminals + most GUI apps)
+            self._keyboard_controller.press(Key.ctrl)
+            self._keyboard_controller.press(Key.shift)
+            self._keyboard_controller.press("v")
+            self._keyboard_controller.release("v")
+            self._keyboard_controller.release(Key.shift)
+            self._keyboard_controller.release(Key.ctrl)
+
+            # Small delay before restoring clipboard
+            time.sleep(0.15)
+
+            # Restore original clipboard if there was one
+            if original_clipboard:
+                set_clipboard(original_clipboard)
+
+            return True
+
+        except Exception as e:
+            print(f"⚠ Paste error: {e}, falling back to streaming")
+            return False
 
     def _insert_text_windows(self, text: str):
         """Insert text on Windows using pyautogui or pynput"""

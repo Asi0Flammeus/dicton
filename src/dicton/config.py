@@ -181,6 +181,11 @@ class Config:
     # When enabled, uses LLM for smarter cleanup. When disabled, uses local filler removal only.
     ENABLE_REFORMULATION = os.getenv("ENABLE_REFORMULATION", "true").lower() == "true"
 
+    # Paste threshold: texts with more words than this will use clipboard paste
+    # instead of character-by-character streaming (faster for long dictations)
+    # Set to 0 to always use streaming, or -1 to always use paste
+    PASTE_THRESHOLD_WORDS = int(os.getenv("PASTE_THRESHOLD_WORDS", "200"))
+
     DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
     @classmethod
