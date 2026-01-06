@@ -1236,8 +1236,39 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             hideModal();
         }
 
+        function checkHotkeyConflicts(newKey, targetMode) {
+            // Get current values for all secondary hotkeys
+            const secondaryBasic = document.getElementById('secondary_hotkey').value || 'none';
+            const secondaryTranslation = document.getElementById('secondary_hotkey_translation').value || 'none';
+            const secondaryAct = document.getElementById('secondary_hotkey_act_on_text').value || 'none';
+
+            const conflicts = [];
+
+            // Check conflicts between secondary hotkeys
+            if (targetMode === 'secondary-basic') {
+                if (newKey === secondaryTranslation && newKey !== 'none') conflicts.push('Translation mode');
+                if (newKey === secondaryAct && newKey !== 'none') conflicts.push('Act on Text mode');
+            } else if (targetMode === 'secondary-translation') {
+                if (newKey === secondaryBasic && newKey !== 'none') conflicts.push('Basic mode');
+                if (newKey === secondaryAct && newKey !== 'none') conflicts.push('Act on Text mode');
+            } else if (targetMode === 'secondary-act') {
+                if (newKey === secondaryBasic && newKey !== 'none') conflicts.push('Basic mode');
+                if (newKey === secondaryTranslation && newKey !== 'none') conflicts.push('Translation mode');
+            }
+
+            return conflicts;
+        }
+
         function confirmKeyCapture() {
             if (!capturedKey) return;
+
+            // Check for conflicts
+            const conflicts = checkHotkeyConflicts(capturedKey, captureMode);
+            if (conflicts.length > 0) {
+                const conflictList = conflicts.join(' and ');
+                const proceed = confirm(`⚠️ Warning: This key is already used for ${conflictList}.\n\nUsing the same key for multiple modes may cause unexpected behavior.\n\nProceed anyway?`);
+                if (!proceed) return;
+            }
 
             if (captureMode === 'primary') {
                 document.getElementById('custom_hotkey_value').value = capturedKey;
