@@ -58,6 +58,12 @@ llm = [
 xshape = [
     "python-xlib>=0.33",
 ]
+context-x11 = [
+    # X11 context detection
+    "python-xlib>=0.33",
+    "psutil>=5.9.0",
+    # Note: pyatspi (AT-SPI widget focus) is a system package: python3-pyatspi
+]
 notifications = [
     "plyer>=2.1.0",
 ]
@@ -77,10 +83,10 @@ linux = [
     # Linux production: all Linux-specific features
     # Note: gtk excluded - requires system deps (libgirepository-2.0-dev) not available on all distros
     # Users wanting GTK backend can install separately: pip install dicton[gtk]
-    "dicton[fnkey,llm,xshape,notifications,configui]",
+    "dicton[fnkey,llm,xshape,notifications,configui,context-x11]",
 ]
 all = [
-    "dicton[vispy,gtk,fnkey,llm,xshape,notifications,windows,dev,configui]",
+    "dicton[vispy,gtk,fnkey,llm,xshape,notifications,windows,dev,configui,context-x11]",
 ]
 
 [project.scripts]
