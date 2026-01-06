@@ -77,6 +77,12 @@ notifications = [
 windows = [
     "pyautogui>=0.9.54",
 ]
+context-windows = [
+    # Windows context detection
+    "pywin32>=306",
+    "comtypes>=1.4.1",
+    "psutil>=5.9.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
@@ -93,7 +99,7 @@ linux = [
     "dicton[fnkey,llm,xshape,notifications,configui,context-x11]",
 ]
 all = [
-    "dicton[vispy,gtk,fnkey,llm,xshape,notifications,windows,dev,configui,context-x11]",
+    "dicton[vispy,gtk,fnkey,llm,xshape,notifications,windows,dev,configui,context-x11,context-wayland,context-windows]",
 ]
 
 [project.scripts]
