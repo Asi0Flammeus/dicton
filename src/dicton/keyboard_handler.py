@@ -92,25 +92,35 @@ class KeyboardHandler:
 
         return key in self.pressed_keys
 
-    def insert_text(self, text: str):
-        """Insert text at cursor - cross-platform implementation"""
+    def insert_text(self, text: str, typing_delay_ms: int = 50):
+        """Insert text at cursor - cross-platform implementation.
+
+        Args:
+            text: The text to insert.
+            typing_delay_ms: Delay between keystrokes in milliseconds (default: 50ms).
+                             Lower values = faster typing.
+        """
         if not text:
             return
 
         if IS_LINUX:
-            self._insert_text_linux(text)
+            self._insert_text_linux(text, typing_delay_ms)
         elif IS_WINDOWS:
-            self._insert_text_windows(text)
+            self._insert_text_windows(text, typing_delay_ms)
         elif IS_MACOS:
-            self._insert_text_macos(text)
+            self._insert_text_macos(text, typing_delay_ms)
         else:
-            self._insert_text_pynput(text)
+            self._insert_text_pynput(text, typing_delay_ms)
 
-    def _insert_text_linux(self, text: str):
+    def _insert_text_linux(self, text: str, typing_delay_ms: int = 50):
         """Insert text on Linux - uses paste for long texts, streaming for short.
 
         For texts exceeding PASTE_THRESHOLD_WORDS, uses clipboard paste (instant).
         For shorter texts, uses xdotool streaming (typewriter effect).
+
+        Args:
+            text: The text to insert.
+            typing_delay_ms: Delay between keystrokes in milliseconds.
         """
         # Count words to determine method
         word_count = len(text.split())
@@ -130,15 +140,18 @@ class KeyboardHandler:
 
         # Use streaming (xdotool type) for short texts or as fallback
         try:
-            # 50ms delay (~200 words/min) prevents React Error #185 in React apps
-            subprocess.run(["xdotool", "type", "--delay", "50", "--", text], timeout=60)
+            # Use configured delay (default 50ms prevents React Error #185)
+            subprocess.run(
+                ["xdotool", "type", "--delay", str(typing_delay_ms), "--", text],
+                timeout=60,
+            )
         except FileNotFoundError:
             # xdotool not installed, fallback to pynput
             print("⚠ xdotool not found, using fallback method")
-            self._insert_text_pynput(text)
+            self._insert_text_pynput(text, typing_delay_ms)
         except Exception as e:
             print(f"⚠ xdotool error: {e}, using fallback")
-            self._insert_text_pynput(text)
+            self._insert_text_pynput(text, typing_delay_ms)
 
     def _paste_text_linux(self, text: str) -> bool:
         """Paste text on Linux using clipboard + Ctrl+Shift+V (terminal-compatible).
@@ -184,35 +197,51 @@ class KeyboardHandler:
             print(f"⚠ Paste error: {e}, falling back to streaming")
             return False
 
-    def _insert_text_windows(self, text: str):
-        """Insert text on Windows using pyautogui or pynput"""
+    def _insert_text_windows(self, text: str, typing_delay_ms: int = 50):
+        """Insert text on Windows using pyautogui or pynput.
+
+        Args:
+            text: The text to insert.
+            typing_delay_ms: Delay between keystrokes in milliseconds.
+        """
         try:
             # Try pyautogui first (better Unicode support)
             import pyautogui
 
             # Disable fail-safe for text insertion
             pyautogui.FAILSAFE = False
-            # 50ms delay (~200 words/min) prevents React Error #185 in React apps
-            pyautogui.write(text, interval=0.05)
+            # Convert ms to seconds for pyautogui
+            pyautogui.write(text, interval=typing_delay_ms / 1000.0)
         except ImportError:
             # Fallback to pynput
-            self._insert_text_pynput(text)
+            self._insert_text_pynput(text, typing_delay_ms)
         except Exception as e:
             print(f"⚠ pyautogui error: {e}, using fallback")
-            self._insert_text_pynput(text)
+            self._insert_text_pynput(text, typing_delay_ms)
 
-    def _insert_text_macos(self, text: str):
-        """Insert text on macOS"""
+    def _insert_text_macos(self, text: str, typing_delay_ms: int = 50):
+        """Insert text on macOS.
+
+        Args:
+            text: The text to insert.
+            typing_delay_ms: Delay between keystrokes in milliseconds.
+        """
         # pynput works well on macOS
-        self._insert_text_pynput(text)
+        self._insert_text_pynput(text, typing_delay_ms)
 
-    def _insert_text_pynput(self, text: str):
-        """Insert text using pynput keyboard controller (cross-platform fallback)"""
+    def _insert_text_pynput(self, text: str, typing_delay_ms: int = 50):
+        """Insert text using pynput keyboard controller (cross-platform fallback).
+
+        Args:
+            text: The text to insert.
+            typing_delay_ms: Delay between keystrokes in milliseconds.
+        """
         try:
-            # 50ms delay (~200 words/min) prevents React Error #185 in React apps
+            # Convert ms to seconds for sleep
+            delay_seconds = typing_delay_ms / 1000.0
             for char in text:
                 self._keyboard_controller.type(char)
-                time.sleep(0.05)
+                time.sleep(delay_seconds)
         except Exception as e:
             print(f"⚠ Text insertion error: {e}")
 

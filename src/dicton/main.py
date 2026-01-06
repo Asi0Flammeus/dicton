@@ -233,7 +233,9 @@ class Dicton:
                     viz = None  # Don't stop again in finally
 
                 with tracker.measure("text_output"):
-                    self._output_result(result, mode, selected_text is not None)
+                    self._output_result(
+                        result, mode, selected_text is not None, context=self._current_context
+                    )
             else:
                 print("Processing failed")
                 notify("⚠ Processing failed", "Check logs")
@@ -350,11 +352,38 @@ class Dicton:
         except ImportError:
             return text
 
-    def _output_result(self, text: str, mode: ProcessingMode, replace_selection: bool):
-        """Output the processed text using character-by-character typing"""
+    def _output_result(
+        self,
+        text: str,
+        mode: ProcessingMode,
+        replace_selection: bool,
+        context: ContextInfo | None = None,
+    ):
+        """Output the processed text using character-by-character typing.
+
+        Args:
+            text: The processed text to output.
+            mode: The processing mode used.
+            replace_selection: Whether we're replacing a selection (Act on Text).
+            context: Optional context for adaptive typing speed.
+        """
+        # Calculate typing delay from context profile
+        typing_delay_ms = 50  # Default: 50ms
+
+        if context:
+            from .context_profiles import get_profile_manager
+
+            manager = get_profile_manager()
+            profile = manager.match_context(context)
+            if profile:
+                # get_typing_delay returns seconds, convert to ms
+                typing_delay_ms = int(manager.get_typing_delay(profile.name) * 1000)
+                if config.CONTEXT_DEBUG:
+                    print(f"[Context] Typing delay: {typing_delay_ms}ms ({profile.typing_speed})")
+
         # All modes use insert_text (xdotool type) for reliable output
         # For Act on Text: selection is still active, typing replaces it naturally
-        self.keyboard.insert_text(text)
+        self.keyboard.insert_text(text, typing_delay_ms=typing_delay_ms)
 
         if mode == ProcessingMode.ACT_ON_TEXT:
             print(f"✓ Replaced: {text[:50]}..." if len(text) > 50 else f"✓ {text}")
