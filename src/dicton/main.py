@@ -353,6 +353,108 @@ class Dicton:
         except ImportError:
             return text
 
+    def _has_text_input_focus(self) -> bool:
+        """Check if cursor is in a text input field.
+
+        Uses context detection to determine if the focused widget
+        is a text entry (text field, editor, terminal, etc.).
+
+        Detection hierarchy:
+        1. Widget focus via AT-SPI (most reliable when available)
+        2. Window class detection (terminal, editor = text capable)
+        3. Fallback to True if context detection unavailable
+
+        Returns:
+            True if a text input widget is focused, False otherwise.
+        """
+        if not config.CONTEXT_ENABLED:
+            # If context detection is disabled, assume we're in a text field
+            return True
+
+        try:
+            detector = get_context_detector()
+            if not detector:
+                return True  # Fallback: assume text input
+
+            context = detector.get_context()
+
+            # Terminal windows are always text-capable
+            if context.is_terminal:
+                if config.CONTEXT_DEBUG:
+                    print("[Context] Terminal detected → text input")
+                return True
+
+            # Code editors are always text-capable
+            if context.is_editor:
+                if config.CONTEXT_DEBUG:
+                    print("[Context] Editor detected → text input")
+                return True
+
+            # Check widget focus (most reliable when AT-SPI works)
+            if context.widget:
+                is_text = context.widget.is_text_entry()
+                if config.CONTEXT_DEBUG:
+                    print(f"[Context] Widget: {context.widget.role} → {'text' if is_text else 'not text'}")
+                return is_text
+
+            # No widget info available - check if we have any window context
+            # If we have a window but no widget, AT-SPI likely didn't work
+            # In this case, check if it's a known non-text app (desktop, file manager, etc.)
+            if context.window:
+                non_text_apps = {
+                    "nautilus", "nemo", "thunar", "dolphin", "pcmanfm",  # File managers
+                    "gnome-shell", "plasmashell", "marco", "mutter",  # Desktop shells
+                    "eog", "gpicview", "feh", "imv",  # Image viewers
+                    "vlc", "mpv", "totem",  # Video players
+                }
+                app = context.window.app_name.lower()
+                if any(non_text in app for non_text in non_text_apps):
+                    if config.CONTEXT_DEBUG:
+                        print(f"[Context] Non-text app: {app} → clipboard")
+                    return False
+
+                # For other apps, assume text capable (safer default)
+                if config.CONTEXT_DEBUG:
+                    print(f"[Context] Unknown app: {app} → assume text input")
+                return True
+
+            # No context at all - fallback to True
+            if config.CONTEXT_DEBUG:
+                print("[Context] No context → assume text input")
+            return True
+
+        except Exception as e:
+            if config.DEBUG:
+                print(f"[Context] Focus detection failed: {e}")
+            return True  # Fallback: assume text input
+
+    def _copy_to_clipboard(self, text: str) -> bool:
+        """Copy text to system clipboard.
+
+        Args:
+            text: The text to copy.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        if IS_LINUX:
+            from .selection_handler import set_clipboard
+
+            return set_clipboard(text)
+        elif IS_WINDOWS:
+            try:
+                import pyperclip
+
+                pyperclip.copy(text)
+                return True
+            except ImportError:
+                print("⚠ pyperclip not installed for Windows clipboard")
+                return False
+            except Exception as e:
+                print(f"⚠ Clipboard error: {e}")
+                return False
+        return False
+
     def _output_result(
         self,
         text: str,
@@ -360,7 +462,10 @@ class Dicton:
         replace_selection: bool,
         context: ContextInfo | None = None,
     ):
-        """Output the processed text using character-by-character typing.
+        """Output the processed text.
+
+        If cursor is in a text field, types the text directly.
+        If cursor is not in a text field, copies to clipboard for manual paste.
 
         Args:
             text: The processed text to output.
@@ -368,6 +473,19 @@ class Dicton:
             replace_selection: Whether we're replacing a selection (Act on Text).
             context: Optional context for adaptive typing speed.
         """
+        # Check if we should use clipboard fallback
+        use_clipboard = not self._has_text_input_focus()
+
+        if use_clipboard:
+            # No text input focused - copy to clipboard instead
+            if self._copy_to_clipboard(text):
+                print(f"📋 Copied to clipboard: {text[:50]}..." if len(text) > 50 else f"📋 {text}")
+                notify("📋 Copied to Clipboard", "Paste with Ctrl+V")
+            else:
+                print(f"⚠ Failed to copy to clipboard")
+                notify("⚠ Copy Failed", "Could not access clipboard")
+            return
+
         # Calculate typing delay from context profile
         typing_delay_ms = 50  # Default: 50ms
 
