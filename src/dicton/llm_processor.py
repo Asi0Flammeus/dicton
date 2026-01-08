@@ -77,9 +77,14 @@ def _call_gemini(prompt: str) -> str | None:
         return None
 
     try:
+        from google.genai import types
+
         response = client.models.generate_content(
             model=config.GEMINI_MODEL,
             contents=prompt,
+            config=types.GenerateContentConfig(
+                http_options=types.HttpOptions(timeout=int(config.API_TIMEOUT * 1000)),
+            ),
         )
         if response.text:
             return response.text.strip()
@@ -101,6 +106,7 @@ def _call_anthropic(prompt: str) -> str | None:
             model=config.ANTHROPIC_MODEL,
             max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
+            timeout=config.API_TIMEOUT,
         )
         if message.content and len(message.content) > 0:
             return message.content[0].text.strip()

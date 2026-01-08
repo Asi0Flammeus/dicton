@@ -378,7 +378,7 @@ class Dicton:
             profile = manager.match_context(context)
             if profile:
                 # get_typing_delay returns seconds, convert to ms
-                typing_delay_ms = int(manager.get_typing_delay(profile.name) * 1000)
+                typing_delay_ms = int(manager.get_typing_delay(profile) * 1000)
                 if config.CONTEXT_DEBUG:
                     print(f"[Context] Typing delay: {typing_delay_ms}ms ({profile.typing_speed})")
 
@@ -393,11 +393,39 @@ class Dicton:
             print(f"✓ {text[:50]}..." if len(text) > 50 else f"✓ {text}")
             notify("✓ Done", text[:100])
 
+    def _check_vpn_active(self) -> bool:
+        """Check if a VPN is active (may block API calls)."""
+        if IS_WINDOWS:
+            return False  # TODO: Windows VPN detection
+
+        try:
+            import subprocess
+
+            # Check for common VPN interfaces
+            result = subprocess.run(
+                ["ip", "link", "show"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            vpn_interfaces = ["tun", "tap", "wg", "vpn", "proton", "nord", "mullvad"]
+            for iface in vpn_interfaces:
+                if iface in result.stdout.lower():
+                    return True
+            return False
+        except Exception:
+            return False
+
     def run(self):
         """Run the application"""
         print("\n" + "=" * 50)
         print("🚀 Dicton")
         print("=" * 50)
+
+        # Check for VPN that might block API calls
+        if self._check_vpn_active():
+            print("⚠ VPN detected - API calls may fail or timeout")
+            print("  If dictation hangs, try disconnecting VPN")
 
         # Check for updates in background (non-blocking)
         try:

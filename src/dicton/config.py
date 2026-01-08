@@ -119,10 +119,17 @@ class Config:
 
     # Anthropic API (alternative for Act on Text, reformulation, translation)
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-    ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-3-5-haiku-latest")
+    ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
 
     # ElevenLabs STT model
     ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "scribe_v1")
+
+    # API timeout in seconds (prevents infinite hang if VPN blocks APIs)
+    API_TIMEOUT = float(os.getenv("API_TIMEOUT", "30"))
+
+    # STT timeout in seconds (longer for ElevenLabs processing large audio files)
+    # Rule of thumb: ~10s per minute of audio + 30s base
+    STT_TIMEOUT = float(os.getenv("STT_TIMEOUT", "120"))
 
     # Hotkey (legacy modifier+key style)
     HOTKEY_MODIFIER = os.getenv("HOTKEY_MODIFIER", "alt")

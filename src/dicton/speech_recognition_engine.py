@@ -78,7 +78,10 @@ class SpeechRecognizer:
 
         if HAS_ELEVENLABS and config.ELEVENLABS_API_KEY:
             self.use_elevenlabs = True
-            self.client = ElevenLabs(api_key=config.ELEVENLABS_API_KEY)
+            self.client = ElevenLabs(
+                api_key=config.ELEVENLABS_API_KEY,
+                timeout=config.STT_TIMEOUT,
+            )
             print(f"✓ Using ElevenLabs STT ({config.ELEVENLABS_MODEL})")
         elif not HAS_ELEVENLABS:
             print("⚠ ElevenLabs SDK not installed (pip install elevenlabs)")
