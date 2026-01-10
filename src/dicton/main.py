@@ -325,17 +325,10 @@ class Dicton:
                 notify("⚠ LLM Not Available", "Configure LLM_PROVIDER")
                 return text  # Fallback to raw text
 
-            # Count words - skip LLM processing for long texts (>10 words)
-            # except for ACT_ON_TEXT which operates on selected text
-            word_count = len(text.split())
-
             if mode == ProcessingMode.ACT_ON_TEXT and selected_text:
                 return llm_processor.act_on_text(selected_text, text, context=context)
 
             elif mode == ProcessingMode.REFORMULATION:
-                # Skip LLM for long texts
-                if word_count > 10:
-                    return text
                 # Check if LLM reformulation is enabled
                 if config.ENABLE_REFORMULATION:
                     return llm_processor.reformulate(text, context=context)
@@ -344,15 +337,9 @@ class Dicton:
                     return self._filter_fillers_local(text)
 
             elif mode == ProcessingMode.TRANSLATION:
-                # Skip LLM for long texts
-                if word_count > 10:
-                    return text
                 return llm_processor.translate(text, "English", context=context)
 
             elif mode == ProcessingMode.TRANSLATE_REFORMAT:
-                # Skip LLM for long texts
-                if word_count > 10:
-                    return text
                 # Translate first, then reformulate
                 translated = llm_processor.translate(text, "English", context=context)
                 if translated:
