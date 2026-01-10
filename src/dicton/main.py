@@ -296,24 +296,17 @@ class Dicton:
             return text
 
         if mode == ProcessingMode.BASIC:
-            # Count words in the text
-            word_count = len(text.split())
+            # Basic mode uses LLM reformulation by default (cleaner output)
+            try:
+                from . import llm_processor
 
-            # Only apply LLM streamlining for short texts (10 words or fewer)
-            # Longer texts are pasted as-is for faster output
-            if word_count <= 10:
-                try:
-                    from . import llm_processor
-
-                    if config.ENABLE_REFORMULATION and llm_processor.is_available():
-                        return llm_processor.reformulate(text, context=context)
-                except ImportError:
-                    pass
-                # Fallback to local filler removal if LLM not available
-                if config.FILTER_FILLERS:
-                    return self._filter_fillers_local(text)
-
-            # For longer texts (>10 words), return as-is (no processing)
+                if config.ENABLE_REFORMULATION and llm_processor.is_available():
+                    return llm_processor.reformulate(text, context=context)
+            except ImportError:
+                pass
+            # Fallback to local filler removal if LLM not available
+            if config.FILTER_FILLERS:
+                return self._filter_fillers_local(text)
             return text
 
         # LLM-powered modes
