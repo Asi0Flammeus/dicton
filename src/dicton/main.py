@@ -147,7 +147,15 @@ class Dicton:
             pass  # Visualizer not critical
 
     def _record_and_transcribe(self):
-        """Record audio and process based on current mode"""
+        """Record audio and process based on current mode.
+
+        Supports two STT modes:
+        - Streaming: Transcribes during recording (near-zero perceived latency)
+        - Batch: Records first, then transcribes (traditional mode)
+
+        For TRANSLATION mode, uses native provider translation when available
+        (Gladia) to avoid separate LLM call.
+        """
         mode = self._current_mode
         tracker = get_latency_tracker()
         mode_names = {
@@ -200,22 +208,56 @@ class Dicton:
 
             notify(f"🎤 {mode_name}", "Speak your instruction..." if mode == ProcessingMode.ACT_ON_TEXT else "Press FN to stop")
 
-            # Record until stopped
-            with tracker.measure("audio_capture", mode=mode.name):
-                audio = self.recognizer.record()
+            # Determine if we should use streaming mode
+            use_streaming = config.STT_MODE == "streaming"
 
-            if audio is None or len(audio) == 0:
-                print("No audio captured")
-                tracker.end_session()
-                return
+            # Check for native translation support (Gladia)
+            use_native_translation = False
+            if mode == ProcessingMode.TRANSLATION:
+                try:
+                    use_native_translation = self.recognizer._stt_provider.supports_translation()
+                    if use_native_translation and config.DEBUG:
+                        print("Using native STT translation")
+                except Exception:
+                    pass
 
-            print("⏳ Processing...")
+            # Record and transcribe based on mode
+            text = None
+            native_translation = None
 
-            # Transcribe audio
-            with tracker.measure("stt_transcription"):
-                text = self.recognizer.transcribe(audio)
+            if use_streaming and not use_native_translation:
+                # Streaming mode: transcribe during recording
+                with tracker.measure("audio_capture_streaming", mode=mode.name):
+                    result = self.recognizer.record_and_stream_transcribe()
+                    if result:
+                        text = result.text
+            elif use_native_translation:
+                # Native translation mode: record then translate in one call
+                with tracker.measure("audio_capture", mode=mode.name):
+                    audio = self.recognizer.record()
 
-            if not text:
+                if audio is not None and len(audio) > 0:
+                    print("⏳ Translating...")
+                    with tracker.measure("stt_translation"):
+                        try:
+                            native_translation = self.recognizer.translate(audio, "en")
+                        except NotImplementedError:
+                            # Fallback to regular transcription + LLM translation
+                            use_native_translation = False
+                            with tracker.measure("stt_transcription"):
+                                text = self.recognizer.transcribe(audio)
+            else:
+                # Batch mode: record first, then transcribe
+                with tracker.measure("audio_capture", mode=mode.name):
+                    audio = self.recognizer.record()
+
+                if audio is not None and len(audio) > 0:
+                    print("⏳ Processing...")
+                    with tracker.measure("stt_transcription"):
+                        text = self.recognizer.transcribe(audio)
+
+            # Check if we got any output
+            if not text and not native_translation:
                 print("No speech detected")
                 notify("⚠ No speech", "Try again")
                 tracker.end_session()
@@ -223,9 +265,14 @@ class Dicton:
 
             # Route to appropriate processor based on mode
             with tracker.measure("text_processing", mode=mode.name):
-                result = self._process_text(
-                    text, mode, selected_text, context=self._current_context
-                )
+                if native_translation and mode == ProcessingMode.TRANSLATION:
+                    # Native translation was used - skip LLM processing
+                    result = native_translation
+                else:
+                    # Standard processing path
+                    result = self._process_text(
+                        text, mode, selected_text, context=self._current_context
+                    )
 
             if result:
                 # Stop visualizer before outputting text
@@ -445,8 +492,8 @@ class Dicton:
             print(f"Hotkey: {config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}")
             self.keyboard.start()
 
-        stt_mode = "ElevenLabs" if self.recognizer.use_elevenlabs else "Local"
-        print(f"STT: {stt_mode}")
+        stt_name = self.recognizer._stt_provider.name if self.recognizer._stt_provider else "None"
+        print(f"STT: {stt_name}")
         print("\nPress hotkey to start/stop recording")
         print("Press Ctrl+C to quit")
         print("=" * 50 + "\n")
