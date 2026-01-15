@@ -6,8 +6,8 @@ Wants=graphical-session.target
 [Service]
 Type=simple
 Environment=DISPLAY=:0
-WorkingDirectory=/home/asi0/asi0-repos/S2T_P2W
-ExecStart=/home/asi0/asi0-repos/S2T_P2W/.venv/bin/python src/main.py
+WorkingDirectory=__PROJECT_DIR__
+ExecStart=__PROJECT_DIR__/venv/bin/dicton
 Restart=on-failure
 RestartSec=5
 
