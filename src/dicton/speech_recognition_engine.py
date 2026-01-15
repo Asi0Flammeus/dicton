@@ -1,9 +1,18 @@
-"""Speech recognition - ElevenLabs STT (capture then transcribe) - Cross-platform"""
+"""Speech recognition engine - Multi-provider STT with fallback support.
+
+Supports multiple STT providers:
+- Gladia: Primary provider with real-time streaming and native translation
+- ElevenLabs: Fallback provider with batch transcription
+
+The provider is selected via STT_PROVIDER config, with automatic fallback
+if the primary provider is unavailable.
+"""
 
 import contextlib
 import io
 import os
 import wave
+from typing import Callable, Generator
 
 import numpy as np
 
@@ -33,6 +42,8 @@ with suppress_stderr():
     import pyaudio
 
 from .config import config
+from .stt_factory import get_stt_provider_with_fallback, get_available_stt_providers
+from .stt_provider import STTCapability, TranscriptionResult
 from .text_processor import get_text_processor
 
 # Import visualizer based on configured backend
@@ -51,42 +62,66 @@ elif config.VISUALIZER_BACKEND == "vispy":
 else:
     from .visualizer import get_visualizer
 
-# Try ElevenLabs import
-HAS_ELEVENLABS = False
-try:
-    from elevenlabs.client import ElevenLabs
-
-    HAS_ELEVENLABS = True
-except ImportError as e:
-    print(f"ElevenLabs import error: {e}")
-
 
 class SpeechRecognizer:
-    """Speech recognizer: record audio, then transcribe via ElevenLabs."""
+    """Speech recognizer: record audio, then transcribe via configured STT provider.
+
+    Uses the multi-provider abstraction layer with automatic fallback:
+    - Primary provider selected via STT_PROVIDER config
+    - Falls back to alternative if primary unavailable
+    - Supports both batch and streaming transcription modes
+
+    Attributes:
+        use_elevenlabs: Backward compatibility - True if any STT provider is available
+        recording: True while actively recording audio
+    """
 
     def __init__(self):
-        self.use_elevenlabs = False
         self.recording = False
         self._cancelled = False  # Flag for immediate cancel (discard audio)
         self.input_device = None
-        self.client = None
+
+        # Get STT provider (with automatic fallback)
+        self._stt_provider = get_stt_provider_with_fallback()
 
         with suppress_stderr():
             self.audio = pyaudio.PyAudio()
 
         self._find_input_device()
 
-        if HAS_ELEVENLABS and config.ELEVENLABS_API_KEY:
-            self.use_elevenlabs = True
-            self.client = ElevenLabs(
-                api_key=config.ELEVENLABS_API_KEY,
-                timeout=config.STT_TIMEOUT,
-            )
-            print(f"✓ Using ElevenLabs STT ({config.ELEVENLABS_MODEL})")
-        elif not HAS_ELEVENLABS:
-            print("⚠ ElevenLabs SDK not installed (pip install elevenlabs)")
-        elif not config.ELEVENLABS_API_KEY:
-            print("⚠ ELEVENLABS_API_KEY not set in .env")
+        # Log active provider
+        if self._stt_provider.is_available():
+            provider_name = self._stt_provider.name
+            capabilities = []
+            if self._stt_provider.supports_streaming():
+                capabilities.append("streaming")
+            if self._stt_provider.supports_translation():
+                capabilities.append("translation")
+            cap_str = f" ({', '.join(capabilities)})" if capabilities else ""
+            print(f"✓ Using {provider_name} STT{cap_str}")
+        else:
+            print("⚠ No STT provider available")
+            available = get_available_stt_providers()
+            if not available:
+                print("  → Set GLADIA_API_KEY or ELEVENLABS_API_KEY in .env")
+
+    @property
+    def use_elevenlabs(self) -> bool:
+        """Backward compatibility: check if any STT provider is available.
+
+        Returns:
+            True if any STT provider (Gladia, ElevenLabs, etc.) is available
+        """
+        return self._stt_provider.is_available()
+
+    @property
+    def client(self):
+        """Backward compatibility: return provider's internal client.
+
+        Note: This is for backward compatibility only. New code should use
+        the provider abstraction directly.
+        """
+        return getattr(self._stt_provider, "_client", None)
 
     def _find_input_device(self):
         """Find the best available input device - cross-platform."""
@@ -179,8 +214,8 @@ class SpeechRecognizer:
         (pulsing animation) instead of stopping. The caller is responsible for
         calling viz.stop() after processing is complete.
         """
-        if not self.use_elevenlabs:
-            print("⚠ ElevenLabs not available")
+        if not self._stt_provider.is_available():
+            print("⚠ No STT provider available")
             return None
 
         viz = get_visualizer()
@@ -243,14 +278,123 @@ class SpeechRecognizer:
 
         return audio_array
 
+    def record_and_stream_transcribe(
+        self,
+        on_partial: Callable[[TranscriptionResult], None] | None = None,
+    ) -> TranscriptionResult | None:
+        """Record audio with real-time streaming transcription.
+
+        This method enables near-zero perceived latency by transcribing
+        DURING recording rather than after. Only supported by Gladia.
+
+        For providers that don't support streaming, this falls back to
+        standard record + transcribe.
+
+        Args:
+            on_partial: Optional callback for partial (interim) results
+
+        Returns:
+            Final TranscriptionResult when recording stops, or None on failure
+        """
+        if not self._stt_provider.is_available():
+            print("⚠ No STT provider available")
+            return None
+
+        # Check if provider supports streaming
+        if not self._stt_provider.supports_streaming():
+            if config.DEBUG:
+                print(f"⚠ {self._stt_provider.name} doesn't support streaming, using batch mode")
+            # Fall back to batch mode
+            audio = self.record()
+            if audio is None:
+                return None
+            text = self.transcribe(audio)
+            if text:
+                return TranscriptionResult(text=text, is_final=True)
+            return None
+
+        viz = get_visualizer()
+        stream = None
+        self._cancelled = False
+
+        def audio_generator() -> Generator[bytes, None, None]:
+            """Generate audio chunks as they're recorded."""
+            nonlocal stream
+            try:
+                with suppress_stderr():
+                    stream = self.audio.open(
+                        format=pyaudio.paInt16,
+                        channels=1,
+                        rate=config.SAMPLE_RATE,
+                        input=True,
+                        input_device_index=self.input_device,
+                        frames_per_buffer=config.CHUNK_SIZE,
+                    )
+
+                self.recording = True
+                viz.start()
+                print("🎤 Recording (streaming)...")
+
+                while self.recording and not self._cancelled:
+                    try:
+                        data = stream.read(config.CHUNK_SIZE, exception_on_overflow=False)
+                        viz.update(data)
+                        yield data
+                    except Exception as e:
+                        if config.DEBUG:
+                            print(f"⚠ Read error: {e}")
+                        break
+
+            finally:
+                self.recording = False
+                if stream:
+                    stream.stop_stream()
+                    stream.close()
+
+        try:
+            result = self._stt_provider.stream_transcribe(
+                audio_generator(),
+                on_partial=on_partial,
+            )
+
+            if self._cancelled or result is None:
+                viz.stop()
+                return None
+
+            # Switch to processing mode briefly (for any post-processing)
+            viz.start_processing()
+
+            # Apply noise filtering
+            if result and result.text:
+                filtered = self._filter(result.text)
+                if filtered:
+                    return TranscriptionResult(
+                        text=filtered,
+                        language=result.language,
+                        confidence=result.confidence,
+                        is_final=True,
+                        translation=result.translation,
+                    )
+
+            viz.stop()
+            return None
+
+        except Exception as e:
+            print(f"❌ Streaming transcription error: {e}")
+            if config.DEBUG:
+                import traceback
+                traceback.print_exc()
+            viz.stop()
+            return None
+
     def stop(self):
         """Stop recording (will process audio)."""
         self.recording = False
 
     def record_for_duration(self, duration_seconds: float) -> np.ndarray | None:
         """Record audio for a fixed duration (for latency testing)."""
-        if not self.use_elevenlabs:
-            print("⚠ ElevenLabs not available")
+        if not self._stt_provider.is_available():
+            print("⚠ No STT provider available")
             return None
 
         stream = None
@@ -303,48 +447,132 @@ class SpeechRecognizer:
         self.recording = False
 
     def transcribe(self, audio: np.ndarray) -> str | None:
-        """Transcribe recorded audio using ElevenLabs STT."""
+        """Transcribe recorded audio using configured STT provider.
+
+        Args:
+            audio: Audio data as float32 numpy array (range -1.0 to 1.0)
+
+        Returns:
+            Transcribed text after filtering, or None on failure
+        """
         if audio is None or len(audio) == 0:
             return None
 
-        if not self.use_elevenlabs or not self.client:
-            print("⚠ ElevenLabs not available")
+        if not self._stt_provider.is_available():
+            print("⚠ No STT provider available")
             return None
 
         try:
-            # Convert float32 audio to int16 bytes
-            audio_int16 = (audio * 32767).astype(np.int16)
+            # Convert float32 audio to WAV bytes
+            wav_bytes = self._audio_to_wav(audio)
 
-            # Create WAV in memory
-            wav_buffer = io.BytesIO()
-            with wave.open(wav_buffer, "wb") as wav_file:
-                wav_file.setnchannels(1)
-                wav_file.setsampwidth(2)  # 16-bit
-                wav_file.setframerate(config.SAMPLE_RATE)
-                wav_file.writeframes(audio_int16.tobytes())
+            # Call provider
+            result = self._stt_provider.transcribe(wav_bytes, audio_format="wav")
 
-            wav_buffer.seek(0)
-
-            # Call ElevenLabs STT (language_code=None for auto-detect)
-            transcription = self.client.speech_to_text.convert(
-                file=wav_buffer,
-                model_id=config.ELEVENLABS_MODEL,
-            )
-
-            # Extract text from response
-            text = transcription.text if hasattr(transcription, "text") else str(transcription)
-
-            if text:
-                return self._filter(text)
+            if result and result.text:
+                return self._filter(result.text)
             return None
 
         except Exception as e:
             print(f"❌ Transcription error: {e}")
             if config.DEBUG:
                 import traceback
-
                 traceback.print_exc()
+
+            # Try fallback provider if available
+            return self._transcribe_with_fallback(audio)
+
+    def translate(self, audio: np.ndarray, target_language: str = "en") -> str | None:
+        """Transcribe and translate audio using native provider translation.
+
+        Uses Gladia's native translation when available (more efficient than
+        separate transcription + LLM translation).
+
+        Args:
+            audio: Audio data as float32 numpy array
+            target_language: Target language code (e.g., "en", "fr")
+
+        Returns:
+            Translated text, or None if native translation unavailable
+
+        Raises:
+            NotImplementedError: If provider doesn't support native translation
+        """
+        if audio is None or len(audio) == 0:
             return None
+
+        if not self._stt_provider.is_available():
+            return None
+
+        if not self._stt_provider.supports_translation():
+            raise NotImplementedError(
+                f"{self._stt_provider.name} doesn't support native translation"
+            )
+
+        try:
+            wav_bytes = self._audio_to_wav(audio)
+            result = self._stt_provider.translate(wav_bytes, target_language)
+
+            if result and result.translation:
+                return self._filter(result.translation)
+            return None
+
+        except Exception as e:
+            if config.DEBUG:
+                print(f"Native translation error: {e}")
+            raise
+
+    def _audio_to_wav(self, audio: np.ndarray) -> bytes:
+        """Convert float32 audio array to WAV bytes.
+
+        Args:
+            audio: Audio data as float32 numpy array (range -1.0 to 1.0)
+
+        Returns:
+            WAV file bytes
+        """
+        # Convert float32 audio to int16 bytes
+        audio_int16 = (audio * 32767).astype(np.int16)
+
+        # Create WAV in memory
+        wav_buffer = io.BytesIO()
+        with wave.open(wav_buffer, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)  # 16-bit
+            wav_file.setframerate(config.SAMPLE_RATE)
+            wav_file.writeframes(audio_int16.tobytes())
+
+        return wav_buffer.getvalue()
+
+    def _transcribe_with_fallback(self, audio: np.ndarray) -> str | None:
+        """Attempt transcription with fallback provider.
+
+        Args:
+            audio: Audio data as float32 numpy array
+
+        Returns:
+            Transcribed text or None if all providers fail
+        """
+        from .stt_factory import get_stt_provider
+
+        available = get_available_stt_providers()
+        current_name = self._stt_provider.name.lower()
+
+        for provider_name in available:
+            if provider_name != current_name:
+                try:
+                    fallback = get_stt_provider(provider_name)
+                    if fallback.is_available():
+                        wav_bytes = self._audio_to_wav(audio)
+                        result = fallback.transcribe(wav_bytes)
+                        if result and result.text:
+                            if config.DEBUG:
+                                print(f"✓ Fallback to {fallback.name} succeeded")
+                            return self._filter(result.text)
+                except Exception:
+                    continue
+
+        return None
 
     def _filter(self, text: str) -> str | None:
         """Filter out noise, apply custom dictionary, and clean up text."""
