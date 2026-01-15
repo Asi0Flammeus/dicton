@@ -1988,7 +1988,7 @@ def create_app():
                 "total": 0,
             },
             "text": "",
-            "stt_provider": "ElevenLabs" if recognizer.use_elevenlabs else "None",
+            "stt_provider": recognizer._stt_provider.name if recognizer._stt_provider else "None",
         }
 
         try:
