@@ -305,6 +305,74 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             border-color: var(--orange);
             color: var(--orange);
         }
+        .profile-chip.clickable {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .profile-chip.clickable:hover {
+            background: var(--ui);
+            border-color: var(--tx-2);
+        }
+        .profile-chip.user-defined {
+            border-style: dashed;
+        }
+        .profile-chip .delete-btn {
+            margin-left: 0.5rem;
+            color: var(--tx-3);
+            cursor: pointer;
+        }
+        .profile-chip .delete-btn:hover {
+            color: #d04040;
+        }
+        /* Profile Editor */
+        .profile-editor {
+            background: var(--bg);
+            border: 1px solid var(--ui-2);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .profile-editor .form-row {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        .profile-editor .form-row > div {
+            flex: 1;
+        }
+        .profile-editor label {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--tx-2);
+            margin-bottom: 0.25rem;
+        }
+        .profile-editor input,
+        .profile-editor textarea,
+        .profile-editor select {
+            width: 100%;
+            padding: 0.5rem;
+            background: var(--bg);
+            border: 1px solid var(--ui-2);
+            border-radius: 4px;
+            color: var(--tx);
+            font-size: 0.85rem;
+        }
+        .profile-editor textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .profile-editor .match-list {
+            font-size: 0.85rem;
+        }
+        .profile-editor .match-list input {
+            margin-bottom: 0.25rem;
+        }
+        .profile-editor .btn-row {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            justify-content: flex-end;
+        }
         /* Latency Test Panel */
         .test-panel {
             text-align: center;
@@ -851,8 +919,78 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
             <div class="section">
                 <div class="section-title">Available Profiles</div>
-                <div class="hint" style="margin-bottom: 1rem">Context profiles are defined in ~/.config/dicton/contexts.json</div>
+                <div class="hint" style="margin-bottom: 1rem">Click a profile to edit. User profiles are saved to ~/.config/dicton/contexts.json</div>
                 <div id="profile-list" class="profile-list"></div>
+                <button class="btn btn-secondary" onclick="showProfileEditor(null)" style="margin-top: 1rem">+ New Profile</button>
+            </div>
+
+            <div id="profile-editor-section" class="section" style="display: none;">
+                <div class="section-title" id="profile-editor-title">Edit Profile</div>
+                <div class="profile-editor">
+                    <div class="form-row">
+                        <div>
+                            <label for="profile-name">Profile Name</label>
+                            <input type="text" id="profile-name" placeholder="e.g., my_custom_profile">
+                        </div>
+                        <div>
+                            <label for="profile-priority">Priority (higher = checked first)</label>
+                            <input type="number" id="profile-priority" value="5" min="0" max="100">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div>
+                            <label for="profile-typing-speed">Typing Speed</label>
+                            <select id="profile-typing-speed">
+                                <option value="fast">Fast (0.01s)</option>
+                                <option value="normal" selected>Normal (0.02s)</option>
+                                <option value="slow">Slow (0.05s)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="profile-formatting">Formatting</label>
+                            <select id="profile-formatting">
+                                <option value="auto" selected>Auto</option>
+                                <option value="raw">Raw</option>
+                                <option value="paragraphs">Paragraphs</option>
+                                <option value="short">Short</option>
+                                <option value="preserve_whitespace">Preserve Whitespace</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="profile-preamble">LLM Preamble (context for AI)</label>
+                        <textarea id="profile-preamble" placeholder="e.g., User is writing Python code. Preserve technical terms..."></textarea>
+                    </div>
+
+                    <div class="form-row" style="margin-top: 0.75rem;">
+                        <div>
+                            <label>Window Classes (comma-separated)</label>
+                            <input type="text" id="profile-match-wm-class" placeholder="e.g., code, pycharm, sublime">
+                        </div>
+                        <div>
+                            <label>Title Contains (comma-separated)</label>
+                            <input type="text" id="profile-match-title" placeholder="e.g., compose, new message">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div>
+                            <label>File Extensions (comma-separated)</label>
+                            <input type="text" id="profile-match-ext" placeholder="e.g., .py, .js, .ts">
+                        </div>
+                        <div>
+                            <label>URL Contains (comma-separated)</label>
+                            <input type="text" id="profile-match-url" placeholder="e.g., docs., github.com">
+                        </div>
+                    </div>
+
+                    <div class="btn-row">
+                        <button class="btn btn-secondary" onclick="hideProfileEditor()">Cancel</button>
+                        <button class="btn btn-primary" onclick="saveProfile()">Save Profile</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -930,9 +1068,143 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             list.innerHTML = '';
             for (const name of profiles) {
                 const chip = document.createElement('span');
-                chip.className = 'profile-chip';
+                chip.className = 'profile-chip clickable';
                 chip.textContent = name;
+                chip.onclick = () => showProfileEditor(name);
                 list.appendChild(chip);
+            }
+        }
+
+        // Profile editor state
+        let editingProfileName = null;
+
+        async function showProfileEditor(profileName) {
+            editingProfileName = profileName;
+            const editorSection = document.getElementById('profile-editor-section');
+            const titleEl = document.getElementById('profile-editor-title');
+            const nameInput = document.getElementById('profile-name');
+
+            if (profileName) {
+                // Edit existing profile
+                titleEl.textContent = 'Edit Profile: ' + profileName;
+                nameInput.value = profileName;
+                nameInput.disabled = true;
+
+                try {
+                    const res = await fetch(API_BASE + '/api/context/profiles/' + encodeURIComponent(profileName));
+                    if (!res.ok) throw new Error('Failed to load profile');
+                    const profile = await res.json();
+
+                    document.getElementById('profile-priority').value = profile.priority || 0;
+                    document.getElementById('profile-typing-speed').value = profile.typing_speed || 'normal';
+                    document.getElementById('profile-formatting').value = profile.formatting || 'auto';
+                    document.getElementById('profile-preamble').value = profile.llm_preamble || '';
+
+                    const match = profile.match || {};
+                    document.getElementById('profile-match-wm-class').value = (match.wm_class || []).join(', ');
+                    document.getElementById('profile-match-title').value = (match.window_title_contains || []).join(', ');
+                    document.getElementById('profile-match-ext').value = (match.file_extension || []).join(', ');
+                    document.getElementById('profile-match-url').value = (match.url_contains || []).join(', ');
+                } catch (e) {
+                    console.error('Failed to load profile:', e);
+                    showStatus('Failed to load profile', 'error');
+                    return;
+                }
+            } else {
+                // New profile
+                titleEl.textContent = 'New Profile';
+                nameInput.value = '';
+                nameInput.disabled = false;
+                document.getElementById('profile-priority').value = 5;
+                document.getElementById('profile-typing-speed').value = 'normal';
+                document.getElementById('profile-formatting').value = 'auto';
+                document.getElementById('profile-preamble').value = '';
+                document.getElementById('profile-match-wm-class').value = '';
+                document.getElementById('profile-match-title').value = '';
+                document.getElementById('profile-match-ext').value = '';
+                document.getElementById('profile-match-url').value = '';
+            }
+
+            editorSection.style.display = 'block';
+            editorSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function hideProfileEditor() {
+            document.getElementById('profile-editor-section').style.display = 'none';
+            editingProfileName = null;
+        }
+
+        function parseCommaSeparated(str) {
+            return str.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        }
+
+        async function saveProfile() {
+            const nameInput = document.getElementById('profile-name');
+            const profileName = editingProfileName || nameInput.value.trim();
+
+            if (!profileName) {
+                showStatus('Profile name is required', 'error');
+                return;
+            }
+
+            if (!profileName.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+                showStatus('Profile name must be alphanumeric with underscores', 'error');
+                return;
+            }
+
+            const data = {
+                priority: parseInt(document.getElementById('profile-priority').value) || 0,
+                typing_speed: document.getElementById('profile-typing-speed').value,
+                formatting: document.getElementById('profile-formatting').value,
+                llm_preamble: document.getElementById('profile-preamble').value,
+                match: {
+                    wm_class: parseCommaSeparated(document.getElementById('profile-match-wm-class').value),
+                    window_title_contains: parseCommaSeparated(document.getElementById('profile-match-title').value),
+                    file_extension: parseCommaSeparated(document.getElementById('profile-match-ext').value),
+                    url_contains: parseCommaSeparated(document.getElementById('profile-match-url').value),
+                }
+            };
+
+            try {
+                const res = await fetch(API_BASE + '/api/context/profiles/' + encodeURIComponent(profileName), {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Failed to save');
+                }
+
+                showStatus('Profile saved', 'success');
+                hideProfileEditor();
+                await loadProfiles();
+            } catch (e) {
+                console.error('Failed to save profile:', e);
+                showStatus('Failed to save profile: ' + e.message, 'error');
+            }
+        }
+
+        async function deleteProfile(profileName) {
+            if (!confirm('Delete profile "' + profileName + '"?')) return;
+
+            try {
+                const res = await fetch(API_BASE + '/api/context/profiles/' + encodeURIComponent(profileName), {
+                    method: 'DELETE'
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Failed to delete');
+                }
+
+                showStatus('Profile deleted', 'success');
+                hideProfileEditor();
+                await loadProfiles();
+            } catch (e) {
+                console.error('Failed to delete profile:', e);
+                showStatus(e.message, 'error');
             }
         }
 
@@ -1920,6 +2192,118 @@ def create_app():
                 "matched_profile": profile.name if profile else "default",
                 "typing_speed": profile.typing_speed if profile else "normal",
             }
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    @app.get("/api/context/profiles/{profile_name}")
+    async def api_get_profile(profile_name: str):
+        """Get a specific profile's full details."""
+        try:
+            from .context_profiles import get_profile_manager
+
+            manager = get_profile_manager()
+            manager.load()
+            profile = manager.get_profile(profile_name)
+
+            if not profile:
+                return JSONResponse({"error": f"Profile '{profile_name}' not found"}, status_code=404)
+
+            return {
+                "name": profile.name,
+                "match": {
+                    "wm_class": profile.match.wm_class,
+                    "window_title_contains": profile.match.window_title_contains,
+                    "file_extension": profile.match.file_extension,
+                    "widget_role": profile.match.widget_role,
+                    "url_contains": profile.match.url_contains,
+                },
+                "llm_preamble": profile.llm_preamble,
+                "typing_speed": profile.typing_speed,
+                "formatting": profile.formatting,
+                "extends": profile.extends,
+                "priority": profile.priority,
+            }
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    @app.put("/api/context/profiles/{profile_name}")
+    async def api_update_profile(profile_name: str, request: Request):
+        """Update or create a profile (saved to user config)."""
+        import json
+        from pathlib import Path
+
+        try:
+            data = await request.json()
+            user_config_path = Path.home() / ".config" / "dicton" / "contexts.json"
+
+            # Load existing user config or start fresh
+            if user_config_path.exists():
+                with open(user_config_path) as f:
+                    user_config = json.load(f)
+            else:
+                user_config = {"profiles": {}, "typing_speeds": {}}
+
+            # Update/add the profile
+            user_config["profiles"][profile_name] = {
+                "match": data.get("match", {}),
+                "llm_preamble": data.get("llm_preamble", ""),
+                "typing_speed": data.get("typing_speed", "normal"),
+                "formatting": data.get("formatting", "auto"),
+                "priority": data.get("priority", 0),
+            }
+
+            if data.get("extends"):
+                user_config["profiles"][profile_name]["extends"] = data["extends"]
+
+            # Ensure config directory exists
+            user_config_path.parent.mkdir(parents=True, exist_ok=True)
+
+            # Write to user config
+            with open(user_config_path, "w") as f:
+                json.dump(user_config, f, indent=2)
+
+            # Reload profiles
+            from .context_profiles import get_profile_manager
+            manager = get_profile_manager()
+            manager.reload()
+
+            return {"status": "ok", "profile": profile_name}
+        except Exception as e:
+            return JSONResponse({"error": str(e)}, status_code=500)
+
+    @app.delete("/api/context/profiles/{profile_name}")
+    async def api_delete_profile(profile_name: str):
+        """Delete a user profile (cannot delete bundled defaults)."""
+        import json
+        from pathlib import Path
+
+        try:
+            if profile_name == "default":
+                return JSONResponse({"error": "Cannot delete the default profile"}, status_code=400)
+
+            user_config_path = Path.home() / ".config" / "dicton" / "contexts.json"
+
+            if not user_config_path.exists():
+                return JSONResponse({"error": f"Profile '{profile_name}' is a bundled default and cannot be deleted"}, status_code=400)
+
+            with open(user_config_path) as f:
+                user_config = json.load(f)
+
+            if profile_name not in user_config.get("profiles", {}):
+                return JSONResponse({"error": f"Profile '{profile_name}' is a bundled default and cannot be deleted"}, status_code=400)
+
+            # Remove from user config
+            del user_config["profiles"][profile_name]
+
+            with open(user_config_path, "w") as f:
+                json.dump(user_config, f, indent=2)
+
+            # Reload profiles
+            from .context_profiles import get_profile_manager
+            manager = get_profile_manager()
+            manager.reload()
+
+            return {"status": "ok", "deleted": profile_name}
         except Exception as e:
             return JSONResponse({"error": str(e)}, status_code=500)
 
