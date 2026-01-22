@@ -32,25 +32,34 @@ class TestSpeechRecognizerIntegration:
     @pytest.fixture
     def mock_audio_deps(self):
         """Mock audio-related dependencies."""
-        with patch.dict("sys.modules", {
-            "pyaudio": MagicMock(),
-        }):
+        with patch.dict(
+            "sys.modules",
+            {
+                "pyaudio": MagicMock(),
+            },
+        ):
             yield
 
     def test_recognizer_uses_factory(self, mock_audio_deps):
         """Test that SpeechRecognizer uses the STT factory."""
-        with patch.dict("os.environ", {
-            "STT_PROVIDER": "mistral",
-            "MISTRAL_API_KEY": "test_key",
-        }, clear=False), \
-             patch("dicton.stt_mistral._get_mistral_client") as mock_get, \
-             patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio:
-
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "STT_PROVIDER": "mistral",
+                    "MISTRAL_API_KEY": "test_key",
+                },
+                clear=False,
+            ),
+            patch("dicton.stt_mistral._get_mistral_client") as mock_get,
+            patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio,
+        ):
             mock_get.return_value = MagicMock()
             mock_pyaudio.PyAudio.return_value = MagicMock()
 
             # Clear module cache
             import dicton.stt_mistral as mistral_module
+
             mistral_module._mistral_client = None
 
             from dicton.speech_recognition_engine import SpeechRecognizer
@@ -63,18 +72,24 @@ class TestSpeechRecognizerIntegration:
 
     def test_recognizer_respects_stt_provider_config(self, mock_audio_deps):
         """Test that STT_PROVIDER env var is respected."""
-        with patch.dict("os.environ", {
-            "STT_PROVIDER": "elevenlabs",
-            "ELEVENLABS_API_KEY": "test_key",
-        }, clear=False), \
-             patch("dicton.stt_elevenlabs._get_elevenlabs_client") as mock_get, \
-             patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio:
-
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "STT_PROVIDER": "elevenlabs",
+                    "ELEVENLABS_API_KEY": "test_key",
+                },
+                clear=False,
+            ),
+            patch("dicton.stt_elevenlabs._get_elevenlabs_client") as mock_get,
+            patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio,
+        ):
             mock_get.return_value = MagicMock()
             mock_pyaudio.PyAudio.return_value = MagicMock()
 
             # Clear module cache
             import dicton.stt_elevenlabs as el_module
+
             el_module._elevenlabs_client = None
 
             from dicton.speech_recognition_engine import SpeechRecognizer
@@ -86,13 +101,18 @@ class TestSpeechRecognizerIntegration:
 
     def test_recognizer_graceful_degradation(self, mock_audio_deps):
         """Test graceful degradation when no provider is available."""
-        with patch.dict("os.environ", {
-            "STT_PROVIDER": "",
-            "MISTRAL_API_KEY": "",
-            "ELEVENLABS_API_KEY": "",
-        }, clear=False), \
-             patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio:
-
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "STT_PROVIDER": "",
+                    "MISTRAL_API_KEY": "",
+                    "ELEVENLABS_API_KEY": "",
+                },
+                clear=False,
+            ),
+            patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio,
+        ):
             mock_pyaudio.PyAudio.return_value = MagicMock()
 
             from dicton.speech_recognition_engine import SpeechRecognizer
@@ -105,17 +125,23 @@ class TestSpeechRecognizerIntegration:
 
     def test_use_elevenlabs_backwards_compat(self, mock_audio_deps):
         """Test use_elevenlabs property for backwards compatibility."""
-        with patch.dict("os.environ", {
-            "STT_PROVIDER": "mistral",
-            "MISTRAL_API_KEY": "test_key",
-        }, clear=False), \
-             patch("dicton.stt_mistral._get_mistral_client") as mock_get, \
-             patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio:
-
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "STT_PROVIDER": "mistral",
+                    "MISTRAL_API_KEY": "test_key",
+                },
+                clear=False,
+            ),
+            patch("dicton.stt_mistral._get_mistral_client") as mock_get,
+            patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio,
+        ):
             mock_get.return_value = MagicMock()
             mock_pyaudio.PyAudio.return_value = MagicMock()
 
             import dicton.stt_mistral as mistral_module
+
             mistral_module._mistral_client = None
 
             from dicton.speech_recognition_engine import SpeechRecognizer
@@ -135,30 +161,39 @@ class TestSpeechRecognizerIntegration:
         for provider_name, api_key_var, expected_name in test_cases:
             # Reset factory state
             from dicton import stt_factory
+
             stt_factory._PROVIDER_REGISTRY.clear()
             stt_factory._provider_cache.clear()
 
-            with patch.dict("os.environ", {
-                "STT_PROVIDER": provider_name,
-                api_key_var: "test_key",
-            }, clear=False), \
-                 patch(f"dicton.stt_{provider_name}._get_{provider_name}_client") as mock_get, \
-                 patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio:
-
+            with (
+                patch.dict(
+                    "os.environ",
+                    {
+                        "STT_PROVIDER": provider_name,
+                        api_key_var: "test_key",
+                    },
+                    clear=False,
+                ),
+                patch(f"dicton.stt_{provider_name}._get_{provider_name}_client") as mock_get,
+                patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio,
+            ):
                 mock_get.return_value = MagicMock()
                 mock_pyaudio.PyAudio.return_value = MagicMock()
 
                 # Clear module cache
                 if provider_name == "mistral":
                     import dicton.stt_mistral as mod
+
                     mod._mistral_client = None
                 elif provider_name == "elevenlabs":
                     import dicton.stt_elevenlabs as mod
+
                     mod._elevenlabs_client = None
 
                 from dicton.speech_recognition_engine import SpeechRecognizer
 
                 recognizer = SpeechRecognizer()
 
-                assert recognizer.provider_name == expected_name, \
+                assert recognizer.provider_name == expected_name, (
                     f"Expected {expected_name} for {provider_name}, got {recognizer.provider_name}"
+                )

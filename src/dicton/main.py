@@ -107,7 +107,11 @@ class Dicton:
             if not selected:
                 return  # Already notified user, don't start recording
             self._selected_text = selected
-            print(f"📋 Selected: {selected[:50]}..." if len(selected) > 50 else f"📋 Selected: {selected}")
+            print(
+                f"📋 Selected: {selected[:50]}..."
+                if len(selected) > 50
+                else f"📋 Selected: {selected}"
+            )
 
         self.recording = True
 
@@ -115,9 +119,7 @@ class Dicton:
         self._update_visualizer_color(mode)
 
         # Start recording thread
-        self.record_thread = threading.Thread(
-            target=self._record_and_transcribe, daemon=True
-        )
+        self.record_thread = threading.Thread(target=self._record_and_transcribe, daemon=True)
         self.record_thread.start()
 
     def _on_stop_recording(self):
@@ -144,6 +146,7 @@ class Dicton:
         try:
             if self._visualizer is None:
                 from .visualizer import get_visualizer
+
                 self._visualizer = get_visualizer()
 
             color = get_mode_color(mode)
@@ -170,19 +173,24 @@ class Dicton:
             if config.VISUALIZER_BACKEND == "gtk":
                 try:
                     from .visualizer_gtk import get_visualizer
+
                     viz = get_visualizer()
                 except ImportError:
                     from .visualizer import get_visualizer
+
                     viz = get_visualizer()
             elif config.VISUALIZER_BACKEND == "vispy":
                 try:
                     from .visualizer_vispy import get_visualizer
+
                     viz = get_visualizer()
                 except ImportError:
                     from .visualizer import get_visualizer
+
                     viz = get_visualizer()
             else:
                 from .visualizer import get_visualizer
+
                 viz = get_visualizer()
         except Exception:
             viz = None
@@ -203,7 +211,12 @@ class Dicton:
                     tracker.end_session()
                     return
 
-            notify(f"🎤 {mode_name}", "Speak your instruction..." if mode == ProcessingMode.ACT_ON_TEXT else "Press FN to stop")
+            notify(
+                f"🎤 {mode_name}",
+                "Speak your instruction..."
+                if mode == ProcessingMode.ACT_ON_TEXT
+                else "Press FN to stop",
+            )
 
             # Record until stopped
             with tracker.measure("audio_capture", mode=mode.name):
@@ -354,6 +367,7 @@ class Dicton:
         """Local filler word removal (no LLM)"""
         try:
             from .text_processor import filter_filler_words
+
             return filter_filler_words(text)
         except ImportError:
             return text
@@ -455,7 +469,9 @@ class Dicton:
         print("Press Ctrl+C to quit")
         print("=" * 50 + "\n")
 
-        hotkey_display = "FN" if self._use_fn_key else f"{config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}"
+        hotkey_display = (
+            "FN" if self._use_fn_key else f"{config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}"
+        )
         notify("Dicton Ready", f"Press {hotkey_display}")
 
         # Cross-platform wait loop

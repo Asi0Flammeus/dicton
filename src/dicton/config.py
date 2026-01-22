@@ -159,8 +159,12 @@ class Config:
     # Secondary hotkeys - alternative keys that work like FN (for keyboards without KEY_WAKEUP)
     # Options: escape, f1-f12, capslock, pause, insert, home, end, pageup, pagedown, none
     SECONDARY_HOTKEY = os.getenv("SECONDARY_HOTKEY", "none").lower()  # Basic/Reformulation mode
-    SECONDARY_HOTKEY_TRANSLATION = os.getenv("SECONDARY_HOTKEY_TRANSLATION", "none").lower()  # Translation mode
-    SECONDARY_HOTKEY_ACT_ON_TEXT = os.getenv("SECONDARY_HOTKEY_ACT_ON_TEXT", "none").lower()  # Act on Text mode
+    SECONDARY_HOTKEY_TRANSLATION = os.getenv(
+        "SECONDARY_HOTKEY_TRANSLATION", "none"
+    ).lower()  # Translation mode
+    SECONDARY_HOTKEY_ACT_ON_TEXT = os.getenv(
+        "SECONDARY_HOTKEY_ACT_ON_TEXT", "none"
+    ).lower()  # Act on Text mode
 
     # Visualizer theme color (red, orange, yellow, green, cyan, blue, purple, magenta)
     THEME_COLOR = os.getenv("THEME_COLOR", "orange").lower()

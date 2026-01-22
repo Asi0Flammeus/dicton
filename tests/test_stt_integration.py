@@ -54,6 +54,7 @@ def speech_recognizer(api_key):
         }
 
         from dicton.speech_recognition_engine import SpeechRecognizer
+
         recognizer = SpeechRecognizer()
 
         return recognizer
@@ -286,9 +287,12 @@ class TestProviderAvailability:
         """Test STT provider is unavailable when no API keys are set."""
         from dicton.stt_provider import NullSTTProvider
 
-        with patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio, \
-             patch("dicton.speech_recognition_engine.get_stt_provider_with_fallback") as mock_factory:
-
+        with (
+            patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio,
+            patch(
+                "dicton.speech_recognition_engine.get_stt_provider_with_fallback"
+            ) as mock_factory,
+        ):
             # Factory returns NullSTTProvider when no providers available
             mock_factory.return_value = NullSTTProvider()
 

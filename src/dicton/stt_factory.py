@@ -137,7 +137,9 @@ def get_stt_provider_with_fallback(
             return provider
         if verbose:
             print(f"⚠ STT Provider '{user_provider}' not available (check API key)")
-        logger.warning(f"User-specified STT provider '{user_provider}' not available, trying fallbacks")
+        logger.warning(
+            f"User-specified STT provider '{user_provider}' not available, trying fallbacks"
+        )
 
     # Try fallback order
     order = fallback_order or DEFAULT_FALLBACK_ORDER

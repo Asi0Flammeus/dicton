@@ -9,33 +9,100 @@ from pathlib import Path
 FILLER_WORDS = {
     # English fillers
     "en": {
-        "um", "uh", "uhm", "umm", "er", "err", "ah", "ahh", "eh",
-        "hmm", "hm", "mm", "mmm", "mhm", "uh-huh", "uh huh",
-        "like", "you know", "i mean", "sort of", "kind of",
-        "basically", "actually", "literally", "honestly",
-        "so", "well", "right", "okay so", "yeah so",
+        "um",
+        "uh",
+        "uhm",
+        "umm",
+        "er",
+        "err",
+        "ah",
+        "ahh",
+        "eh",
+        "hmm",
+        "hm",
+        "mm",
+        "mmm",
+        "mhm",
+        "uh-huh",
+        "uh huh",
+        "like",
+        "you know",
+        "i mean",
+        "sort of",
+        "kind of",
+        "basically",
+        "actually",
+        "literally",
+        "honestly",
+        "so",
+        "well",
+        "right",
+        "okay so",
+        "yeah so",
     },
     # French fillers
     "fr": {
-        "euh", "heu", "hein", "bah", "ben", "beh",
-        "quoi", "genre", "en fait", "du coup", "voilà",
-        "bon", "alors", "donc", "tu vois", "tu sais",
+        "euh",
+        "heu",
+        "hein",
+        "bah",
+        "ben",
+        "beh",
+        "quoi",
+        "genre",
+        "en fait",
+        "du coup",
+        "voilà",
+        "bon",
+        "alors",
+        "donc",
+        "tu vois",
+        "tu sais",
     },
     # German fillers
     "de": {
-        "äh", "ähm", "öh", "öhm", "hm", "hmm",
-        "also", "halt", "quasi", "sozusagen",
-        "irgendwie", "eigentlich", "ja", "ne", "na ja",
+        "äh",
+        "ähm",
+        "öh",
+        "öhm",
+        "hm",
+        "hmm",
+        "also",
+        "halt",
+        "quasi",
+        "sozusagen",
+        "irgendwie",
+        "eigentlich",
+        "ja",
+        "ne",
+        "na ja",
     },
     # Spanish fillers
     "es": {
-        "eh", "em", "este", "esto", "bueno", "pues",
-        "o sea", "es que", "tipo", "como que",
-        "vale", "sabes", "mira", "entonces",
+        "eh",
+        "em",
+        "este",
+        "esto",
+        "bueno",
+        "pues",
+        "o sea",
+        "es que",
+        "tipo",
+        "como que",
+        "vale",
+        "sabes",
+        "mira",
+        "entonces",
     },
     # Common (language-agnostic)
     "common": {
-        "um", "uh", "uhm", "er", "ah", "hmm", "mm",
+        "um",
+        "uh",
+        "uhm",
+        "er",
+        "ah",
+        "hmm",
+        "mm",
     },
 }
 
@@ -94,9 +161,7 @@ class TextProcessor:
                 data = json.load(f)
 
             # Load simple word replacements (case-insensitive)
-            self.dictionary = {
-                k.lower(): v for k, v in data.get("replacements", {}).items()
-            }
+            self.dictionary = {k.lower(): v for k, v in data.get("replacements", {}).items()}
 
             # Load case-sensitive replacements
             self.case_sensitive = data.get("case_sensitive", {})
@@ -111,7 +176,8 @@ class TextProcessor:
 
             # Load similarity words (for fuzzy matching)
             self.similarity_words = [
-                w for w in data.get("similarity_words", [])
+                w
+                for w in data.get("similarity_words", [])
                 if not w.startswith("_")  # Skip example entries
             ]
 
@@ -308,7 +374,9 @@ class TextProcessor:
 
         return result
 
-    def add_replacement(self, original: str, replacement: str, case_sensitive: bool = False) -> None:
+    def add_replacement(
+        self, original: str, replacement: str, case_sensitive: bool = False
+    ) -> None:
         """Add a new replacement to the dictionary.
 
         Args:

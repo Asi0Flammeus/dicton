@@ -41,8 +41,10 @@ class TestSTTFactory:
 
     def test_get_mistral_provider(self):
         """Test getting Mistral provider."""
-        with patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False), \
-             patch("mistralai.Mistral") as mock_mistral:
+        with (
+            patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
+            patch("mistralai.Mistral") as mock_mistral,
+        ):
             mock_mistral.return_value = MagicMock()
 
             from dicton.stt_factory import get_stt_provider
@@ -53,8 +55,10 @@ class TestSTTFactory:
 
     def test_get_provider_caches_result(self):
         """Test provider is cached after first retrieval."""
-        with patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False), \
-             patch("mistralai.Mistral") as mock_mistral:
+        with (
+            patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
+            patch("mistralai.Mistral") as mock_mistral,
+        ):
             mock_mistral.return_value = MagicMock()
 
             from dicton.stt_factory import _provider_cache, get_stt_provider
@@ -67,8 +71,10 @@ class TestSTTFactory:
 
     def test_get_provider_no_cache(self):
         """Test provider retrieval without caching."""
-        with patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False), \
-             patch("mistralai.Mistral") as mock_mistral:
+        with (
+            patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
+            patch("mistralai.Mistral") as mock_mistral,
+        ):
             mock_mistral.return_value = MagicMock()
 
             from dicton.stt_factory import get_stt_provider
@@ -95,11 +101,12 @@ class TestSTTFactoryFallback:
 
     def test_fallback_to_available_provider(self):
         """Test fallback chain finds available provider."""
-        with patch.dict("os.environ", {
-            "STT_PROVIDER": "",
-            "MISTRAL_API_KEY": "test_key"
-        }, clear=False), \
-             patch("mistralai.Mistral") as mock_mistral:
+        with (
+            patch.dict(
+                "os.environ", {"STT_PROVIDER": "", "MISTRAL_API_KEY": "test_key"}, clear=False
+            ),
+            patch("mistralai.Mistral") as mock_mistral,
+        ):
             mock_mistral.return_value = MagicMock()
 
             from dicton.stt_factory import get_stt_provider_with_fallback
@@ -109,11 +116,11 @@ class TestSTTFactoryFallback:
 
     def test_fallback_returns_null_when_none_available(self):
         """Test fallback returns NullSTTProvider when none available."""
-        with patch.dict("os.environ", {
-            "STT_PROVIDER": "",
-            "MISTRAL_API_KEY": "",
-            "ELEVENLABS_API_KEY": ""
-        }, clear=False):
+        with patch.dict(
+            "os.environ",
+            {"STT_PROVIDER": "", "MISTRAL_API_KEY": "", "ELEVENLABS_API_KEY": ""},
+            clear=False,
+        ):
             from dicton.stt_factory import get_stt_provider_with_fallback
 
             provider = get_stt_provider_with_fallback()
@@ -121,11 +128,14 @@ class TestSTTFactoryFallback:
 
     def test_user_specified_provider_takes_priority(self):
         """Test user-specified STT_PROVIDER env var takes priority."""
-        with patch.dict("os.environ", {
-            "STT_PROVIDER": "mistral",
-            "MISTRAL_API_KEY": "test_key"
-        }, clear=False), \
-             patch("mistralai.Mistral") as mock_mistral:
+        with (
+            patch.dict(
+                "os.environ",
+                {"STT_PROVIDER": "mistral", "MISTRAL_API_KEY": "test_key"},
+                clear=False,
+            ),
+            patch("mistralai.Mistral") as mock_mistral,
+        ):
             mock_mistral.return_value = MagicMock()
 
             from dicton.stt_factory import get_stt_provider_with_fallback
@@ -150,8 +160,10 @@ class TestSTTFactoryAvailable:
 
     def test_get_available_providers_with_mistral(self):
         """Test listing available providers includes Mistral."""
-        with patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False), \
-             patch("mistralai.Mistral") as mock_mistral:
+        with (
+            patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
+            patch("mistralai.Mistral") as mock_mistral,
+        ):
             mock_mistral.return_value = MagicMock()
 
             from dicton.stt_factory import get_available_stt_providers
@@ -161,10 +173,9 @@ class TestSTTFactoryAvailable:
 
     def test_get_available_providers_empty_when_none_configured(self):
         """Test listing available providers returns empty when none configured."""
-        with patch.dict("os.environ", {
-            "MISTRAL_API_KEY": "",
-            "ELEVENLABS_API_KEY": ""
-        }, clear=False):
+        with patch.dict(
+            "os.environ", {"MISTRAL_API_KEY": "", "ELEVENLABS_API_KEY": ""}, clear=False
+        ):
             from dicton.stt_factory import get_available_stt_providers
 
             available = get_available_stt_providers()
@@ -189,8 +200,10 @@ class TestSTTFactoryCache:
 
     def test_clear_provider_cache(self):
         """Test clearing provider cache."""
-        with patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False), \
-             patch("mistralai.Mistral") as mock_mistral:
+        with (
+            patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
+            patch("mistralai.Mistral") as mock_mistral,
+        ):
             mock_mistral.return_value = MagicMock()
 
             from dicton.stt_factory import (

@@ -208,16 +208,14 @@ class TransparentVisualizerWindow(Gtk.Window):
             amplitude *= 0.4 + global_level * 0.9
 
             outer_r = mid_radius + amplitude
-            outer_points.append((
-                center_x + math.cos(angle) * outer_r,
-                center_y + math.sin(angle) * outer_r
-            ))
+            outer_points.append(
+                (center_x + math.cos(angle) * outer_r, center_y + math.sin(angle) * outer_r)
+            )
 
             inner_r = max(inner_radius, mid_radius - amplitude)
-            inner_points.append((
-                center_x + math.cos(angle) * inner_r,
-                center_y + math.sin(angle) * inner_r
-            ))
+            inner_points.append(
+                (center_x + math.cos(angle) * inner_r, center_y + math.sin(angle) * inner_r)
+            )
 
         # Draw glow (if active)
         if global_level > 0.1:
@@ -233,10 +231,7 @@ class TransparentVisualizerWindow(Gtk.Window):
                 amp = (level * max_amplitude * 0.9 + wave * max_amplitude * 0.3) * 1.1
                 amp *= 0.4 + global_level * 0.9
                 r = mid_radius + amp
-                glow_points.append((
-                    center_x + math.cos(angle) * r,
-                    center_y + math.sin(angle) * r
-                ))
+                glow_points.append((center_x + math.cos(angle) * r, center_y + math.sin(angle) * r))
 
             if glow_points:
                 cr.move_to(*glow_points[0])
@@ -461,6 +456,7 @@ class Visualizer:
             print(f"GTK Visualizer error: {e}")
             if config.DEBUG:
                 import traceback
+
                 traceback.print_exc()
         finally:
             self._ready.set()

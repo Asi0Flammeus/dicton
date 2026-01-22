@@ -32,42 +32,134 @@ KEY_RIGHTALT = 100
 
 # Secondary hotkey keycode mapping (name -> evdev keycode)
 SECONDARY_HOTKEY_MAP = {
-    "escape": 1, "esc": 1,
-    "f1": 59, "f2": 60, "f3": 61, "f4": 62, "f5": 63, "f6": 64,
-    "f7": 65, "f8": 66, "f9": 67, "f10": 68, "f11": 87, "f12": 88,
-    "capslock": 58, "caps": 58,
-    "pause": 119, "break": 119,
-    "insert": 110, "ins": 110,
-    "home": 102, "end": 107,
-    "pageup": 104, "pgup": 104,
-    "pagedown": 109, "pgdn": 109,
+    "escape": 1,
+    "esc": 1,
+    "f1": 59,
+    "f2": 60,
+    "f3": 61,
+    "f4": 62,
+    "f5": 63,
+    "f6": 64,
+    "f7": 65,
+    "f8": 66,
+    "f9": 67,
+    "f10": 68,
+    "f11": 87,
+    "f12": 88,
+    "capslock": 58,
+    "caps": 58,
+    "pause": 119,
+    "break": 119,
+    "insert": 110,
+    "ins": 110,
+    "home": 102,
+    "end": 107,
+    "pageup": 104,
+    "pgup": 104,
+    "pagedown": 109,
+    "pgdn": 109,
 }
 
 # Full key name to evdev keycode mapping (for custom hotkey parsing)
 KEY_NAME_MAP = {
     # Letters
-    "a": 30, "b": 48, "c": 46, "d": 32, "e": 18, "f": 33, "g": 34, "h": 35,
-    "i": 23, "j": 36, "k": 37, "l": 38, "m": 50, "n": 49, "o": 24, "p": 25,
-    "q": 16, "r": 19, "s": 31, "t": 20, "u": 22, "v": 47, "w": 17, "x": 45,
-    "y": 21, "z": 44,
+    "a": 30,
+    "b": 48,
+    "c": 46,
+    "d": 32,
+    "e": 18,
+    "f": 33,
+    "g": 34,
+    "h": 35,
+    "i": 23,
+    "j": 36,
+    "k": 37,
+    "l": 38,
+    "m": 50,
+    "n": 49,
+    "o": 24,
+    "p": 25,
+    "q": 16,
+    "r": 19,
+    "s": 31,
+    "t": 20,
+    "u": 22,
+    "v": 47,
+    "w": 17,
+    "x": 45,
+    "y": 21,
+    "z": 44,
     # Numbers
-    "0": 11, "1": 2, "2": 3, "3": 4, "4": 5, "5": 6, "6": 7, "7": 8, "8": 9, "9": 10,
+    "0": 11,
+    "1": 2,
+    "2": 3,
+    "3": 4,
+    "4": 5,
+    "5": 6,
+    "6": 7,
+    "7": 8,
+    "8": 9,
+    "9": 10,
     # Special keys (include secondary hotkeys for completeness)
-    "escape": 1, "esc": 1,
-    "f1": 59, "f2": 60, "f3": 61, "f4": 62, "f5": 63, "f6": 64,
-    "f7": 65, "f8": 66, "f9": 67, "f10": 68, "f11": 87, "f12": 88,
-    "capslock": 58, "caps": 58,
-    "tab": 15, "space": 57, "enter": 28, "return": 28,
-    "backspace": 14, "delete": 111, "del": 111,
-    "insert": 110, "ins": 110,
-    "home": 102, "end": 107,
-    "pageup": 104, "pgup": 104, "pagedown": 109, "pgdn": 109,
-    "up": 103, "down": 108, "left": 105, "right": 106,
-    "pause": 119, "break": 119,
-    "grave": 41, "`": 41, "minus": 12, "-": 12, "equal": 13, "=": 13,
-    "bracketleft": 26, "[": 26, "bracketright": 27, "]": 27,
-    "backslash": 43, "\\": 43, "semicolon": 39, ";": 39, "apostrophe": 40, "'": 40,
-    "comma": 51, ",": 51, "period": 52, ".": 52, "slash": 53, "/": 53,
+    "escape": 1,
+    "esc": 1,
+    "f1": 59,
+    "f2": 60,
+    "f3": 61,
+    "f4": 62,
+    "f5": 63,
+    "f6": 64,
+    "f7": 65,
+    "f8": 66,
+    "f9": 67,
+    "f10": 68,
+    "f11": 87,
+    "f12": 88,
+    "capslock": 58,
+    "caps": 58,
+    "tab": 15,
+    "space": 57,
+    "enter": 28,
+    "return": 28,
+    "backspace": 14,
+    "delete": 111,
+    "del": 111,
+    "insert": 110,
+    "ins": 110,
+    "home": 102,
+    "end": 107,
+    "pageup": 104,
+    "pgup": 104,
+    "pagedown": 109,
+    "pgdn": 109,
+    "up": 103,
+    "down": 108,
+    "left": 105,
+    "right": 106,
+    "pause": 119,
+    "break": 119,
+    "grave": 41,
+    "`": 41,
+    "minus": 12,
+    "-": 12,
+    "equal": 13,
+    "=": 13,
+    "bracketleft": 26,
+    "[": 26,
+    "bracketright": 27,
+    "]": 27,
+    "backslash": 43,
+    "\\": 43,
+    "semicolon": 39,
+    ";": 39,
+    "apostrophe": 40,
+    "'": 40,
+    "comma": 51,
+    ",": 51,
+    "period": 52,
+    ".": 52,
+    "slash": 53,
+    "/": 53,
 }
 
 
@@ -171,7 +263,9 @@ class FnKeyHandler:
 
         # Debug: show what config values we're reading
         if config.DEBUG:
-            print(f"Secondary hotkey config: basic={config.SECONDARY_HOTKEY}, translation={config.SECONDARY_HOTKEY_TRANSLATION}, act={config.SECONDARY_HOTKEY_ACT_ON_TEXT}")
+            print(
+                f"Secondary hotkey config: basic={config.SECONDARY_HOTKEY}, translation={config.SECONDARY_HOTKEY_TRANSLATION}, act={config.SECONDARY_HOTKEY_ACT_ON_TEXT}"
+            )
 
         # Basic mode (F1 by default)
         keycode = SECONDARY_HOTKEY_MAP.get(config.SECONDARY_HOTKEY)
@@ -245,7 +339,9 @@ class FnKeyHandler:
         self._custom_hotkey_requires_alt = requires_alt
 
         if config.DEBUG:
-            print(f"Custom hotkey parsed: key={main_key}({keycode}), ctrl={requires_ctrl}, shift={requires_shift}, alt={requires_alt}")
+            print(
+                f"Custom hotkey parsed: key={main_key}({keycode}), ctrl={requires_ctrl}, shift={requires_shift}, alt={requires_alt}"
+            )
 
     def _is_custom_hotkey_modifiers_pressed(self) -> bool:
         """Check if the required modifiers for custom hotkey are currently pressed."""
@@ -295,11 +391,15 @@ class FnKeyHandler:
         if self._secondary_hotkeys:
             for keycode, mode in self._secondary_hotkeys.items():
                 # Find the key name from the keycode
-                key_name = next((k for k, v in SECONDARY_HOTKEY_MAP.items() if v == keycode), str(keycode))
+                key_name = next(
+                    (k for k, v in SECONDARY_HOTKEY_MAP.items() if v == keycode), str(keycode)
+                )
                 print(f"Secondary hotkey: '{key_name}' → {mode.name}")
             if self._secondary_devices:
                 device_names = [d.name for d in self._secondary_devices]
-                print(f"Secondary hotkeys listening on {len(device_names)} device(s): {', '.join(device_names)}")
+                print(
+                    f"Secondary hotkeys listening on {len(device_names)} device(s): {', '.join(device_names)}"
+                )
 
         return True
 
@@ -348,7 +448,9 @@ class FnKeyHandler:
                         has_wakeup = KEY_WAKEUP in keys
                         is_ext = is_external_keyboard(device.name)
                         if has_wakeup or is_ext:
-                            print(f"  {device.path}: {device.name} (WAKEUP={has_wakeup}, external={is_ext})")
+                            print(
+                                f"  {device.path}: {device.name} (WAKEUP={has_wakeup}, external={is_ext})"
+                            )
 
             primary_device = None
             secondary_devices = []
@@ -455,7 +557,9 @@ class FnKeyHandler:
 
                         # Debug: log key events
                         if config.DEBUG:
-                            print(f"Key event from {device.name}: code={event.code} value={event.value}")
+                            print(
+                                f"Key event from {device.name}: code={event.code} value={event.value}"
+                            )
 
                         # Track modifier key states
                         self._update_modifier_state(event.code, event.value)
@@ -493,8 +597,12 @@ class FnKeyHandler:
                             elif event.value == 0:  # Key up
                                 # Only process key up if we're in a recording state
                                 # (to avoid processing releases for key presses that weren't triggered)
-                                if self._state in (HotkeyState.RECORDING_PTT, HotkeyState.RECORDING_TOGGLE,
-                                                   HotkeyState.WAITING_ACTIVATION, HotkeyState.WAITING_DOUBLE):
+                                if self._state in (
+                                    HotkeyState.RECORDING_PTT,
+                                    HotkeyState.RECORDING_TOGGLE,
+                                    HotkeyState.WAITING_ACTIVATION,
+                                    HotkeyState.WAITING_DOUBLE,
+                                ):
                                     self._on_fn_key_up()
                         elif secondary_mode is not None:
                             # Secondary hotkey: use the specific mode for this key
@@ -695,9 +803,7 @@ class FnKeyHandler:
         if self.on_start_recording:
             mode = self._current_mode
             # Run callback in separate thread to not block event handling
-            threading.Thread(
-                target=lambda: self.on_start_recording(mode), daemon=True
-            ).start()
+            threading.Thread(target=lambda: self.on_start_recording(mode), daemon=True).start()
 
     def _trigger_stop_recording(self):
         """Trigger recording stop callback (will process audio)"""

@@ -188,7 +188,9 @@ def _build_context_preamble(context: ContextInfo | None) -> str:
     profile = manager.match_context(context)
 
     if config.CONTEXT_DEBUG:
-        print(f"[Context] App: {context.app_name}, Profile: {profile.name if profile else 'default'}")
+        print(
+            f"[Context] App: {context.app_name}, Profile: {profile.name if profile else 'default'}"
+        )
         if context.window:
             print(f"[Context] Window: {context.window.title} ({context.window.wm_class})")
         if context.widget:

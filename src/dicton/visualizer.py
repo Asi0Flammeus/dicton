@@ -346,17 +346,13 @@ class Visualizer:
             window.shape_mask(
                 shape.SO.Set,
                 shape.SK.Bounding,
-                0, 0,  # x, y offset
-                pixmap
+                0,
+                0,  # x, y offset
+                pixmap,
             )
 
             # Also set input shape so clicks pass through transparent areas
-            window.shape_mask(
-                shape.SO.Set,
-                shape.SK.Input,
-                0, 0,
-                pixmap
-            )
+            window.shape_mask(shape.SO.Set, shape.SK.Input, 0, 0, pixmap)
 
             d.sync()
             pixmap.free()
@@ -374,6 +370,7 @@ class Visualizer:
             if config.DEBUG:
                 print(f"⚠ XShape setup failed: {e}")
             import traceback
+
             traceback.print_exc()
             return False
 
@@ -416,12 +413,20 @@ class Visualizer:
             ring_width = 4
 
             # Draw simple pulsing ring
-            pygame.draw.circle(screen, self.COLOR_MAIN, (center_x, center_y), int(ring_radius), ring_width)
+            pygame.draw.circle(
+                screen, self.COLOR_MAIN, (center_x, center_y), int(ring_radius), ring_width
+            )
 
             # Subtle glow that pulses with the ring
             glow_surf = pygame.Surface((SIZE, SIZE), pygame.SRCALPHA)
             glow_alpha = int(40 + pulse * 30)
-            pygame.draw.circle(glow_surf, (*self.COLOR_DIM, glow_alpha), (center_x, center_y), int(ring_radius) + 3, ring_width + 4)
+            pygame.draw.circle(
+                glow_surf,
+                (*self.COLOR_DIM, glow_alpha),
+                (center_x, center_y),
+                int(ring_radius) + 3,
+                ring_width + 4,
+            )
             screen.blit(glow_surf, (0, 0))
 
             pygame.display.flip()

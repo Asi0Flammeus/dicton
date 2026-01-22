@@ -243,7 +243,9 @@ class ContextProfileManager:
             name=profile.name,
             match=profile.match,
             llm_preamble=profile.llm_preamble or parent.llm_preamble,
-            typing_speed=profile.typing_speed if profile.typing_speed != "normal" else parent.typing_speed,
+            typing_speed=profile.typing_speed
+            if profile.typing_speed != "normal"
+            else parent.typing_speed,
             formatting=profile.formatting if profile.formatting != "auto" else parent.formatting,
             extends=None,  # Don't chain inheritance
             priority=profile.priority,

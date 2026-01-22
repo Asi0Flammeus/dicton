@@ -220,9 +220,7 @@ class LatencyTracker:
             if config.DEBUG:
                 print(f"⚠ Failed to log latency: {e}")
 
-    def get_statistics(
-        self, last_n_sessions: int | None = None
-    ) -> dict[str, dict[str, float]]:
+    def get_statistics(self, last_n_sessions: int | None = None) -> dict[str, dict[str, float]]:
         """Get latency statistics across sessions.
 
         Args:
@@ -262,8 +260,14 @@ class LatencyTracker:
                 except Exception:
                     # Fallback for small sample sizes
                     p50 = median(sorted_d)
-                    p95 = sorted_d[int(len(sorted_d) * 0.95)] if len(sorted_d) >= 20 else sorted_d[-1]
-                    p99 = sorted_d[int(len(sorted_d) * 0.99)] if len(sorted_d) >= 100 else sorted_d[-1]
+                    p95 = (
+                        sorted_d[int(len(sorted_d) * 0.95)] if len(sorted_d) >= 20 else sorted_d[-1]
+                    )
+                    p99 = (
+                        sorted_d[int(len(sorted_d) * 0.99)]
+                        if len(sorted_d) >= 100
+                        else sorted_d[-1]
+                    )
 
                 stats[stage] = {
                     "count": len(durations),

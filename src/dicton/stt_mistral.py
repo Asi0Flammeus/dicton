@@ -167,7 +167,9 @@ class MistralSTTProvider(STTProvider):
                 wav_buffer.seek(0, 2)  # Seek to end
                 audio_size = wav_buffer.tell()
                 wav_buffer.seek(0)  # Reset
-                print(f"[Mistral] 🔄 Calling API: model={self._config.model}, audio={audio_size} bytes")
+                print(
+                    f"[Mistral] 🔄 Calling API: model={self._config.model}, audio={audio_size} bytes"
+                )
 
             # Call Mistral API
             # Note: Cannot use language + timestamp_granularities together
@@ -177,7 +179,9 @@ class MistralSTTProvider(STTProvider):
             )
 
             if app_config.DEBUG:
-                print(f"[Mistral] ✓ Response received: {len(result.text) if result and hasattr(result, 'text') else 0} chars")
+                print(
+                    f"[Mistral] ✓ Response received: {len(result.text) if result and hasattr(result, 'text') else 0} chars"
+                )
 
             if not result or not hasattr(result, "text"):
                 logger.warning("Mistral returned no text")

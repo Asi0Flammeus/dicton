@@ -235,7 +235,7 @@ class TestElevenLabsStreaming:
 
         # Create audio chunks generator
         audio = create_test_wav()
-        chunks = [audio[i:i+1024] for i in range(0, len(audio), 1024)]
+        chunks = [audio[i : i + 1024] for i in range(0, len(audio), 1024)]
 
         result = provider.stream_transcribe(iter(chunks))
 

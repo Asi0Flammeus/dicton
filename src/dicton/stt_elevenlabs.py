@@ -109,9 +109,7 @@ class ElevenLabsSTTProvider(STTProvider):
         try:
             from elevenlabs.client import ElevenLabs
 
-            self._client = ElevenLabs(
-                api_key=self._config.api_key, timeout=self._config.timeout
-            )
+            self._client = ElevenLabs(api_key=self._config.api_key, timeout=self._config.timeout)
             self._is_available = True
             return True
         except ImportError:
