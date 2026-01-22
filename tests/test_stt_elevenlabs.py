@@ -17,7 +17,6 @@ import pytest
 
 from dicton.stt_provider import STTCapability, STTProviderConfig
 
-
 # =============================================================================
 # Provider Initialization Tests
 # =============================================================================
@@ -80,33 +79,26 @@ class TestElevenLabsAvailability:
 
     def test_available_with_api_key(self):
         """Test provider is available with API key."""
-        with patch.dict("os.environ", {"ELEVENLABS_API_KEY": "test_key"}, clear=False), \
-             patch("dicton.stt_elevenlabs._get_elevenlabs_client") as mock_get_client:
+        from dicton.stt_elevenlabs import ElevenLabsSTTProvider
+
+        with patch("elevenlabs.client.ElevenLabs") as mock_elevenlabs:
             mock_client = MagicMock()
-            mock_get_client.return_value = mock_client
-
-            from dicton.stt_elevenlabs import ElevenLabsSTTProvider
-
-            # Clear cached state
-            import dicton.stt_elevenlabs as module
-            module._elevenlabs_client = None
+            mock_elevenlabs.return_value = mock_client
 
             provider = ElevenLabsSTTProvider(STTProviderConfig(api_key="test_key"))
             assert provider.is_available() is True
+            mock_elevenlabs.assert_called_once()
 
     def test_unavailable_when_sdk_missing(self):
         """Test provider is unavailable when SDK import fails."""
-        with patch.dict("os.environ", {"ELEVENLABS_API_KEY": "test_key"}, clear=False), \
-             patch("dicton.stt_elevenlabs._get_elevenlabs_client") as mock_get_client:
-            mock_get_client.return_value = None
+        from dicton.stt_elevenlabs import ElevenLabsSTTProvider
 
-            from dicton.stt_elevenlabs import ElevenLabsSTTProvider
-
-            # Clear cached state
-            import dicton.stt_elevenlabs as module
-            module._elevenlabs_client = None
-
+        # Simulate import error by patching the import inside is_available
+        with patch.dict("sys.modules", {"elevenlabs": None, "elevenlabs.client": None}):
             provider = ElevenLabsSTTProvider(STTProviderConfig(api_key="test_key"))
+            # Force re-check by clearing state
+            provider._api_key_hash = None
+            provider._client = None
             assert provider.is_available() is False
 
 
@@ -121,19 +113,14 @@ class TestElevenLabsTranscription:
     @pytest.fixture
     def mock_provider(self):
         """Create provider with mocked client."""
-        with patch("dicton.stt_elevenlabs._get_elevenlabs_client") as mock_get_client:
-            mock_client = MagicMock()
-            mock_get_client.return_value = mock_client
+        from dicton.stt_elevenlabs import ElevenLabsSTTProvider
 
-            from dicton.stt_elevenlabs import ElevenLabsSTTProvider
-
-            # Clear cached state
-            import dicton.stt_elevenlabs as module
-            module._elevenlabs_client = None
-
-            provider = ElevenLabsSTTProvider(STTProviderConfig(api_key="test_key"))
-            provider._client = mock_client
-            return provider, mock_client
+        mock_client = MagicMock()
+        provider = ElevenLabsSTTProvider(STTProviderConfig(api_key="test_key"))
+        provider._client = mock_client
+        provider._api_key_hash = provider._compute_api_key_hash()
+        provider._is_available = True
+        yield provider, mock_client
 
     def test_transcribe_empty_audio_returns_none(self, mock_provider):
         """Test transcribe returns None for empty audio."""
@@ -233,32 +220,28 @@ class TestElevenLabsStreaming:
 
     def test_stream_transcribe_uses_batch(self):
         """Test stream_transcribe falls back to batch mode."""
-        with patch("dicton.stt_elevenlabs._get_elevenlabs_client") as mock_get_client:
-            mock_client = MagicMock()
-            mock_get_client.return_value = mock_client
+        from dicton.stt_elevenlabs import ElevenLabsSTTProvider
 
-            mock_response = MagicMock()
-            mock_response.text = "Streamed"
-            mock_response.language_code = "en"
-            mock_client.speech_to_text.convert.return_value = mock_response
+        mock_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.text = "Streamed"
+        mock_response.language_code = "en"
+        mock_client.speech_to_text.convert.return_value = mock_response
 
-            from dicton.stt_elevenlabs import ElevenLabsSTTProvider
+        provider = ElevenLabsSTTProvider(STTProviderConfig(api_key="test_key"))
+        provider._client = mock_client
+        provider._api_key_hash = provider._compute_api_key_hash()
+        provider._is_available = True
 
-            import dicton.stt_elevenlabs as module
-            module._elevenlabs_client = None
+        # Create audio chunks generator
+        audio = create_test_wav()
+        chunks = [audio[i:i+1024] for i in range(0, len(audio), 1024)]
 
-            provider = ElevenLabsSTTProvider(STTProviderConfig(api_key="test_key"))
-            provider._client = mock_client
+        result = provider.stream_transcribe(iter(chunks))
 
-            # Create audio chunks generator
-            audio = create_test_wav()
-            chunks = [audio[i:i+1024] for i in range(0, len(audio), 1024)]
-
-            result = provider.stream_transcribe(iter(chunks))
-
-            assert result is not None
-            assert result.text == "Streamed"
-            mock_client.speech_to_text.convert.assert_called_once()
+        assert result is not None
+        assert result.text == "Streamed"
+        mock_client.speech_to_text.convert.assert_called_once()
 
 
 # =============================================================================

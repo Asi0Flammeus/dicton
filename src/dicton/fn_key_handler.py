@@ -422,6 +422,7 @@ class FnKeyHandler:
         """Main event loop for evdev - reads from both primary and secondary devices"""
         try:
             import select
+
             from evdev import ecodes
 
             # Build list of devices to monitor

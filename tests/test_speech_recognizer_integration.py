@@ -8,8 +8,8 @@ testing the integration logic, not the audio capture functionality.
 """
 
 from unittest.mock import MagicMock, patch
-import pytest
 
+import pytest
 
 # Skip these tests by default - they require mocking heavy dependencies
 pytestmark = pytest.mark.skip(reason="Integration tests require full environment")

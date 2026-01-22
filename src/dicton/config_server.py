@@ -2071,7 +2071,7 @@ _test_state = {
 def _background_record():
     """Background thread function to record audio."""
     import pyaudio
-    import numpy as np
+
     from .speech_recognition_engine import suppress_stderr
 
     if _test_state["recognizer"] is None:
@@ -2115,7 +2115,7 @@ def _background_record():
 def create_app():
     """Create FastAPI application."""
     try:
-        from fastapi import FastAPI
+        from fastapi import FastAPI, Request
         from fastapi.responses import HTMLResponse, JSONResponse
         from pydantic import BaseModel
     except ImportError as e:
@@ -2349,8 +2349,9 @@ def create_app():
     @app.post("/api/test/start")
     async def api_test_start():
         """Start recording for latency test."""
-        import time
         import threading
+        import time
+
         from .speech_recognition_engine import SpeechRecognizer
 
         # Clean up any previous test state
@@ -2376,6 +2377,7 @@ def create_app():
     async def api_test_stop():
         """Stop recording and run transcription test - mirrors exact production flow."""
         import time
+
         import numpy as np
 
         if not _test_state["recording"]:

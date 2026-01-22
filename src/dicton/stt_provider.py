@@ -9,10 +9,15 @@ Architecture: Provider abstraction with fallback chain:
   - Graceful degradation when providers unavailable
 """
 
+import io
+import logging
+import wave
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from enum import Enum, auto
+
+logger = logging.getLogger(__name__)
 
 
 class STTCapability(Enum):
@@ -129,6 +134,55 @@ class STTProvider(ABC):
         """
         return capability in self.capabilities
 
+    @property
+    def max_audio_duration(self) -> int | None:
+        """Maximum audio duration in seconds, or None for no limit."""
+        return None
+
+    @property
+    def max_audio_size(self) -> int | None:
+        """Maximum audio size in bytes, or None for no limit."""
+        return None
+
+    def _validate_audio(self, audio_data: bytes) -> bool:
+        """Validate audio data against provider limits.
+
+        Checks audio size and duration against provider-specific limits.
+
+        Args:
+            audio_data: Audio data as bytes.
+
+        Returns:
+            True if audio is valid, False otherwise.
+        """
+        # Check size limit
+        if self.max_audio_size is not None and len(audio_data) > self.max_audio_size:
+            logger.error(
+                f"{self.name}: Audio size {len(audio_data)} bytes exceeds "
+                f"limit of {self.max_audio_size} bytes"
+            )
+            return False
+
+        # Check duration limit (only for WAV files we can parse)
+        if self.max_audio_duration is not None and audio_data[:4] == b"RIFF":
+            try:
+                wav_buffer = io.BytesIO(audio_data)
+                with wave.open(wav_buffer, "rb") as wav:
+                    frames = wav.getnframes()
+                    rate = wav.getframerate()
+                    duration = frames / rate
+                    if duration > self.max_audio_duration:
+                        logger.error(
+                            f"{self.name}: Audio duration {duration:.1f}s exceeds "
+                            f"limit of {self.max_audio_duration}s"
+                        )
+                        return False
+            except Exception as e:
+                logger.debug(f"Could not parse WAV for duration check: {e}")
+                # Allow through - API will reject if invalid
+
+        return True
+
     @abstractmethod
     def transcribe(self, audio_data: bytes) -> TranscriptionResult | None:
         """Transcribe audio data (batch mode).
@@ -184,6 +238,37 @@ class STTProvider(ABC):
         if not self.has_capability(STTCapability.TRANSLATION):
             return None
         return None
+
+    def _convert_to_wav(self, audio_data: bytes) -> io.BytesIO | None:
+        """Convert audio data to WAV format if needed.
+
+        Assumes input is either:
+        - Raw PCM int16 samples at configured sample rate
+        - Already a WAV file
+
+        Args:
+            audio_data: Audio data as bytes.
+
+        Returns:
+            BytesIO containing WAV data, or None on error.
+        """
+        # Check if already WAV format (starts with RIFF header)
+        if audio_data[:4] == b"RIFF":
+            return io.BytesIO(audio_data)
+
+        # Assume raw PCM int16, convert to WAV
+        try:
+            wav_buffer = io.BytesIO()
+            with wave.open(wav_buffer, "wb") as wav_file:
+                wav_file.setnchannels(1)
+                wav_file.setsampwidth(2)  # 16-bit
+                wav_file.setframerate(self._config.sample_rate)
+                wav_file.writeframes(audio_data)
+            wav_buffer.seek(0)
+            return wav_buffer
+        except Exception as e:
+            logger.error(f"Failed to convert audio to WAV: {e}")
+            return None
 
 
 class NullSTTProvider(STTProvider):

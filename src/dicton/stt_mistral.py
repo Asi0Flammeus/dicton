@@ -9,7 +9,7 @@ Key constraints:
 - Cannot use language hint + timestamps together
 """
 
-import io
+import hashlib
 import logging
 import wave
 from collections.abc import Callable, Iterator
@@ -23,35 +23,6 @@ from .stt_provider import (
 )
 
 logger = logging.getLogger(__name__)
-
-# Mistral SDK - lazily imported to avoid hard dependency
-_mistral_client = None
-
-
-def _get_mistral_client(api_key: str):
-    """Lazily initialize Mistral client.
-
-    Args:
-        api_key: Mistral API key.
-
-    Returns:
-        Mistral client instance or None if unavailable.
-    """
-    global _mistral_client
-    if _mistral_client is not None:
-        return _mistral_client
-
-    try:
-        from mistralai import Mistral
-
-        _mistral_client = Mistral(api_key=api_key)
-        return _mistral_client
-    except ImportError:
-        logger.warning("mistralai package not installed")
-        return None
-    except Exception as e:
-        logger.error(f"Failed to initialize Mistral client: {e}")
-        return None
 
 
 class MistralSTTProvider(STTProvider):
@@ -76,7 +47,7 @@ class MistralSTTProvider(STTProvider):
         """
         super().__init__(config)
         self._client = None
-        self._available_checked = False
+        self._api_key_hash: str | None = None
         self._is_available = False
 
         # Use config model or fall back to environment/default
@@ -99,76 +70,70 @@ class MistralSTTProvider(STTProvider):
     def capabilities(self) -> set[STTCapability]:
         return {STTCapability.BATCH, STTCapability.WORD_TIMESTAMPS}
 
+    @property
+    def max_audio_duration(self) -> int | None:
+        """Maximum audio duration: 30 minutes (1800 seconds)."""
+        return 1800
+
+    @property
+    def max_audio_size(self) -> int | None:
+        """Maximum audio size: 100 MB."""
+        return 100_000_000
+
+    def _compute_api_key_hash(self) -> str:
+        """Compute hash of current API key for change detection."""
+        return hashlib.sha256(self._config.api_key.encode()).hexdigest()[:16]
+
     def is_available(self) -> bool:
         """Check if Mistral is available and configured.
+
+        Re-checks availability when API key changes.
 
         Returns:
             True if API key is set and client can be initialized.
         """
-        if self._available_checked:
-            return self._is_available
-
-        self._available_checked = True
-
         if not self._config.api_key:
             logger.debug("Mistral API key not configured")
             self._is_available = False
+            self._api_key_hash = None
             return False
 
-        # Try to initialize client
-        client = _get_mistral_client(self._config.api_key)
-        if client is None:
+        # Check if API key changed
+        current_hash = self._compute_api_key_hash()
+        if self._api_key_hash == current_hash and self._client is not None:
+            return self._is_available
+
+        # API key changed or first check - reinitialize client
+        self._api_key_hash = current_hash
+        self._client = None
+
+        try:
+            from mistralai import Mistral
+
+            self._client = Mistral(api_key=self._config.api_key)
+            self._is_available = True
+            return True
+        except ImportError:
+            logger.warning("mistralai package not installed")
+            self._is_available = False
+            return False
+        except Exception as e:
+            logger.error(f"Failed to initialize Mistral client: {e}")
             self._is_available = False
             return False
 
-        self._client = client
-        self._is_available = True
-        return True
-
     def _ensure_client(self) -> bool:
-        """Ensure client is initialized.
+        """Ensure client is initialized with current API key.
 
         Returns:
             True if client is ready.
         """
-        if self._client is not None:
+        # Check if API key changed since last initialization
+        if self._client is not None and self._api_key_hash == self._compute_api_key_hash():
             return True
 
-        if not self.is_available():
-            return False
-
-        return self._client is not None
-
-    def _convert_to_wav(self, audio_data: bytes) -> io.BytesIO | None:
-        """Convert audio data to WAV format if needed.
-
-        Assumes input is either:
-        - Raw PCM int16 samples at configured sample rate
-        - Already a WAV file
-
-        Args:
-            audio_data: Audio data as bytes.
-
-        Returns:
-            BytesIO containing WAV data, or None on error.
-        """
-        # Check if already WAV format (starts with RIFF header)
-        if audio_data[:4] == b"RIFF":
-            return io.BytesIO(audio_data)
-
-        # Assume raw PCM int16, convert to WAV
-        try:
-            wav_buffer = io.BytesIO()
-            with wave.open(wav_buffer, "wb") as wav_file:
-                wav_file.setnchannels(1)
-                wav_file.setsampwidth(2)  # 16-bit
-                wav_file.setframerate(self._config.sample_rate)
-                wav_file.writeframes(audio_data)
-            wav_buffer.seek(0)
-            return wav_buffer
-        except Exception as e:
-            logger.error(f"Failed to convert audio to WAV: {e}")
-            return None
+        # Reinitialize via is_available() which handles key change detection
+        return self.is_available()
 
     def transcribe(self, audio_data: bytes) -> TranscriptionResult | None:
         """Transcribe audio data using Mistral Voxtral.
@@ -180,6 +145,9 @@ class MistralSTTProvider(STTProvider):
             TranscriptionResult on success, None on failure.
         """
         if not audio_data:
+            return None
+
+        if not self._validate_audio(audio_data):
             return None
 
         if not self._ensure_client():
@@ -241,8 +209,8 @@ class MistralSTTProvider(STTProvider):
                     frames = wav.getnframes()
                     rate = wav.getframerate()
                     transcription.duration = frames / rate
-            except Exception:
-                pass  # Duration is optional
+            except Exception as e:
+                logger.debug(f"Could not calculate audio duration: {e}")
 
             return transcription
 

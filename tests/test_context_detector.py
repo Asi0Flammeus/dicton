@@ -10,7 +10,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # =============================================================================
 # Data Classes Tests
 # =============================================================================
@@ -663,7 +662,7 @@ class TestFallbackChain:
 
     def test_context_captures_errors(self):
         """Test that errors are captured without breaking detection."""
-        from dicton.context_detector import ContextDetector, ContextInfo, WindowInfo
+        from dicton.context_detector import ContextDetector, WindowInfo
 
         class PartialDetector(ContextDetector):
             """Detector that fails on widget detection."""

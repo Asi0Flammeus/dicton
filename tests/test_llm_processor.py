@@ -50,6 +50,7 @@ class TestTranslationPromptStructure:
     def test_prompt_has_two_steps(self):
         """Verify the translate function prompt contains two-step structure."""
         import inspect
+
         from src.dicton.llm_processor import translate
 
         # Get the function source to verify prompt structure
@@ -64,6 +65,7 @@ class TestTranslationPromptStructure:
     def test_prompt_contains_french_fillers(self):
         """Verify prompt mentions French filler examples."""
         import inspect
+
         from src.dicton.llm_processor import translate
 
         source = inspect.getsource(translate)
@@ -76,6 +78,7 @@ class TestTranslationPromptStructure:
     def test_prompt_contains_english_fillers(self):
         """Verify prompt mentions English filler examples."""
         import inspect
+
         from src.dicton.llm_processor import translate
 
         source = inspect.getsource(translate)
@@ -96,7 +99,7 @@ class TestTranslationFillerRemoval:
     @pytest.fixture
     def translation_func(self):
         """Get the translate function."""
-        from src.dicton.llm_processor import translate, is_available
+        from src.dicton.llm_processor import is_available, translate
         if not is_available():
             pytest.skip("No LLM provider configured")
         return translate

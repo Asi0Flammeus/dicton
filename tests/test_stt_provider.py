@@ -7,15 +7,14 @@ Tests the SpeechRecognizer class functionality including:
 - Text filtering and noise removal
 """
 
+import wave
 from io import BytesIO
 from unittest.mock import MagicMock, patch
-import wave
 
 import numpy as np
 import pytest
 
 from dicton.stt_provider import NullSTTProvider, TranscriptionResult
-
 
 # =============================================================================
 # Device Selection Tests
@@ -166,7 +165,6 @@ class TestTextFilter:
             recognizer.input_device = None
 
             # Set up text processor mock
-            from dicton.text_processor import get_text_processor
             recognizer._processor = processor_instance
 
             return recognizer
