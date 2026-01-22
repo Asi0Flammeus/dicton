@@ -51,6 +51,10 @@ gtk = [
 fnkey = [
     "evdev>=1.6.0",
 ]
+mistral = [
+    # Mistral Voxtral STT provider (alternative to ElevenLabs)
+    "mistralai>=1.0.0",
+]
 llm = [
     "google-genai>=1.0.0",
     "anthropic>=0.40.0",
@@ -96,10 +100,10 @@ linux = [
     # Linux production: all Linux-specific features
     # Note: gtk excluded - requires system deps (libgirepository-2.0-dev) not available on all distros
     # Users wanting GTK backend can install separately: pip install dicton[gtk]
-    "dicton[fnkey,llm,xshape,notifications,configui,context-x11]",
+    "dicton[fnkey,llm,xshape,notifications,configui,context-x11,mistral]",
 ]
 all = [
-    "dicton[vispy,gtk,fnkey,llm,xshape,notifications,windows,dev,configui,context-x11,context-wayland,context-windows]",
+    "dicton[vispy,gtk,fnkey,llm,xshape,notifications,windows,dev,configui,context-x11,context-wayland,context-windows,mistral]",
 ]
 
 [project.scripts]
