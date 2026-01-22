@@ -26,6 +26,11 @@ class Dicton:
     def __init__(self):
         config.create_dirs()
         self.recognizer = SpeechRecognizer()
+
+        # Warn prominently if no STT provider is available
+        if not self.recognizer._provider_available:
+            print("❌ No STT provider configured - dictation will not work!")
+
         self.keyboard = KeyboardHandler(self._legacy_toggle)
         self.recording = False
         self.record_thread = None
