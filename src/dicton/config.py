@@ -124,6 +124,13 @@ class Config:
     # ElevenLabs STT model
     ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "scribe_v1")
 
+    # Mistral STT (alternative to ElevenLabs, ~85% cost savings)
+    MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
+    MISTRAL_STT_MODEL = os.getenv("MISTRAL_STT_MODEL", "voxtral-mini-latest")
+
+    # STT Provider selection: "mistral", "elevenlabs", or "auto" (tries both)
+    STT_PROVIDER = os.getenv("STT_PROVIDER", "auto")
+
     # API timeout in seconds (prevents infinite hang if VPN blocks APIs)
     API_TIMEOUT = float(os.getenv("API_TIMEOUT", "30"))
 
