@@ -9,6 +9,8 @@ Delayed Start Mode:
     Double-tap enters toggle mode (locked recording).
 """
 
+import os
+import select
 import threading
 import time
 from collections.abc import Callable
@@ -148,6 +150,14 @@ class FnKeyHandler:
         self._secondary_devices = []  # All keyboards for secondary hotkey
         self._evdev_available = False
 
+        # Device hot-plug support
+        self._devices_lock = threading.Lock()  # Protects device list access
+        self._wake_pipe_r: int | None = None  # Read end of self-pipe
+        self._wake_pipe_w: int | None = None  # Write end of self-pipe
+        self._device_monitor_thread: threading.Thread | None = None
+        self._pyudev_available = False
+        self._pending_refresh = False  # Flag to signal device refresh needed
+
         # Secondary hotkeys: mapping of keycode → ProcessingMode
         # Each secondary hotkey triggers a specific mode directly (ignores modifier keys)
         self._secondary_hotkeys: dict[int, ProcessingMode] = {}
@@ -272,14 +282,38 @@ class FnKeyHandler:
             print("Or: pip install dicton[fnkey]")
             return False
 
+        # Check for pyudev (optional, for hot-plug support)
+        try:
+            import pyudev  # noqa: F401
+
+            self._pyudev_available = True
+        except ImportError:
+            self._pyudev_available = False
+            if config.DEBUG:
+                print("pyudev not installed - keyboard hot-plug detection disabled")
+
+        # Create self-pipe for waking select() on device changes
+        self._wake_pipe_r, self._wake_pipe_w = os.pipe()
+        os.set_blocking(self._wake_pipe_r, False)
+        os.set_blocking(self._wake_pipe_w, False)
+
         # Find keyboard devices
         self._device, self._secondary_devices = self._find_keyboard_devices()
         if not self._device and not self._secondary_devices:
             print("No keyboard device found")
             print("You may need to run with sudo or add user to 'input' group")
+            self._close_wake_pipe()
             return False
 
         self._running = True
+
+        # Start device monitor for hot-plug detection
+        if self._pyudev_available:
+            self._device_monitor_thread = threading.Thread(
+                target=self._device_monitor_loop, daemon=True
+            )
+            self._device_monitor_thread.start()
+
         self._listener_thread = threading.Thread(target=self._listen_loop, daemon=True)
         self._listener_thread.start()
 
@@ -306,18 +340,129 @@ class FnKeyHandler:
     def stop(self):
         """Stop the FN key listener"""
         self._running = False
-        if self._device:
-            try:
-                self._device.close()
-            except Exception:
-                pass
-        for device in self._secondary_devices:
-            try:
-                device.close()
-            except Exception:
-                pass
+
+        # Wake the listener loop so it can exit
+        self._wake_select()
+
+        # Close devices
+        with self._devices_lock:
+            if self._device:
+                try:
+                    self._device.close()
+                except Exception:
+                    pass
+                self._device = None
+            for device in self._secondary_devices:
+                try:
+                    device.close()
+                except Exception:
+                    pass
+            self._secondary_devices = []
+
+        # Close the wake pipe
+        self._close_wake_pipe()
+
+        # Wait for threads to finish
+        if self._device_monitor_thread:
+            self._device_monitor_thread.join(timeout=1.0)
         if self._listener_thread:
             self._listener_thread.join(timeout=1.0)
+
+    def _close_wake_pipe(self):
+        """Close the self-pipe used to wake select()"""
+        if self._wake_pipe_r is not None:
+            try:
+                os.close(self._wake_pipe_r)
+            except OSError:
+                pass
+            self._wake_pipe_r = None
+        if self._wake_pipe_w is not None:
+            try:
+                os.close(self._wake_pipe_w)
+            except OSError:
+                pass
+            self._wake_pipe_w = None
+
+    def _wake_select(self):
+        """Wake the select() call in the listener loop"""
+        if self._wake_pipe_w is not None:
+            try:
+                os.write(self._wake_pipe_w, b"\x00")
+            except (OSError, BrokenPipeError):
+                pass
+
+    def _device_monitor_loop(self):
+        """Monitor for keyboard device add/remove events using pyudev.
+
+        This runs in a separate thread and signals the listener loop
+        when devices change so it can refresh the device list.
+        """
+        try:
+            import pyudev
+
+            context = pyudev.Context()
+            monitor = pyudev.Monitor.from_netlink(context)
+            monitor.filter_by(subsystem="input")
+
+            if config.DEBUG:
+                print("Device monitor started (pyudev)")
+
+            for device in iter(monitor.poll, None):
+                if not self._running:
+                    break
+
+                # Only interested in event devices (keyboards)
+                if device.device_node and device.device_node.startswith("/dev/input/event"):
+                    action = device.action
+                    if action in ("add", "remove"):
+                        if config.DEBUG:
+                            print(f"Device {action}: {device.device_node}")
+
+                        # Signal the listener loop to refresh devices
+                        self._pending_refresh = True
+                        self._wake_select()
+
+                        # Small delay to let udev finish setting up the device
+                        if action == "add":
+                            time.sleep(0.5)
+
+        except Exception as e:
+            if self._running and config.DEBUG:
+                print(f"Device monitor error: {e}")
+
+    def _refresh_devices(self):
+        """Refresh the device list after a hot-plug event.
+
+        Called from the listener loop when _pending_refresh is True.
+        Closes old devices and opens new ones.
+        """
+        if config.DEBUG:
+            print("Refreshing keyboard devices...")
+
+        with self._devices_lock:
+            # Close existing devices
+            if self._device:
+                try:
+                    self._device.close()
+                except Exception:
+                    pass
+            for device in self._secondary_devices:
+                try:
+                    device.close()
+                except Exception:
+                    pass
+
+            # Find new devices
+            self._device, self._secondary_devices = self._find_keyboard_devices()
+
+            if config.DEBUG:
+                if self._device:
+                    print(f"Primary device: {self._device.name}")
+                if self._secondary_devices:
+                    names = [d.name for d in self._secondary_devices]
+                    print(f"Secondary devices: {', '.join(names)}")
+
+        self._pending_refresh = False
 
     def _find_keyboard_devices(self):
         """Find keyboard devices for FN key, custom hotkey, and secondary hotkey.
@@ -418,33 +563,86 @@ class FnKeyHandler:
                 print(f"Error finding keyboard device: {e}")
             return None, []
 
+    def _build_device_fd_map(self) -> dict:
+        """Build a map of file descriptors to devices.
+
+        Must be called with _devices_lock held.
+        """
+        devices = {}
+        if self._device:
+            devices[self._device.fd] = self._device
+        for sec_device in self._secondary_devices:
+            devices[sec_device.fd] = sec_device
+        return devices
+
     def _listen_loop(self):
-        """Main event loop for evdev - reads from both primary and secondary devices"""
+        """Main event loop for evdev - reads from both primary and secondary devices.
+
+        Supports hot-plug: when the device monitor signals a change via the wake pipe,
+        this loop will refresh the device list and update the fd set.
+        """
         try:
-            import select
             from evdev import ecodes
 
-            # Build list of devices to monitor
-            devices = {}
-            if self._device:
-                devices[self._device.fd] = self._device
+            # Build initial list of devices to monitor
+            with self._devices_lock:
+                devices = self._build_device_fd_map()
                 if config.DEBUG:
-                    print(f"Listening for FN key on: {self._device.name}")
-            for sec_device in self._secondary_devices:
-                devices[sec_device.fd] = sec_device
-                if config.DEBUG:
-                    print(f"Listening for secondary hotkey on: {sec_device.name}")
-
-            if not devices:
-                return
+                    if self._device:
+                        print(f"Listening for FN key on: {self._device.name}")
+                    for sec_device in self._secondary_devices:
+                        print(f"Listening for secondary hotkey on: {sec_device.name}")
 
             while self._running:
-                # Wait for events from any device (100ms timeout to check _running)
-                r, _, _ = select.select(devices.keys(), [], [], 0.1)
+                # Check if we need to refresh devices (hot-plug event)
+                if self._pending_refresh:
+                    self._refresh_devices()
+                    with self._devices_lock:
+                        devices = self._build_device_fd_map()
+
+                # Build fd list for select, including wake pipe
+                fds = list(devices.keys())
+                if self._wake_pipe_r is not None:
+                    fds.append(self._wake_pipe_r)
+
+                if not fds:
+                    # No devices and no wake pipe - sleep briefly and retry
+                    time.sleep(0.5)
+                    continue
+
+                # Wait for events (100ms timeout to check _running)
+                try:
+                    r, _, _ = select.select(fds, [], [], 0.1)
+                except (ValueError, OSError):
+                    # Invalid fd in list (device unplugged) - refresh
+                    self._pending_refresh = True
+                    continue
 
                 for fd in r:
-                    device = devices[fd]
-                    for event in device.read():
+                    # Check if it's the wake pipe
+                    if fd == self._wake_pipe_r:
+                        # Drain the pipe
+                        try:
+                            os.read(self._wake_pipe_r, 1024)
+                        except (OSError, BlockingIOError):
+                            pass
+                        continue
+
+                    device = devices.get(fd)
+                    if device is None:
+                        continue
+
+                    # Read events from device
+                    try:
+                        events = list(device.read())
+                    except OSError:
+                        # Device unplugged - trigger refresh
+                        if config.DEBUG:
+                            print(f"Device read error (unplugged?): {device.name}")
+                        self._pending_refresh = True
+                        continue
+
+                    for event in events:
                         if not self._running:
                             return
 
@@ -461,8 +659,9 @@ class FnKeyHandler:
 
                         # Check if this is the FN key (primary trigger)
                         is_fn_key = False
-                        if device == self._device:
-                            is_fn_key = event.code == KEY_WAKEUP or event.code == 464
+                        with self._devices_lock:
+                            if device == self._device:
+                                is_fn_key = event.code == KEY_WAKEUP or event.code == 464
 
                         # Check if this is the custom hotkey main key
                         is_custom_hotkey = (

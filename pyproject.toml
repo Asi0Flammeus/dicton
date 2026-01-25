@@ -50,6 +50,7 @@ gtk = [
 ]
 fnkey = [
     "evdev>=1.6.0",
+    "pyudev>=0.24.0",
 ]
 llm = [
     "google-genai>=1.0.0",
