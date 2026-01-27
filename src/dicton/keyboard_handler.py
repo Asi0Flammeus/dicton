@@ -21,6 +21,32 @@ class KeyboardHandler:
         self.hotkey_active = False
         self._keyboard_controller = KeyboardController()
 
+    def _verify_clipboard(self, expected_text: str, get_clipboard_fn) -> bool:
+        """Verify clipboard contains expected text (prevents X11 race condition).
+
+        X11 clipboard is asynchronous - xclip may exit before propagation.
+        This method polls until clipboard matches or max retries exceeded.
+
+        Args:
+            expected_text: The text that should be in clipboard.
+            get_clipboard_fn: Function to retrieve current clipboard content.
+
+        Returns:
+            True if clipboard contains expected text, False otherwise.
+        """
+        verify_delay = config.CLIPBOARD_VERIFY_DELAY_MS / 1000.0
+        max_retries = config.CLIPBOARD_MAX_RETRIES
+
+        for attempt in range(max_retries):
+            time.sleep(verify_delay)
+            current = get_clipboard_fn()
+            if current == expected_text:
+                return True
+            if config.DEBUG:
+                print(f"⚠ Clipboard verify attempt {attempt + 1}/{max_retries}: mismatch")
+
+        return False
+
     def start(self):
         """Start keyboard listener"""
         self.listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
@@ -174,23 +200,8 @@ class KeyboardHandler:
                 return False
 
             # Verify clipboard was set correctly (prevents race condition)
-            # X11 clipboard is asynchronous - xclip may exit before propagation
-            verify_delay = config.CLIPBOARD_VERIFY_DELAY_MS / 1000.0
-            max_retries = config.CLIPBOARD_MAX_RETRIES
-            clipboard_ready = False
-
-            for attempt in range(max_retries):
-                time.sleep(verify_delay)
-                current = get_clipboard()
-                if current == text:
-                    clipboard_ready = True
-                    break
-                if config.DEBUG:
-                    print(f"⚠ Clipboard verify attempt {attempt + 1}/{max_retries}: mismatch")
-
-            if not clipboard_ready:
+            if not self._verify_clipboard(text, get_clipboard):
                 print("⚠ Clipboard verification failed, falling back to streaming")
-                # Restore original before failing
                 if original_clipboard:
                     set_clipboard(original_clipboard)
                 return False
@@ -300,20 +311,7 @@ class KeyboardHandler:
                 return False
 
             # Verify clipboard was set correctly (prevents race condition)
-            verify_delay = config.CLIPBOARD_VERIFY_DELAY_MS / 1000.0
-            max_retries = config.CLIPBOARD_MAX_RETRIES
-            clipboard_ready = False
-
-            for attempt in range(max_retries):
-                time.sleep(verify_delay)
-                current = get_clipboard()
-                if current == text:
-                    clipboard_ready = True
-                    break
-                if config.DEBUG:
-                    print(f"⚠ Clipboard verify attempt {attempt + 1}/{max_retries}: mismatch")
-
-            if not clipboard_ready:
+            if not self._verify_clipboard(text, get_clipboard):
                 print("⚠ Clipboard verification failed for selection replace")
                 if original_clipboard:
                     set_clipboard(original_clipboard)
@@ -353,8 +351,12 @@ class KeyboardHandler:
             # Set new text
             pyperclip.copy(text)
 
-            # Small delay
-            time.sleep(0.05)
+            # Verify clipboard was set correctly (Windows clipboard can also be async)
+            if not self._verify_clipboard(text, pyperclip.paste):
+                print("⚠ Clipboard verification failed for Windows selection replace")
+                if original_clipboard:
+                    pyperclip.copy(original_clipboard)
+                return False
 
             # Simulate Ctrl+V
             self._keyboard_controller.press(Key.ctrl)
@@ -362,8 +364,11 @@ class KeyboardHandler:
             self._keyboard_controller.release("v")
             self._keyboard_controller.release(Key.ctrl)
 
-            # Restore original
-            time.sleep(0.1)
+            # Delay before restoring clipboard to let paste complete
+            restore_delay = config.CLIPBOARD_RESTORE_DELAY_MS / 1000.0
+            time.sleep(restore_delay)
+
+            # Restore original clipboard
             if original_clipboard:
                 pyperclip.copy(original_clipboard)
 
