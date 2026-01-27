@@ -207,6 +207,14 @@ class Config:
     # Set to 0 to always use streaming, or -1 to always use paste
     PASTE_THRESHOLD_WORDS = int(os.getenv("PASTE_THRESHOLD_WORDS", "10"))
 
+    # Clipboard timing settings (to prevent race conditions)
+    # Delay between clipboard verification attempts (ms)
+    CLIPBOARD_VERIFY_DELAY_MS = int(os.getenv("CLIPBOARD_VERIFY_DELAY_MS", "50"))
+    # Max attempts to verify clipboard was set correctly before giving up
+    CLIPBOARD_MAX_RETRIES = int(os.getenv("CLIPBOARD_MAX_RETRIES", "5"))
+    # Delay before restoring original clipboard after paste (ms)
+    CLIPBOARD_RESTORE_DELAY_MS = int(os.getenv("CLIPBOARD_RESTORE_DELAY_MS", "250"))
+
     DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
     # Desktop notifications - show notifications for recording start/stop/errors

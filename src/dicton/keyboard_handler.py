@@ -173,8 +173,27 @@ class KeyboardHandler:
                 print("⚠ Failed to set clipboard, falling back to streaming")
                 return False
 
-            # Small delay to ensure clipboard is ready
-            time.sleep(0.05)
+            # Verify clipboard was set correctly (prevents race condition)
+            # X11 clipboard is asynchronous - xclip may exit before propagation
+            verify_delay = config.CLIPBOARD_VERIFY_DELAY_MS / 1000.0
+            max_retries = config.CLIPBOARD_MAX_RETRIES
+            clipboard_ready = False
+
+            for attempt in range(max_retries):
+                time.sleep(verify_delay)
+                current = get_clipboard()
+                if current == text:
+                    clipboard_ready = True
+                    break
+                if config.DEBUG:
+                    print(f"⚠ Clipboard verify attempt {attempt + 1}/{max_retries}: mismatch")
+
+            if not clipboard_ready:
+                print("⚠ Clipboard verification failed, falling back to streaming")
+                # Restore original before failing
+                if original_clipboard:
+                    set_clipboard(original_clipboard)
+                return False
 
             # Try Ctrl+Shift+V first (works in terminals + most GUI apps)
             self._keyboard_controller.press(Key.ctrl)
@@ -184,8 +203,9 @@ class KeyboardHandler:
             self._keyboard_controller.release(Key.shift)
             self._keyboard_controller.release(Key.ctrl)
 
-            # Small delay before restoring clipboard
-            time.sleep(0.15)
+            # Delay before restoring clipboard to let paste complete
+            restore_delay = config.CLIPBOARD_RESTORE_DELAY_MS / 1000.0
+            time.sleep(restore_delay)
 
             # Restore original clipboard if there was one
             if original_clipboard:
@@ -279,8 +299,25 @@ class KeyboardHandler:
             if not set_clipboard(text):
                 return False
 
-            # Small delay to ensure clipboard is ready
-            time.sleep(0.05)
+            # Verify clipboard was set correctly (prevents race condition)
+            verify_delay = config.CLIPBOARD_VERIFY_DELAY_MS / 1000.0
+            max_retries = config.CLIPBOARD_MAX_RETRIES
+            clipboard_ready = False
+
+            for attempt in range(max_retries):
+                time.sleep(verify_delay)
+                current = get_clipboard()
+                if current == text:
+                    clipboard_ready = True
+                    break
+                if config.DEBUG:
+                    print(f"⚠ Clipboard verify attempt {attempt + 1}/{max_retries}: mismatch")
+
+            if not clipboard_ready:
+                print("⚠ Clipboard verification failed for selection replace")
+                if original_clipboard:
+                    set_clipboard(original_clipboard)
+                return False
 
             # Simulate Ctrl+V to paste
             self._keyboard_controller.press(Key.ctrl)
@@ -288,8 +325,9 @@ class KeyboardHandler:
             self._keyboard_controller.release("v")
             self._keyboard_controller.release(Key.ctrl)
 
-            # Small delay before restoring clipboard
-            time.sleep(0.1)
+            # Delay before restoring clipboard to let paste complete
+            restore_delay = config.CLIPBOARD_RESTORE_DELAY_MS / 1000.0
+            time.sleep(restore_delay)
 
             # Restore original clipboard if there was one
             if original_clipboard:
