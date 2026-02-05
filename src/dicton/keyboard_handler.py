@@ -27,6 +27,10 @@ class KeyboardHandler:
         X11 clipboard is asynchronous - xclip may exit before propagation.
         This method polls until clipboard matches or max retries exceeded.
 
+        Comparison is whitespace-normalized because get_clipboard() strips
+        the result while expected_text may contain trailing whitespace from
+        LLM output.
+
         Args:
             expected_text: The text that should be in clipboard.
             get_clipboard_fn: Function to retrieve current clipboard content.
@@ -36,16 +40,33 @@ class KeyboardHandler:
         """
         verify_delay = config.CLIPBOARD_VERIFY_DELAY_MS / 1000.0
         max_retries = config.CLIPBOARD_MAX_RETRIES
+        expected_stripped = expected_text.strip()
 
         for attempt in range(max_retries):
             time.sleep(verify_delay)
             current = get_clipboard_fn()
-            if current == expected_text:
+            if current is not None and current.strip() == expected_stripped:
                 return True
             if config.DEBUG:
                 print(f"⚠ Clipboard verify attempt {attempt + 1}/{max_retries}: mismatch")
 
         return False
+
+    @staticmethod
+    def _compute_restore_delay(text_length: int) -> float:
+        """Compute clipboard restore delay scaled to text length.
+
+        The target app needs time to read the clipboard after receiving
+        the paste keystroke.  Longer texts take more time to process
+        (especially in Electron/web apps).
+
+        Returns delay in seconds.
+        """
+        base = config.CLIPBOARD_RESTORE_DELAY_MS / 1000.0  # 0.25s default
+        # Add 0.5ms per character beyond 100 chars
+        extra = max(0, text_length - 100) * 0.0005
+        # Cap at 5s to avoid excessively long waits
+        return min(base + extra, 5.0)
 
     def start(self):
         """Start keyboard listener"""
@@ -214,8 +235,9 @@ class KeyboardHandler:
             self._keyboard_controller.release(Key.shift)
             self._keyboard_controller.release(Key.ctrl)
 
-            # Delay before restoring clipboard to let paste complete
-            restore_delay = config.CLIPBOARD_RESTORE_DELAY_MS / 1000.0
+            # Delay before restoring clipboard to let the target app consume the paste.
+            # Scale with text length: longer texts need more time for apps to process.
+            restore_delay = self._compute_restore_delay(len(text))
             time.sleep(restore_delay)
 
             # Restore original clipboard if there was one
@@ -323,8 +345,8 @@ class KeyboardHandler:
             self._keyboard_controller.release("v")
             self._keyboard_controller.release(Key.ctrl)
 
-            # Delay before restoring clipboard to let paste complete
-            restore_delay = config.CLIPBOARD_RESTORE_DELAY_MS / 1000.0
+            # Scale delay with text length (same logic as paste)
+            restore_delay = self._compute_restore_delay(len(text))
             time.sleep(restore_delay)
 
             # Restore original clipboard if there was one
@@ -364,8 +386,8 @@ class KeyboardHandler:
             self._keyboard_controller.release("v")
             self._keyboard_controller.release(Key.ctrl)
 
-            # Delay before restoring clipboard to let paste complete
-            restore_delay = config.CLIPBOARD_RESTORE_DELAY_MS / 1000.0
+            # Scale delay with text length
+            restore_delay = self._compute_restore_delay(len(text))
             time.sleep(restore_delay)
 
             # Restore original clipboard
