@@ -52,22 +52,6 @@ class KeyboardHandler:
 
         return False
 
-    @staticmethod
-    def _compute_restore_delay(text_length: int) -> float:
-        """Compute clipboard restore delay scaled to text length.
-
-        The target app needs time to read the clipboard after receiving
-        the paste keystroke.  Longer texts take more time to process
-        (especially in Electron/web apps).
-
-        Returns delay in seconds.
-        """
-        base = config.CLIPBOARD_RESTORE_DELAY_MS / 1000.0  # 0.25s default
-        # Add 0.5ms per character beyond 100 chars
-        extra = max(0, text_length - 100) * 0.0005
-        # Cap at 5s to avoid excessively long waits
-        return min(base + extra, 5.0)
-
     def start(self):
         """Start keyboard listener"""
         self.listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
@@ -207,42 +191,26 @@ class KeyboardHandler:
         - Works in terminal apps (Claude Code, terminals)
         - Works in GUI apps (treated as paste or paste-without-formatting)
 
-        Preserves original clipboard content.
+        The transcription stays in the clipboard after paste so the user
+        can re-paste manually if the initial paste missed the target.
         """
         from .selection_handler import get_clipboard, set_clipboard
 
         try:
-            # Save current clipboard
-            original_clipboard = get_clipboard()
-
-            # Set new text to clipboard
             if not set_clipboard(text):
                 print("⚠ Failed to set clipboard, falling back to streaming")
                 return False
 
-            # Verify clipboard was set correctly (prevents race condition)
             if not self._verify_clipboard(text, get_clipboard):
                 print("⚠ Clipboard verification failed, falling back to streaming")
-                if original_clipboard:
-                    set_clipboard(original_clipboard)
                 return False
 
-            # Try Ctrl+Shift+V first (works in terminals + most GUI apps)
             self._keyboard_controller.press(Key.ctrl)
             self._keyboard_controller.press(Key.shift)
             self._keyboard_controller.press("v")
             self._keyboard_controller.release("v")
             self._keyboard_controller.release(Key.shift)
             self._keyboard_controller.release(Key.ctrl)
-
-            # Delay before restoring clipboard to let the target app consume the paste.
-            # Scale with text length: longer texts need more time for apps to process.
-            restore_delay = self._compute_restore_delay(len(text))
-            time.sleep(restore_delay)
-
-            # Restore original clipboard if there was one
-            if original_clipboard:
-                set_clipboard(original_clipboard)
 
             return True
 
@@ -302,7 +270,7 @@ class KeyboardHandler:
         """Replace the currently selected text with new text.
 
         Uses clipboard (Ctrl+V) method for reliable replacement across apps.
-        Preserves original clipboard content.
+        The transcription stays in the clipboard for manual re-paste.
 
         Args:
             text: The text to replace selection with.
@@ -321,37 +289,25 @@ class KeyboardHandler:
             return False
 
     def _replace_selection_linux(self, text: str) -> bool:
-        """Replace selection on Linux using xclip + Ctrl+V"""
+        """Replace selection on Linux using xclip + Ctrl+V.
+
+        The transcription stays in the clipboard after paste so the user
+        can re-paste manually if needed.
+        """
         from .selection_handler import get_clipboard, set_clipboard
 
         try:
-            # Save current clipboard
-            original_clipboard = get_clipboard()
-
-            # Set new text to clipboard
             if not set_clipboard(text):
                 return False
 
-            # Verify clipboard was set correctly (prevents race condition)
             if not self._verify_clipboard(text, get_clipboard):
                 print("⚠ Clipboard verification failed for selection replace")
-                if original_clipboard:
-                    set_clipboard(original_clipboard)
                 return False
 
-            # Simulate Ctrl+V to paste
             self._keyboard_controller.press(Key.ctrl)
             self._keyboard_controller.press("v")
             self._keyboard_controller.release("v")
             self._keyboard_controller.release(Key.ctrl)
-
-            # Scale delay with text length (same logic as paste)
-            restore_delay = self._compute_restore_delay(len(text))
-            time.sleep(restore_delay)
-
-            # Restore original clipboard if there was one
-            if original_clipboard:
-                set_clipboard(original_clipboard)
 
             return True
 
@@ -360,39 +316,23 @@ class KeyboardHandler:
             return False
 
     def _replace_selection_windows(self, text: str) -> bool:
-        """Replace selection on Windows using clipboard + Ctrl+V"""
+        """Replace selection on Windows using clipboard + Ctrl+V.
+
+        The transcription stays in the clipboard after paste.
+        """
         try:
             import pyperclip
 
-            # Save current clipboard
-            try:
-                original_clipboard = pyperclip.paste()
-            except Exception:
-                original_clipboard = None
-
-            # Set new text
             pyperclip.copy(text)
 
-            # Verify clipboard was set correctly (Windows clipboard can also be async)
             if not self._verify_clipboard(text, pyperclip.paste):
                 print("⚠ Clipboard verification failed for Windows selection replace")
-                if original_clipboard:
-                    pyperclip.copy(original_clipboard)
                 return False
 
-            # Simulate Ctrl+V
             self._keyboard_controller.press(Key.ctrl)
             self._keyboard_controller.press("v")
             self._keyboard_controller.release("v")
             self._keyboard_controller.release(Key.ctrl)
-
-            # Scale delay with text length
-            restore_delay = self._compute_restore_delay(len(text))
-            time.sleep(restore_delay)
-
-            # Restore original clipboard
-            if original_clipboard:
-                pyperclip.copy(original_clipboard)
 
             return True
 
