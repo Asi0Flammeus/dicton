@@ -27,6 +27,10 @@ class KeyboardHandler:
         X11 clipboard is asynchronous - xclip may exit before propagation.
         This method polls until clipboard matches or max retries exceeded.
 
+        Comparison is whitespace-normalized because get_clipboard() strips
+        the result while expected_text may contain trailing whitespace from
+        LLM output.
+
         Args:
             expected_text: The text that should be in clipboard.
             get_clipboard_fn: Function to retrieve current clipboard content.
@@ -36,11 +40,12 @@ class KeyboardHandler:
         """
         verify_delay = config.CLIPBOARD_VERIFY_DELAY_MS / 1000.0
         max_retries = config.CLIPBOARD_MAX_RETRIES
+        expected_stripped = expected_text.strip()
 
         for attempt in range(max_retries):
             time.sleep(verify_delay)
             current = get_clipboard_fn()
-            if current == expected_text:
+            if current is not None and current.strip() == expected_stripped:
                 return True
             if config.DEBUG:
                 print(f"⚠ Clipboard verify attempt {attempt + 1}/{max_retries}: mismatch")
@@ -186,41 +191,26 @@ class KeyboardHandler:
         - Works in terminal apps (Claude Code, terminals)
         - Works in GUI apps (treated as paste or paste-without-formatting)
 
-        Preserves original clipboard content.
+        The transcription stays in the clipboard after paste so the user
+        can re-paste manually if the initial paste missed the target.
         """
         from .selection_handler import get_clipboard, set_clipboard
 
         try:
-            # Save current clipboard
-            original_clipboard = get_clipboard()
-
-            # Set new text to clipboard
             if not set_clipboard(text):
                 print("⚠ Failed to set clipboard, falling back to streaming")
                 return False
 
-            # Verify clipboard was set correctly (prevents race condition)
             if not self._verify_clipboard(text, get_clipboard):
                 print("⚠ Clipboard verification failed, falling back to streaming")
-                if original_clipboard:
-                    set_clipboard(original_clipboard)
                 return False
 
-            # Try Ctrl+Shift+V first (works in terminals + most GUI apps)
             self._keyboard_controller.press(Key.ctrl)
             self._keyboard_controller.press(Key.shift)
             self._keyboard_controller.press("v")
             self._keyboard_controller.release("v")
             self._keyboard_controller.release(Key.shift)
             self._keyboard_controller.release(Key.ctrl)
-
-            # Delay before restoring clipboard to let paste complete
-            restore_delay = config.CLIPBOARD_RESTORE_DELAY_MS / 1000.0
-            time.sleep(restore_delay)
-
-            # Restore original clipboard if there was one
-            if original_clipboard:
-                set_clipboard(original_clipboard)
 
             return True
 
@@ -280,7 +270,7 @@ class KeyboardHandler:
         """Replace the currently selected text with new text.
 
         Uses clipboard (Ctrl+V) method for reliable replacement across apps.
-        Preserves original clipboard content.
+        The transcription stays in the clipboard for manual re-paste.
 
         Args:
             text: The text to replace selection with.
@@ -299,37 +289,25 @@ class KeyboardHandler:
             return False
 
     def _replace_selection_linux(self, text: str) -> bool:
-        """Replace selection on Linux using xclip + Ctrl+V"""
+        """Replace selection on Linux using xclip + Ctrl+V.
+
+        The transcription stays in the clipboard after paste so the user
+        can re-paste manually if needed.
+        """
         from .selection_handler import get_clipboard, set_clipboard
 
         try:
-            # Save current clipboard
-            original_clipboard = get_clipboard()
-
-            # Set new text to clipboard
             if not set_clipboard(text):
                 return False
 
-            # Verify clipboard was set correctly (prevents race condition)
             if not self._verify_clipboard(text, get_clipboard):
                 print("⚠ Clipboard verification failed for selection replace")
-                if original_clipboard:
-                    set_clipboard(original_clipboard)
                 return False
 
-            # Simulate Ctrl+V to paste
             self._keyboard_controller.press(Key.ctrl)
             self._keyboard_controller.press("v")
             self._keyboard_controller.release("v")
             self._keyboard_controller.release(Key.ctrl)
-
-            # Delay before restoring clipboard to let paste complete
-            restore_delay = config.CLIPBOARD_RESTORE_DELAY_MS / 1000.0
-            time.sleep(restore_delay)
-
-            # Restore original clipboard if there was one
-            if original_clipboard:
-                set_clipboard(original_clipboard)
 
             return True
 
@@ -338,39 +316,23 @@ class KeyboardHandler:
             return False
 
     def _replace_selection_windows(self, text: str) -> bool:
-        """Replace selection on Windows using clipboard + Ctrl+V"""
+        """Replace selection on Windows using clipboard + Ctrl+V.
+
+        The transcription stays in the clipboard after paste.
+        """
         try:
             import pyperclip
 
-            # Save current clipboard
-            try:
-                original_clipboard = pyperclip.paste()
-            except Exception:
-                original_clipboard = None
-
-            # Set new text
             pyperclip.copy(text)
 
-            # Verify clipboard was set correctly (Windows clipboard can also be async)
             if not self._verify_clipboard(text, pyperclip.paste):
                 print("⚠ Clipboard verification failed for Windows selection replace")
-                if original_clipboard:
-                    pyperclip.copy(original_clipboard)
                 return False
 
-            # Simulate Ctrl+V
             self._keyboard_controller.press(Key.ctrl)
             self._keyboard_controller.press("v")
             self._keyboard_controller.release("v")
             self._keyboard_controller.release(Key.ctrl)
-
-            # Delay before restoring clipboard to let paste complete
-            restore_delay = config.CLIPBOARD_RESTORE_DELAY_MS / 1000.0
-            time.sleep(restore_delay)
-
-            # Restore original clipboard
-            if original_clipboard:
-                pyperclip.copy(original_clipboard)
 
             return True
 

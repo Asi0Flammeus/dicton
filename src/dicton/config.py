@@ -212,8 +212,6 @@ class Config:
     CLIPBOARD_VERIFY_DELAY_MS = int(os.getenv("CLIPBOARD_VERIFY_DELAY_MS", "50"))
     # Max attempts to verify clipboard was set correctly before giving up
     CLIPBOARD_MAX_RETRIES = int(os.getenv("CLIPBOARD_MAX_RETRIES", "5"))
-    # Delay before restoring original clipboard after paste (ms)
-    CLIPBOARD_RESTORE_DELAY_MS = int(os.getenv("CLIPBOARD_RESTORE_DELAY_MS", "250"))
 
     DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
