@@ -3,12 +3,15 @@ from dicton.core.ports import AudioCapture, MetricsSink, STTService, TextOutput,
 
 
 class _AudioCapture(AudioCapture):
-    def __init__(self, audio=b"audio"):
+    def __init__(self, audio=b"audio", on_record=None):
         self.audio = audio
+        self.on_record = on_record
         self.stopped = False
         self.cancelled = False
 
     def record(self):
+        if self.on_record:
+            self.on_record()
         return self.audio
 
     def stop(self) -> None:
@@ -96,6 +99,47 @@ def test_controller_no_audio():
         audio_capture=_AudioCapture(audio=b""),
         stt=_STT(text="hello"),
         text_processor=_TextProcessor(result="done"),
+        text_output=_TextOutput(),
+        ui=_UI(),
+        metrics=_Metrics(),
+    )
+    success, session = controller.run_session(
+        mode="basic",
+        session=SessionContext(selected_text=None, context=None),
+        mode_names={"basic": "Recording"},
+    )
+    assert success is False
+    assert session == {"ok": True}
+
+
+def test_controller_cancel_during_recording():
+    controller = None
+
+    def _cancel():
+        controller.cancel()
+
+    controller = DictationController(
+        audio_capture=_AudioCapture(audio=b"audio", on_record=_cancel),
+        stt=_STT(text="hello"),
+        text_processor=_TextProcessor(result="done"),
+        text_output=_TextOutput(),
+        ui=_UI(),
+        metrics=_Metrics(),
+    )
+    success, session = controller.run_session(
+        mode="basic",
+        session=SessionContext(selected_text=None, context=None),
+        mode_names={"basic": "Recording"},
+    )
+    assert success is False
+    assert session == {"ok": True}
+
+
+def test_controller_processing_failure():
+    controller = DictationController(
+        audio_capture=_AudioCapture(audio=b"audio"),
+        stt=_STT(text="hello"),
+        text_processor=_TextProcessor(result=None),
         text_output=_TextOutput(),
         ui=_UI(),
         metrics=_Metrics(),

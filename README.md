@@ -497,6 +497,10 @@ Adapters (new):
 - `src/dicton/adapters/llm.py`: LLM bridge.
 - `src/dicton/adapters/config_env.py`: structured config view from env.
 
+Note: `AppConfig` currently covers a small subset of runtime settings. The
+legacy `config` object remains the source of truth for most configuration
+values during the transition.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.

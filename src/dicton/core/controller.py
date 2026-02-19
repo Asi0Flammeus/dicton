@@ -91,11 +91,11 @@ class DictationController:
         with tracker.measure("audio_capture", mode=getattr(mode, "name", str(mode))):
             audio = self._audio_capture.record()
 
-        self._state.transition(SessionEvent.STOP)
-
         if self._cancel_token.cancelled:
             self._state.transition(SessionEvent.CANCEL)
             return False, tracker.end_session()
+
+        self._state.transition(SessionEvent.STOP)
 
         if audio is None or len(audio) == 0:
             print("No audio captured")

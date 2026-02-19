@@ -7,8 +7,10 @@ capability-oriented to keep the core decoupled.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Protocol, runtime_checkable
+from typing import Protocol, TYPE_CHECKING, runtime_checkable
+
+if TYPE_CHECKING:
+    from ..context_detector import ContextInfo
 
 
 @runtime_checkable
@@ -37,7 +39,13 @@ class STTService(Protocol):
 class TextProcessor(Protocol):
     """Post-processing for transcribed text."""
 
-    def process(self, text: str, mode, selected_text=None, context=None) -> str | None:
+    def process(
+        self,
+        text: str,
+        mode,
+        selected_text: str | None = None,
+        context: "ContextInfo | None" = None,
+    ) -> str | None:
         """Process text based on mode/context."""
 
 
@@ -45,7 +53,9 @@ class TextProcessor(Protocol):
 class TextOutput(Protocol):
     """Outputs text to the active application."""
 
-    def output(self, text: str, mode, replace_selection: bool, context=None) -> None:
+    def output(
+        self, text: str, mode, replace_selection: bool, context: "ContextInfo | None" = None
+    ) -> None:
         """Emit text to the active app."""
 
 
@@ -69,7 +79,3 @@ class MetricsSink(Protocol):
 
     def end_session(self):
         """End the session and return a summary."""
-
-
-# Convenience type used by controller wiring
-SessionRunner = Callable[[], None]
