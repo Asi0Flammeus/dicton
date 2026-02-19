@@ -38,13 +38,6 @@ class TextProcessor(Protocol):
         """Process text based on mode/context."""
 
 
-class ContextProvider(Protocol):
-    """Provides context about the active app/window."""
-
-    def get_context(self):
-        """Return a context object or None."""
-
-
 class TextOutput(Protocol):
     """Outputs text to the active application."""
 

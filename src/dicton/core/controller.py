@@ -9,15 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .cancel_token import CancelToken
-from .ports import (
-    AudioCapture,
-    ContextProvider,
-    MetricsSink,
-    STTService,
-    TextOutput,
-    TextProcessor,
-    UIFeedback,
-)
+from .ports import AudioCapture, MetricsSink, STTService, TextOutput, TextProcessor, UIFeedback
 from .state_machine import SessionEvent, SessionStateMachine
 
 
@@ -40,7 +32,6 @@ class DictationController:
         text_output: TextOutput,
         ui: UIFeedback,
         metrics: MetricsSink,
-        context_provider: ContextProvider | None = None,
     ):
         self._audio_capture = audio_capture
         self._stt = stt
@@ -48,7 +39,6 @@ class DictationController:
         self._text_output = text_output
         self._ui = ui
         self._metrics = metrics
-        self._context_provider = context_provider
         self._state = SessionStateMachine()
         self._cancel_token = CancelToken()
 

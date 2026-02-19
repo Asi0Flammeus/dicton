@@ -478,6 +478,25 @@ pip uninstall dicton
 
 Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
+## Architecture Overview
+
+Dicton uses a small core orchestration layer with thin adapters for platform
+and vendor integrations. This keeps the dictation pipeline easy to test and
+extend without touching platform-specific code.
+
+Core modules (new):
+- `src/dicton/core/ports.py`: core interfaces.
+- `src/dicton/core/controller.py`: record → transcribe → process → output flow.
+- `src/dicton/core/state_machine.py`: explicit session state transitions.
+- `src/dicton/core/cancel_token.py`: cancellation for in-flight sessions.
+
+Adapters (new):
+- `src/dicton/adapters/audio.py`: audio capture + STT adapters.
+- `src/dicton/adapters/text_processing.py`: text processing/output adapters.
+- `src/dicton/adapters/ui_feedback.py`: notifications.
+- `src/dicton/adapters/llm.py`: LLM bridge.
+- `src/dicton/adapters/config_env.py`: structured config view from env.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
