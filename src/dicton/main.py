@@ -10,7 +10,13 @@ import warnings
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 warnings.filterwarnings("ignore")
 
+from .adapters.audio import AudioCaptureAdapter, STTAdapter
+from .adapters.config_env import load_app_config
+from .adapters.metrics import MetricsAdapter
+from .adapters.text_processing import TextOutputAdapter, TextProcessorAdapter
+from .adapters.ui_feedback import UIFeedbackAdapter
 from .config import config
+from .core.controller import DictationController, SessionContext
 from .context_detector import ContextInfo, get_context_detector
 from .keyboard_handler import KeyboardHandler
 from .latency_tracker import get_latency_tracker
@@ -43,6 +49,18 @@ class Dicton:
         # FN key handler (Linux only, requires evdev)
         self._fn_handler = None
         self._use_fn_key = False
+        self._app_config = load_app_config()
+
+        # Core controller (Phase 1)
+        self._metrics = get_latency_tracker()
+        self._controller = DictationController(
+            audio_capture=AudioCaptureAdapter(self.recognizer),
+            stt=STTAdapter(self.recognizer),
+            text_processor=TextProcessorAdapter(self._process_text),
+            text_output=TextOutputAdapter(self._output_result),
+            ui=UIFeedbackAdapter(),
+            metrics=MetricsAdapter(self._metrics),
+        )
 
     def _init_fn_handler(self) -> bool:
         """Initialize FN key handler if available.
@@ -71,7 +89,7 @@ class Dicton:
             print("FN key support requires evdev: pip install dicton[fnkey]")
             return False
         except Exception as e:
-            if config.DEBUG:
+            if self._app_config.debug:
                 print(f"FN handler init failed: {e}")
             return False
 
@@ -92,13 +110,13 @@ class Dicton:
         self._current_context = None  # Reset context
 
         # Detect context at recording start (not on every frame)
-        if config.CONTEXT_ENABLED:
+        if self._app_config.context_enabled:
             try:
                 detector = get_context_detector()
                 if detector:
                     self._current_context = detector.get_context()
             except Exception as e:
-                if config.CONTEXT_DEBUG:
+                if self._app_config.context_debug:
                     print(f"[Context] Detection failed: {e}")
 
         # For Act on Text, capture selection BEFORE starting recording
@@ -128,7 +146,7 @@ class Dicton:
             return
 
         print("⏹ Stopping...")
-        self.recognizer.stop()
+        self._controller.stop()
         self.recording = False
 
     def _on_cancel_recording(self):
@@ -136,9 +154,9 @@ class Dicton:
         if not self.recording:
             return
 
-        if config.DEBUG:
+        if self._app_config.debug:
             print("⏹ Cancelled (tap)")
-        self.recognizer.cancel()
+        self._controller.cancel()
         self.recording = False
 
     def _update_visualizer_color(self, mode: ProcessingMode):
@@ -157,7 +175,7 @@ class Dicton:
     def _record_and_transcribe(self):
         """Record audio and process based on current mode"""
         mode = self._current_mode
-        tracker = get_latency_tracker()
+        tracker = self._metrics
         mode_names = {
             ProcessingMode.BASIC: "Recording",
             ProcessingMode.ACT_ON_TEXT: "Act on Text",
@@ -196,11 +214,6 @@ class Dicton:
             viz = None
 
         try:
-            mode_name = mode_names.get(mode, "Recording")
-
-            # Start latency tracking session
-            tracker.start_session()
-
             # For Act on Text, use pre-captured selection
             selected_text = None
             if mode == ProcessingMode.ACT_ON_TEXT:
@@ -208,67 +221,39 @@ class Dicton:
                 if not selected_text:
                     # This shouldn't happen - selection is checked before recording starts
                     print("⚠ No selection captured")
-                    tracker.end_session()
                     return
 
-            notify(
-                f"🎤 {mode_name}",
-                "Speak your instruction..."
-                if mode == ProcessingMode.ACT_ON_TEXT
-                else "Press FN to stop",
+            session_ctx = SessionContext(
+                selected_text=selected_text,
+                context=self._current_context,
             )
 
-            # Record until stopped
-            with tracker.measure("audio_capture", mode=mode.name):
-                audio = self.recognizer.record()
-
-            if audio is None or len(audio) == 0:
-                print("No audio captured")
-                tracker.end_session()
-                return
-
-            print("⏳ Processing...")
-
-            # Transcribe audio
-            with tracker.measure("stt_transcription"):
-                text = self.recognizer.transcribe(audio)
-
-            if not text:
-                print("No speech detected")
-                notify("⚠ No speech", "Try again")
-                tracker.end_session()
-                return
-
-            # Route to appropriate processor based on mode
-            with tracker.measure("text_processing", mode=mode.name):
-                result = self._process_text(
-                    text, mode, selected_text, context=self._current_context
-                )
-
-            if result:
-                # Stop visualizer before outputting text
+            def _pre_output():
+                nonlocal viz
                 if viz:
                     viz.stop()
                     viz = None  # Don't stop again in finally
 
-                with tracker.measure("text_output"):
-                    self._output_result(
-                        result, mode, selected_text is not None, context=self._current_context
-                    )
-            else:
-                print("Processing failed")
-                notify("⚠ Processing failed", "Check logs")
+            success, session = self._controller.run_session(
+                mode=mode,
+                session=session_ctx,
+                mode_names=mode_names,
+                pre_output=_pre_output,
+            )
+            if not success:
+                return
 
-            # End session and log
-            session = tracker.end_session()
-            if config.DEBUG and session:
+            if self._app_config.debug and session:
                 total_ms = session.total_duration_ms()
                 print(f"⏱ Total latency: {total_ms:.0f}ms")
 
         except Exception as e:
             print(f"Error: {e}")
             notify("❌ Error", str(e)[:50])
-            tracker.end_session()
+            try:
+                tracker.end_session()
+            except Exception:
+                pass
         finally:
             self.recording = False
             # Stop visualizer if not already stopped
@@ -398,7 +383,7 @@ class Dicton:
             if profile:
                 # get_typing_delay returns seconds, convert to ms
                 typing_delay_ms = int(manager.get_typing_delay(profile) * 1000)
-                if config.CONTEXT_DEBUG:
+                if self._app_config.context_debug:
                     print(f"[Context] Typing delay: {typing_delay_ms}ms ({profile.typing_speed})")
 
         # All modes use insert_text (xdotool type) for reliable output
