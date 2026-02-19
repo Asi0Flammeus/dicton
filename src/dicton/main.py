@@ -12,6 +12,7 @@ warnings.filterwarnings("ignore")
 
 from .adapters.audio import AudioCaptureAdapter, STTAdapter
 from .adapters.config_env import load_app_config
+from .adapters.metrics import MetricsAdapter
 from .adapters.text_processing import TextOutputAdapter, TextProcessorAdapter
 from .adapters.ui_feedback import UIFeedbackAdapter
 from .config import config
@@ -58,7 +59,7 @@ class Dicton:
             text_processor=TextProcessorAdapter(self._process_text),
             text_output=TextOutputAdapter(self._output_result),
             ui=UIFeedbackAdapter(),
-            metrics=self._metrics,
+            metrics=MetricsAdapter(self._metrics),
         )
 
     def _init_fn_handler(self) -> bool:

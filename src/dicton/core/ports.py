@@ -8,9 +8,10 @@ capability-oriented to keep the core decoupled.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 
+@runtime_checkable
 class AudioCapture(Protocol):
     """Capture audio for a recording session."""
 
@@ -24,6 +25,7 @@ class AudioCapture(Protocol):
         """Cancel recording and discard audio."""
 
 
+@runtime_checkable
 class STTService(Protocol):
     """Speech-to-text transcription service."""
 
@@ -31,6 +33,7 @@ class STTService(Protocol):
         """Transcribe audio and return text."""
 
 
+@runtime_checkable
 class TextProcessor(Protocol):
     """Post-processing for transcribed text."""
 
@@ -38,6 +41,7 @@ class TextProcessor(Protocol):
         """Process text based on mode/context."""
 
 
+@runtime_checkable
 class TextOutput(Protocol):
     """Outputs text to the active application."""
 
@@ -45,6 +49,7 @@ class TextOutput(Protocol):
         """Emit text to the active app."""
 
 
+@runtime_checkable
 class UIFeedback(Protocol):
     """User-visible notifications."""
 
@@ -52,6 +57,7 @@ class UIFeedback(Protocol):
         """Display a notification."""
 
 
+@runtime_checkable
 class MetricsSink(Protocol):
     """Latency/metrics tracking."""
 

@@ -7,10 +7,15 @@ decoupled from platform/vendor-specific implementations via ports.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from .cancel_token import CancelToken
 from .ports import AudioCapture, MetricsSink, STTService, TextOutput, TextProcessor, UIFeedback
 from .state_machine import SessionEvent, SessionStateMachine
+
+
+if TYPE_CHECKING:
+    from ..context_detector import ContextInfo
 
 
 @dataclass(frozen=True)
@@ -18,7 +23,7 @@ class SessionContext:
     """Container for optional session details passed to the controller."""
 
     selected_text: str | None = None
-    context: object | None = None
+    context: ContextInfo | None = None
 
 
 class DictationController:
@@ -95,9 +100,9 @@ class DictationController:
         if audio is None or len(audio) == 0:
             print("No audio captured")
             self._state.transition(SessionEvent.ERROR)
-            session = tracker.end_session()
+            metrics_session = tracker.end_session()
             self._state.transition(SessionEvent.RESET)
-            return False, session
+            return False, metrics_session
 
         print("⏳ Processing...")
 
@@ -109,9 +114,9 @@ class DictationController:
             self._ui.notify("⚠ No speech", "Try again")
             print("No speech detected")
             self._state.transition(SessionEvent.ERROR)
-            session = tracker.end_session()
+            metrics_session = tracker.end_session()
             self._state.transition(SessionEvent.RESET)
-            return False, session
+            return False, metrics_session
 
         # Process text
         with tracker.measure("text_processing", mode=getattr(mode, "name", str(mode))):
@@ -126,9 +131,9 @@ class DictationController:
             print("Processing failed")
             self._ui.notify("⚠ Processing failed", "Check logs")
             self._state.transition(SessionEvent.ERROR)
-            session = tracker.end_session()
+            metrics_session = tracker.end_session()
             self._state.transition(SessionEvent.RESET)
-            return False, session
+            return False, metrics_session
 
         self._state.transition(SessionEvent.PROCESS_DONE)
 

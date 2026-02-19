@@ -10,7 +10,6 @@ Delayed Start Mode:
 """
 
 import os
-import select
 import threading
 import time
 from collections.abc import Callable

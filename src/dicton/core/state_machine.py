@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum, auto
+import logging
 
 
 class SessionState(Enum):
@@ -52,5 +53,9 @@ class SessionStateMachine:
 
     def transition(self, event: SessionEvent) -> SessionState:
         next_state = _TRANSITIONS.get(self.state, {}).get(event, self.state)
+        if next_state == self.state and event not in _TRANSITIONS.get(self.state, {}):
+            logging.getLogger(__name__).warning(
+                "Invalid state transition: %s --%s--> %s", self.state, event, next_state
+            )
         self.state = next_state
         return self.state
