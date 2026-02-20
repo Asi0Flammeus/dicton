@@ -189,6 +189,14 @@ class Config:
     SAMPLE_RATE = 16000
     CHUNK_SIZE = 1024
 
+    # Audio control during recording (Linux only)
+    # Mute playback while recording (pauses players, then mutes sink if needed)
+    MUTE_PLAYBACK_ON_RECORDING = os.getenv("MUTE_PLAYBACK_ON_RECORDING", "true").lower() == "true"
+    # Backend for mute control: auto, playerctl, pipewire, pulseaudio
+    MUTE_BACKEND = os.getenv("MUTE_BACKEND", "auto").lower()
+    # Playback mute strategy: auto, pause, mute
+    PLAYBACK_MUTE_STRATEGY = os.getenv("PLAYBACK_MUTE_STRATEGY", "auto").lower()
+
     # Set to device index number to force specific mic, or "auto"
     MIC_DEVICE = os.getenv("MIC_DEVICE", "auto")
 

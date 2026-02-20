@@ -115,6 +115,8 @@ dicton
 **Debian/Ubuntu:**
 ```bash
 sudo apt install python3-venv python3-dev portaudio19-dev xdotool libnotify-bin xclip
+# Audio control (optional):
+sudo apt install playerctl pipewire-utils pulseaudio-utils
 # For Wayland:
 sudo apt install wl-clipboard
 ```
@@ -122,6 +124,8 @@ sudo apt install wl-clipboard
 **Arch Linux:**
 ```bash
 sudo pacman -S python portaudio xdotool libnotify xclip
+# Audio control (optional):
+sudo pacman -S playerctl pipewire pulseaudio
 # For Wayland:
 sudo pacman -S wl-clipboard
 ```
@@ -162,6 +166,9 @@ VISUALIZER_STYLE=toric            # toric, classic, minimalistic
 # Audio
 MIC_DEVICE=auto                   # auto or device index
 SAMPLE_RATE=16000
+MUTE_PLAYBACK_ON_RECORDING=true   # Mute playback during dictation
+PLAYBACK_MUTE_STRATEGY=auto       # auto, pause, mute
+MUTE_BACKEND=auto                 # auto, playerctl, pipewire, pulseaudio
 
 # Debug
 DEBUG=false
