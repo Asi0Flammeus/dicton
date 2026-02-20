@@ -60,7 +60,6 @@ class DictationController:
     def stop(self) -> None:
         """Stop recording and proceed to processing."""
         self._audio_capture.stop()
-        self._audio_control.stop_recording()
         self._state.transition(SessionEvent.STOP)
 
     def cancel(self) -> None:
