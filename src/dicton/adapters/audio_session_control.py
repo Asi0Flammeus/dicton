@@ -14,7 +14,6 @@ class AudioSessionControlAdapter:
         self._active = False
         self._paused_players: list[str] = []
         self._sink_muted_before: bool | None = None
-        self._source_muted_before: bool | None = None
 
     def start_recording(self) -> None:
         if self._active:
@@ -27,16 +26,11 @@ class AudioSessionControlAdapter:
         if config.MUTE_PLAYBACK_ON_RECORDING:
             self._apply_playback_control()
 
-        if config.MUTE_MIC_ON_RECORDING:
-            self._apply_source_mute()
-
     def stop_recording(self) -> None:
         if not self._active:
             return
 
         if IS_LINUX:
-            if config.MUTE_MIC_ON_RECORDING:
-                self._restore_source_mute()
             if config.MUTE_PLAYBACK_ON_RECORDING:
                 self._restore_playback_control()
 
@@ -99,7 +93,7 @@ class AudioSessionControlAdapter:
             return
 
         if backend in ("auto", "pulseaudio") and _has_cmd("pactl"):
-            self._sink_muted_before = _get_pactl_mute("sink")
+            self._sink_muted_before = _get_pactl_mute("@DEFAULT_SINK@")
             if self._sink_muted_before is False:
                 _run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "1"])
 
@@ -115,32 +109,6 @@ class AudioSessionControlAdapter:
                 _run(["pactl", "set-sink-mute", "@DEFAULT_SINK@", "0"])
 
         self._sink_muted_before = None
-
-    def _apply_source_mute(self) -> None:
-        backend = _normalize_backend(config.MUTE_BACKEND)
-        if backend in ("auto", "pipewire") and _has_cmd("wpctl"):
-            self._source_muted_before = _get_wpctl_mute("@DEFAULT_AUDIO_SOURCE@")
-            if self._source_muted_before is False:
-                _run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "1"])
-            return
-
-        if backend in ("auto", "pulseaudio") and _has_cmd("pactl"):
-            self._source_muted_before = _get_pactl_mute("source")
-            if self._source_muted_before is False:
-                _run(["pactl", "set-source-mute", "@DEFAULT_SOURCE@", "1"])
-
-    def _restore_source_mute(self) -> None:
-        if self._source_muted_before is None:
-            return
-
-        if _has_cmd("wpctl"):
-            if self._source_muted_before is False:
-                _run(["wpctl", "set-mute", "@DEFAULT_AUDIO_SOURCE@", "0"])
-        elif _has_cmd("pactl"):
-            if self._source_muted_before is False:
-                _run(["pactl", "set-source-mute", "@DEFAULT_SOURCE@", "0"])
-
-        self._source_muted_before = None
 
 
 def _has_cmd(name: str) -> bool:
@@ -162,10 +130,7 @@ def _get_wpctl_mute(target: str) -> bool | None:
 
 
 def _get_pactl_mute(target: str) -> bool | None:
-    if target == "sink":
-        result = _run(["pactl", "get-sink-mute", "@DEFAULT_SINK@"])
-    else:
-        result = _run(["pactl", "get-source-mute", "@DEFAULT_SOURCE@"])
+    result = _run(["pactl", "get-sink-mute", target])
     if not result or not result.stdout:
         return None
     return "yes" in result.stdout.lower()

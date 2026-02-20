@@ -167,7 +167,6 @@ VISUALIZER_STYLE=toric            # toric, classic, minimalistic
 MIC_DEVICE=auto                   # auto or device index
 SAMPLE_RATE=16000
 MUTE_PLAYBACK_ON_RECORDING=true   # Mute playback during dictation
-MUTE_MIC_ON_RECORDING=true        # Mute system mic input during dictation
 PLAYBACK_MUTE_STRATEGY=auto       # auto, pause, mute
 MUTE_BACKEND=auto                 # auto, playerctl, pipewire, pulseaudio
 

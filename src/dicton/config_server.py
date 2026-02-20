@@ -147,7 +147,6 @@ def get_current_config() -> dict[str, Any]:
         "mute_playback_on_recording": (
             env_vars.get("MUTE_PLAYBACK_ON_RECORDING", "true").lower() == "true"
         ),
-        "mute_mic_on_recording": env_vars.get("MUTE_MIC_ON_RECORDING", "true").lower() == "true",
         "playback_mute_strategy": env_vars.get(
             "PLAYBACK_MUTE_STRATEGY", config.PLAYBACK_MUTE_STRATEGY
         ),
@@ -185,7 +184,6 @@ def save_config(data: dict[str, Any]) -> None:
         "context_enabled": "CONTEXT_ENABLED",
         "context_debug": "CONTEXT_DEBUG",
         "mute_playback_on_recording": "MUTE_PLAYBACK_ON_RECORDING",
-        "mute_mic_on_recording": "MUTE_MIC_ON_RECORDING",
         "playback_mute_strategy": "PLAYBACK_MUTE_STRATEGY",
         "mute_backend": "MUTE_BACKEND",
     }
@@ -336,7 +334,6 @@ def create_app():
         context_enabled: bool | None = None
         context_debug: bool | None = None
         mute_playback_on_recording: bool | None = None
-        mute_mic_on_recording: bool | None = None
         playback_mute_strategy: str | None = None
         mute_backend: str | None = None
 

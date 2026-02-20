@@ -192,8 +192,6 @@ class Config:
     # Audio control during recording (Linux only)
     # Mute playback while recording (pauses players, then mutes sink if needed)
     MUTE_PLAYBACK_ON_RECORDING = os.getenv("MUTE_PLAYBACK_ON_RECORDING", "true").lower() == "true"
-    # Mute mic input while recording (may affect capture on some systems)
-    MUTE_MIC_ON_RECORDING = os.getenv("MUTE_MIC_ON_RECORDING", "true").lower() == "true"
     # Backend for mute control: auto, playerctl, pipewire, pulseaudio
     MUTE_BACKEND = os.getenv("MUTE_BACKEND", "auto").lower()
     # Playback mute strategy: auto, pause, mute

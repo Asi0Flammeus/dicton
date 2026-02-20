@@ -759,21 +759,12 @@
 
             <div class="section">
                 <div class="section-title">Audio Control</div>
-                <div class="grid-2">
-                    <div class="form-group">
-                        <div class="checkbox-group">
-                            <input type="checkbox" id="mute_playback_on_recording">
-                            <label class="checkbox-label">Mute Playback During Recording</label>
-                        </div>
-                        <div class="hint">Pause players and/or mute system output while recording</div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="mute_playback_on_recording">
+                        <label class="checkbox-label">Mute Playback During Recording</label>
                     </div>
-                    <div class="form-group">
-                        <div class="checkbox-group">
-                            <input type="checkbox" id="mute_mic_on_recording">
-                            <label class="checkbox-label">Mute Microphone During Recording</label>
-                        </div>
-                        <div class="hint">Stops other apps from listening while dictating</div>
-                    </div>
+                    <div class="hint">Pause players and/or mute system output while recording</div>
                 </div>
                 <div class="grid-2">
                     <div class="form-group">
@@ -1379,7 +1370,6 @@
             document.getElementById('debug').checked = cfg.debug === true;
 
             document.getElementById('mute_playback_on_recording').checked = cfg.mute_playback_on_recording !== false;
-            document.getElementById('mute_mic_on_recording').checked = cfg.mute_mic_on_recording !== false;
             document.getElementById('playback_mute_strategy').value = cfg.playback_mute_strategy || 'auto';
             document.getElementById('mute_backend').value = cfg.mute_backend || 'auto';
 
@@ -1415,7 +1405,6 @@
                 language: document.getElementById('language').value,
                 debug: document.getElementById('debug').checked,
                 mute_playback_on_recording: document.getElementById('mute_playback_on_recording').checked,
-                mute_mic_on_recording: document.getElementById('mute_mic_on_recording').checked,
                 playback_mute_strategy: document.getElementById('playback_mute_strategy').value,
                 mute_backend: document.getElementById('mute_backend').value,
                 custom_hotkey_value: document.getElementById('custom_hotkey_value').value || 'alt+g',
