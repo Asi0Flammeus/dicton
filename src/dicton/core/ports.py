@@ -7,7 +7,7 @@ capability-oriented to keep the core decoupled.
 
 from __future__ import annotations
 
-from typing import Protocol, TYPE_CHECKING, runtime_checkable
+from typing import ContextManager, Protocol, TYPE_CHECKING, runtime_checkable
 
 if TYPE_CHECKING:
     from ..context_detector import ContextInfo
@@ -25,6 +25,20 @@ class AudioCapture(Protocol):
 
     def cancel(self) -> None:
         """Cancel recording and discard audio."""
+
+
+@runtime_checkable
+class AudioSessionControl(Protocol):
+    """Control system audio during a dictation session."""
+
+    def start_recording(self) -> None:
+        """Apply audio controls when recording starts."""
+
+    def stop_recording(self) -> None:
+        """Restore audio controls when recording stops."""
+
+    def cancel_recording(self) -> None:
+        """Restore audio controls when recording is cancelled."""
 
 
 @runtime_checkable
@@ -74,7 +88,7 @@ class MetricsSink(Protocol):
     def start_session(self) -> None:
         """Start a metrics session."""
 
-    def measure(self, name: str, **kwargs):
+    def measure(self, name: str, **kwargs) -> ContextManager[None]:
         """Return a context manager for timing a block."""
 
     def end_session(self):

@@ -11,6 +11,7 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 warnings.filterwarnings("ignore")
 
 from .adapters.audio import AudioCaptureAdapter, STTAdapter
+from .adapters.audio_session_control import AudioSessionControlAdapter
 from .adapters.config_env import load_app_config
 from .adapters.metrics import MetricsAdapter
 from .adapters.text_processing import TextOutputAdapter, TextProcessorAdapter
@@ -55,6 +56,7 @@ class Dicton:
         self._metrics = get_latency_tracker()
         self._controller = DictationController(
             audio_capture=AudioCaptureAdapter(self.recognizer),
+            audio_control=AudioSessionControlAdapter(),
             stt=STTAdapter(self.recognizer),
             text_processor=TextProcessorAdapter(self._process_text),
             text_output=TextOutputAdapter(self._output_result),

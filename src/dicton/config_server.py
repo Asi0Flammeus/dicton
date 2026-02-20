@@ -144,6 +144,14 @@ def get_current_config() -> dict[str, Any]:
         # Context detection settings
         "context_enabled": env_vars.get("CONTEXT_ENABLED", "true").lower() == "true",
         "context_debug": env_vars.get("CONTEXT_DEBUG", "false").lower() == "true",
+        "mute_playback_on_recording": (
+            env_vars.get("MUTE_PLAYBACK_ON_RECORDING", "true").lower() == "true"
+        ),
+        "mute_mic_on_recording": env_vars.get("MUTE_MIC_ON_RECORDING", "true").lower() == "true",
+        "playback_mute_strategy": env_vars.get(
+            "PLAYBACK_MUTE_STRATEGY", config.PLAYBACK_MUTE_STRATEGY
+        ),
+        "mute_backend": env_vars.get("MUTE_BACKEND", config.MUTE_BACKEND),
     }
 
 
@@ -176,6 +184,10 @@ def save_config(data: dict[str, Any]) -> None:
         "secondary_hotkey_act_on_text": "SECONDARY_HOTKEY_ACT_ON_TEXT",
         "context_enabled": "CONTEXT_ENABLED",
         "context_debug": "CONTEXT_DEBUG",
+        "mute_playback_on_recording": "MUTE_PLAYBACK_ON_RECORDING",
+        "mute_mic_on_recording": "MUTE_MIC_ON_RECORDING",
+        "playback_mute_strategy": "PLAYBACK_MUTE_STRATEGY",
+        "mute_backend": "MUTE_BACKEND",
     }
 
     for ui_field, env_var in field_map.items():
@@ -323,6 +335,10 @@ def create_app():
         secondary_hotkey_act_on_text: str | None = None
         context_enabled: bool | None = None
         context_debug: bool | None = None
+        mute_playback_on_recording: bool | None = None
+        mute_mic_on_recording: bool | None = None
+        playback_mute_strategy: str | None = None
+        mute_backend: str | None = None
 
     @app.get("/", response_class=HTMLResponse)
     async def root():

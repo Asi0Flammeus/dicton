@@ -7,10 +7,18 @@ decoupled from platform/vendor-specific implementations via ports.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from .cancel_token import CancelToken
-from .ports import AudioCapture, MetricsSink, STTService, TextOutput, TextProcessor, UIFeedback
+from .ports import (
+    AudioCapture,
+    AudioSessionControl,
+    MetricsSink,
+    STTService,
+    TextOutput,
+    TextProcessor,
+    UIFeedback,
+)
 from .state_machine import SessionEvent, SessionStateMachine
 
 
@@ -37,8 +45,10 @@ class DictationController:
         text_output: TextOutput,
         ui: UIFeedback,
         metrics: MetricsSink,
+        audio_control: AudioSessionControl | None = None,
     ):
         self._audio_capture = audio_capture
+        self._audio_control = audio_control or _NoopAudioSessionControl()
         self._stt = stt
         self._text_processor = text_processor
         self._text_output = text_output
@@ -50,12 +60,14 @@ class DictationController:
     def stop(self) -> None:
         """Stop recording and proceed to processing."""
         self._audio_capture.stop()
+        self._audio_control.stop_recording()
         self._state.transition(SessionEvent.STOP)
 
     def cancel(self) -> None:
         """Cancel recording and discard audio."""
         self._cancel_token.cancel()
         self._audio_capture.cancel()
+        self._audio_control.cancel_recording()
         self._state.transition(SessionEvent.CANCEL)
 
     def run_session(
@@ -63,7 +75,7 @@ class DictationController:
         mode,
         session: SessionContext,
         mode_names: dict,
-        pre_output: callable | None = None,
+        pre_output: Callable[[], None] | None = None,
     ) -> tuple[bool, object | None]:
         """Run one dictation session.
 
@@ -89,7 +101,11 @@ class DictationController:
 
         # Record
         with tracker.measure("audio_capture", mode=getattr(mode, "name", str(mode))):
-            audio = self._audio_capture.record()
+            self._audio_control.start_recording()
+            try:
+                audio = self._audio_capture.record()
+            finally:
+                self._audio_control.stop_recording()
 
         if self._cancel_token.cancelled:
             self._state.transition(SessionEvent.CANCEL)
@@ -151,3 +167,14 @@ class DictationController:
 
         self._state.transition(SessionEvent.OUTPUT_DONE)
         return True, tracker.end_session()
+
+
+class _NoopAudioSessionControl:
+    def start_recording(self) -> None:
+        return None
+
+    def stop_recording(self) -> None:
+        return None
+
+    def cancel_recording(self) -> None:
+        return None
