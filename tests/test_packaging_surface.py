@@ -43,6 +43,34 @@ def test_cli_version_works_without_full_app_startup():
     assert result.stdout.strip() == f"Dicton v{dicton.__version__}"
 
 
+def test_cli_config_ui_works_without_full_app_startup(monkeypatch):
+    import importlib
+    import types
+
+    cli = importlib.import_module("dicton.__main__")
+    calls: list[int] = []
+    real_import = __import__
+
+    def fake_run_config_server(*, port: int) -> None:
+        calls.append(port)
+
+    fake_module = types.SimpleNamespace(run_config_server=fake_run_config_server)
+
+    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name in {"dicton.config_server", "config_server"}:
+            return fake_module
+        if name in {"dicton.main", "main"}:
+            raise AssertionError("config-ui should not import dicton.main")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr("builtins.__import__", guarded_import)
+    monkeypatch.setattr(sys, "argv", ["dicton", "--config-ui", "--config-port", "9999"])
+
+    cli.main()
+
+    assert calls == [9999]
+
+
 @pytest.mark.parametrize(
     ("relative_path", "forbidden", "required"),
     [
@@ -97,6 +125,7 @@ def test_windows_packaging_files_exist():
     assert "__file__" not in spec
     assert "SPECPATH" in spec
     assert 'project_root / "packaging" / "windows" / "pyinstaller_entry.py"' in spec
+    assert 'collect_submodules("pynput")' in spec
 
 
 def test_windows_package_job_present():
@@ -112,6 +141,8 @@ def test_linux_packaging_files_exist():
     assert (ROOT / "docs" / "linux-packaging.md").exists()
     spec = (ROOT / "packaging" / "linux" / "dicton.spec").read_text(encoding="utf-8")
     assert 'project_root / "packaging" / "windows" / "pyinstaller_entry.py"' in spec
+    assert 'collect_submodules("pynput")' in spec
+    assert 'collect_submodules("Xlib")' in spec
 
 
 def test_linux_package_job_present():
