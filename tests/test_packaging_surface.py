@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import importlib.metadata
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -175,3 +177,30 @@ def test_auto_tag_release_workflow_present():
     assert 'git push origin "${{ steps.version.outputs.tag }}"' in workflow
     assert "uses: ./.github/workflows/release.yml" in workflow
     assert "tag_exists" in workflow
+
+
+def test_config_ui_embedded_script_has_valid_javascript():
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not available in this environment")
+
+    html = (ROOT / "src" / "dicton" / "assets" / "config_ui.html").read_text(encoding="utf-8")
+    start = html.index("<script>") + len("<script>")
+    end = html.index("</script>", start)
+    script = html[start:end].strip()
+
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as tmp:
+        tmp.write(script)
+        tmp_path = Path(tmp.name)
+
+    try:
+        result = subprocess.run(
+            [node, "--check", str(tmp_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    assert result.returncode == 0, result.stderr
