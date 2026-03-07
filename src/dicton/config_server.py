@@ -121,9 +121,7 @@ def get_current_config() -> dict[str, Any]:
         "anthropic_api_key_masked": _mask_api_key(anthropic_key),
         # Other config values
         "llm_provider": env_vars.get("LLM_PROVIDER", config.LLM_PROVIDER),
-        "enable_advanced_modes": (
-            env_vars.get("ENABLE_ADVANCED_MODES", "false").lower() == "true"
-        ),
+        "enable_advanced_modes": (env_vars.get("ENABLE_ADVANCED_MODES", "false").lower() == "true"),
         "theme_color": env_vars.get("THEME_COLOR", config.THEME_COLOR),
         "visualizer_style": env_vars.get("VISUALIZER_STYLE", config.VISUALIZER_STYLE),
         "animation_position": env_vars.get("ANIMATION_POSITION", config.ANIMATION_POSITION),

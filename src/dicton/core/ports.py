@@ -68,7 +68,9 @@ class TextProcessor(Protocol):
 class TextOutput(Protocol):
     """Outputs text to the active application."""
 
-    def output(self, text: str, mode, replace_selection: bool, context: ContextInfo | None = None) -> None:
+    def output(
+        self, text: str, mode, replace_selection: bool, context: ContextInfo | None = None
+    ) -> None:
         """Emit text to the active app."""
 
 
