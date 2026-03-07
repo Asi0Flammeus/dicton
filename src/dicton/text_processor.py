@@ -5,6 +5,8 @@ import re
 from difflib import SequenceMatcher
 from pathlib import Path
 
+from .app_paths import get_user_dictionary_path
+
 # Language-aware filler words
 FILLER_WORDS = {
     # English fillers
@@ -125,7 +127,7 @@ class TextProcessor:
 
         Args:
             dictionary_path: Path to custom dictionary JSON file.
-                            If None, uses default location (~/.config/dicton/dictionary.json)
+                            If None, uses the platform-native user config location.
             filter_fillers: If True, remove filler words from transcriptions.
             language: Language code for filler detection ('en', 'fr', 'de', 'es', 'auto').
                      'auto' uses common fillers across all languages.
@@ -142,7 +144,7 @@ class TextProcessor:
 
         # Default dictionary location
         if dictionary_path is None:
-            self.dictionary_path = Path.home() / ".config" / "dicton" / "dictionary.json"
+            self.dictionary_path = get_user_dictionary_path()
         else:
             self.dictionary_path = Path(dictionary_path)
 

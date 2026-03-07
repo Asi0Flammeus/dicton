@@ -34,6 +34,11 @@ pip install pipwin
 pipwin install pyaudio
 ```
 
+For the packaged Windows bundle path, also install:
+```cmd
+pip install -e ".[windows,context-windows,notifications,llm,configui,mistral,packaging]"
+```
+
 ## Development Installation
 
 ```bash
@@ -93,6 +98,12 @@ dicton
 
 # Or as module
 python -m dicton
+```
+
+## Windows Bundle Build
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
 ```
 
 ## Configuration

@@ -61,7 +61,7 @@ Advanced modes still exist in the codebase, but they are hidden by default. Set 
   - Anthropic API key ([get one here](https://console.anthropic.com/settings/keys))
 
 ### Other Platforms
-- Windows has an experimental fallback path with `Alt+G` and basic context detection
+- Windows now has a first packaging path for the fallback `Alt+G` workflow
 - macOS currently supports fallback typing and notifications, but not full feature parity
 - FN key mode remains Linux-only
 
@@ -114,6 +114,11 @@ echo "ANTHROPIC_API_KEY=your_key" >> ~/.config/dicton/.env
 dicton
 ```
 
+### Windows Preview Bundle
+
+The first Windows packaging path produces a one-folder bundle for the fallback desktop workflow.
+Build details and supported scope are documented in [docs/windows-packaging.md](docs/windows-packaging.md).
+
 ### System Dependencies
 
 **Debian/Ubuntu:**
@@ -137,7 +142,7 @@ sudo pacman -S wl-clipboard
 ## Configuration
 
 Configuration is read from (in order):
-1. `~/.config/dicton/.env` (user config)
+1. The per-user Dicton config directory (`%APPDATA%\\dicton` on Windows, `~/.config/dicton` on Linux)
 2. `./.env` (current directory)
 3. `/opt/dicton/.env` (system install)
 
@@ -265,7 +270,7 @@ This context is matched against profiles that customize:
 
 Enable/disable context detection via the dashboard's **Context** tab at `http://localhost:6873`.
 
-Custom profiles can be added to `~/.config/dicton/contexts.json`:
+Custom profiles can be added to the per-user `contexts.json` file in Dicton's config directory:
 
 ```json
 {

@@ -7,6 +7,7 @@ from pathlib import Path
 from threading import Timer
 from typing import Any
 
+from .app_paths import get_user_contexts_path
 from .config import Config, config
 
 
@@ -466,11 +467,10 @@ def create_app():
     async def api_update_profile(profile_name: str, request: Request):
         """Update or create a profile (saved to user config)."""
         import json
-        from pathlib import Path
 
         try:
             data = await request.json()
-            user_config_path = Path.home() / ".config" / "dicton" / "contexts.json"
+            user_config_path = get_user_contexts_path()
 
             # Load existing user config or start fresh
             if user_config_path.exists():
@@ -512,13 +512,12 @@ def create_app():
     async def api_delete_profile(profile_name: str):
         """Delete a user profile (cannot delete bundled defaults)."""
         import json
-        from pathlib import Path
 
         try:
             if profile_name == "default":
                 return JSONResponse({"error": "Cannot delete the default profile"}, status_code=400)
 
-            user_config_path = Path.home() / ".config" / "dicton" / "contexts.json"
+            user_config_path = get_user_contexts_path()
 
             if not user_config_path.exists():
                 return JSONResponse(

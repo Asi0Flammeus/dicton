@@ -15,6 +15,7 @@ from pathlib import Path
 from statistics import mean, median, quantiles
 from typing import Any
 
+from .app_paths import get_latency_log_path
 from .config import config
 
 
@@ -85,7 +86,7 @@ class LatencyTracker:
 
         # Default log location
         if log_path is None:
-            self.log_path = Path.home() / ".config" / "dicton" / "latency.log"
+            self.log_path = get_latency_log_path()
         else:
             self.log_path = Path(log_path)
 
