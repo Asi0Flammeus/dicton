@@ -36,20 +36,20 @@ It is built for speed and low friction: press a hotkey, talk, release, and the t
 
 Download the latest release here:
 
-`https://github.com/Asi0Flammeus/dicton/releases/latest`
+[Latest release](https://github.com/Asi0Flammeus/dicton/releases/latest)
 
 ### Linux
 
 Download the `.deb` file from the latest release, then install it with:
 
 ```bash
-sudo apt install ./dicton_1.1.1_amd64.deb
+sudo apt install ./dicton_1.1.2_amd64.deb
 ```
 
 If your system prefers `dpkg`:
 
 ```bash
-sudo dpkg -i dicton_1.1.1_amd64.deb
+sudo dpkg -i dicton_1.1.2_amd64.deb
 sudo apt-get install -f
 ```
 
