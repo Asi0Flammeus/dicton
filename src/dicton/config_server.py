@@ -10,6 +10,69 @@ from typing import Any
 from .app_paths import get_user_contexts_path
 from .config import Config, config
 
+CONFIG_FIELD_MAP = {
+    "stt_provider": "STT_PROVIDER",
+    "mistral_api_key": "MISTRAL_API_KEY",
+    "elevenlabs_api_key": "ELEVENLABS_API_KEY",
+    "gemini_api_key": "GEMINI_API_KEY",
+    "anthropic_api_key": "ANTHROPIC_API_KEY",
+    "llm_provider": "LLM_PROVIDER",
+    "enable_advanced_modes": "ENABLE_ADVANCED_MODES",
+    "theme_color": "THEME_COLOR",
+    "visualizer_style": "VISUALIZER_STYLE",
+    "animation_position": "ANIMATION_POSITION",
+    "visualizer_backend": "VISUALIZER_BACKEND",
+    "hotkey_base": "HOTKEY_BASE",
+    "hotkey_hold_threshold_ms": "HOTKEY_HOLD_THRESHOLD_MS",
+    "hotkey_double_tap_window_ms": "HOTKEY_DOUBLE_TAP_WINDOW_MS",
+    "filter_fillers": "FILTER_FILLERS",
+    "enable_reformulation": "ENABLE_REFORMULATION",
+    "language": "LANGUAGE",
+    "debug": "DEBUG",
+    "custom_hotkey_value": "CUSTOM_HOTKEY_VALUE",
+    "secondary_hotkey": "SECONDARY_HOTKEY",
+    "secondary_hotkey_translation": "SECONDARY_HOTKEY_TRANSLATION",
+    "secondary_hotkey_act_on_text": "SECONDARY_HOTKEY_ACT_ON_TEXT",
+    "context_enabled": "CONTEXT_ENABLED",
+    "context_debug": "CONTEXT_DEBUG",
+    "mute_playback_on_recording": "MUTE_PLAYBACK_ON_RECORDING",
+    "playback_mute_strategy": "PLAYBACK_MUTE_STRATEGY",
+    "mute_backend": "MUTE_BACKEND",
+}
+
+CONFIG_STRING_FIELDS = {
+    "stt_provider",
+    "mistral_api_key",
+    "elevenlabs_api_key",
+    "gemini_api_key",
+    "anthropic_api_key",
+    "llm_provider",
+    "theme_color",
+    "visualizer_style",
+    "animation_position",
+    "visualizer_backend",
+    "hotkey_base",
+    "hotkey_hold_threshold_ms",
+    "hotkey_double_tap_window_ms",
+    "language",
+    "custom_hotkey_value",
+    "secondary_hotkey",
+    "secondary_hotkey_translation",
+    "secondary_hotkey_act_on_text",
+    "playback_mute_strategy",
+    "mute_backend",
+}
+
+CONFIG_BOOL_FIELDS = {
+    "enable_advanced_modes",
+    "filter_fillers",
+    "enable_reformulation",
+    "debug",
+    "context_enabled",
+    "context_debug",
+    "mute_playback_on_recording",
+}
+
 
 def _load_logo_base64() -> str:
     """Load logo from package assets folder and convert to base64."""
@@ -160,38 +223,7 @@ def save_config(data: dict[str, Any]) -> None:
     """Save configuration to .env file."""
     env_vars = read_env_file()
 
-    # Map UI fields to env vars
-    field_map = {
-        "stt_provider": "STT_PROVIDER",
-        "mistral_api_key": "MISTRAL_API_KEY",
-        "elevenlabs_api_key": "ELEVENLABS_API_KEY",
-        "gemini_api_key": "GEMINI_API_KEY",
-        "anthropic_api_key": "ANTHROPIC_API_KEY",
-        "llm_provider": "LLM_PROVIDER",
-        "enable_advanced_modes": "ENABLE_ADVANCED_MODES",
-        "theme_color": "THEME_COLOR",
-        "visualizer_style": "VISUALIZER_STYLE",
-        "animation_position": "ANIMATION_POSITION",
-        "visualizer_backend": "VISUALIZER_BACKEND",
-        "hotkey_base": "HOTKEY_BASE",
-        "hotkey_hold_threshold_ms": "HOTKEY_HOLD_THRESHOLD_MS",
-        "hotkey_double_tap_window_ms": "HOTKEY_DOUBLE_TAP_WINDOW_MS",
-        "filter_fillers": "FILTER_FILLERS",
-        "enable_reformulation": "ENABLE_REFORMULATION",
-        "language": "LANGUAGE",
-        "debug": "DEBUG",
-        "custom_hotkey_value": "CUSTOM_HOTKEY_VALUE",
-        "secondary_hotkey": "SECONDARY_HOTKEY",
-        "secondary_hotkey_translation": "SECONDARY_HOTKEY_TRANSLATION",
-        "secondary_hotkey_act_on_text": "SECONDARY_HOTKEY_ACT_ON_TEXT",
-        "context_enabled": "CONTEXT_ENABLED",
-        "context_debug": "CONTEXT_DEBUG",
-        "mute_playback_on_recording": "MUTE_PLAYBACK_ON_RECORDING",
-        "playback_mute_strategy": "PLAYBACK_MUTE_STRATEGY",
-        "mute_backend": "MUTE_BACKEND",
-    }
-
-    for ui_field, env_var in field_map.items():
+    for ui_field, env_var in CONFIG_FIELD_MAP.items():
         if ui_field in data:
             value = data[ui_field]
             if isinstance(value, bool):
@@ -306,7 +338,7 @@ def create_app():
     try:
         from fastapi import FastAPI, Request
         from fastapi.responses import HTMLResponse, JSONResponse
-        from pydantic import BaseModel
+        from pydantic import BaseModel, create_model
     except ImportError as e:
         raise ImportError(
             "FastAPI not installed. Install with: pip install dicton[configui]"
@@ -314,32 +346,11 @@ def create_app():
 
     app = FastAPI(title="Dicton Dashboard")
 
-    class ConfigData(BaseModel):
-        elevenlabs_api_key: str | None = None
-        gemini_api_key: str | None = None
-        anthropic_api_key: str | None = None
-        llm_provider: str | None = None
-        enable_advanced_modes: bool | None = None
-        theme_color: str | None = None
-        visualizer_style: str | None = None
-        animation_position: str | None = None
-        visualizer_backend: str | None = None
-        hotkey_base: str | None = None
-        hotkey_hold_threshold_ms: str | None = None
-        hotkey_double_tap_window_ms: str | None = None
-        filter_fillers: bool | None = None
-        enable_reformulation: bool | None = None
-        language: str | None = None
-        debug: bool | None = None
-        custom_hotkey_value: str | None = None
-        secondary_hotkey: str | None = None
-        secondary_hotkey_translation: str | None = None
-        secondary_hotkey_act_on_text: str | None = None
-        context_enabled: bool | None = None
-        context_debug: bool | None = None
-        mute_playback_on_recording: bool | None = None
-        playback_mute_strategy: str | None = None
-        mute_backend: str | None = None
+    config_model_fields: dict[str, tuple[type | None, None]] = dict.fromkeys(
+        CONFIG_STRING_FIELDS, ((str | None), None)
+    )
+    config_model_fields.update(dict.fromkeys(CONFIG_BOOL_FIELDS, ((bool | None), None)))
+    ConfigData = create_model("ConfigData", **config_model_fields, __base__=BaseModel)
 
     @app.get("/", response_class=HTMLResponse)
     async def root():

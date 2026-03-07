@@ -7,11 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.2.1]
+## [1.2.2]
 
 ### Fixed
 
 - Fixed Linux packaged startup so Dicton no longer requires the `pynput` X11 backend just to launch and use the default hotkey flow.
+- Fixed the configuration UI save path so `MISTRAL_API_KEY` and `STT_PROVIDER` are preserved when saving settings.
 
 ## [1.2.0]
 

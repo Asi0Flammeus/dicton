@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 import dicton
+from dicton.config_server import CONFIG_BOOL_FIELDS, CONFIG_FIELD_MAP, CONFIG_STRING_FIELDS
 from dicton.update_checker import GITHUB_API_URL
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -137,6 +138,13 @@ def test_check_script_covers_ci_targets():
     assert "name: Test Compatibility (Python ${{ matrix.python-version }})" in workflow
     assert "if: github.event_name == 'schedule'" in workflow
     assert 'python-version: ["3.10", "3.11"]' in workflow
+
+
+def test_config_ui_field_sets_cover_saved_config_fields():
+    api_fields = CONFIG_STRING_FIELDS | CONFIG_BOOL_FIELDS
+    assert api_fields == set(CONFIG_FIELD_MAP)
+    assert "mistral_api_key" in api_fields
+    assert "stt_provider" in api_fields
 
 
 def test_windows_packaging_files_exist():
