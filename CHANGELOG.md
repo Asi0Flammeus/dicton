@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2]
+
 ### Changed
 
 - Simplified the default product surface to direct transcription plus translation to English.
@@ -18,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Made the package version single-source and corrected GitHub/update metadata.
 - Started a Windows PyInstaller packaging path and moved user config/data handling toward platform-native directories.
 - Added a Linux release package path and a tag-based GitHub release workflow that publishes Windows, Linux, and Python distribution assets.
+- Added auto-tag release automation on merges to `main` when the package version changes.
+- Fixed packaged CLI startup so `dicton --config-ui` does not require the full keyboard hook stack at import time.
+- Bundled the missing PyInstaller hidden imports for `pynput` and X11 backends used by packaged builds.
 
 ## [1.1.1]
 
