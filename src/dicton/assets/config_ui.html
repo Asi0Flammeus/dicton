@@ -1052,7 +1052,7 @@
 
         async function loadConfig() {
             try {
-                const res = await fetch(API_BASE '/api/config');
+                const res = await fetch(API_BASE + '/api/config');
                 currentConfig = await res.json();
                 populateForm(currentConfig);
                 await loadDictionary();
@@ -1064,7 +1064,7 @@
 
         async function loadDictionary() {
             try {
-                const res = await fetch(API_BASE '/api/dictionary');
+                const res = await fetch(API_BASE + '/api/dictionary');
                 dictionary = await res.json();
                 renderDictionary();
             } catch (e) {
@@ -1083,7 +1083,7 @@
 
         async function loadProfiles() {
             try {
-                const res = await fetch(API_BASE '/api/context/profiles');
+                const res = await fetch(API_BASE + '/api/context/profiles');
                 const profiles = await res.json();
                 renderProfiles(profiles);
             } catch (e) {
@@ -1114,12 +1114,14 @@
 
             if (profileName) {
                 // Edit existing profile
-                titleEl.textContent = 'Edit Profile: ' profileName;
+                titleEl.textContent = 'Edit Profile: ' + profileName;
                 nameInput.value = profileName;
                 nameInput.disabled = true;
 
                 try {
-                    const res = await fetch(API_BASE '/api/context/profiles/' encodeURIComponent(profileName));
+                    const res = await fetch(
+                        API_BASE + '/api/context/profiles/' + encodeURIComponent(profileName)
+                    );
                     if (!res.ok) throw new Error('Failed to load profile');
                     const profile = await res.json();
 
@@ -1194,7 +1196,7 @@
             };
 
             try {
-                const res = await fetch(API_BASE '/api/context/profiles/' encodeURIComponent(profileName), {
+                const res = await fetch(API_BASE + '/api/context/profiles/' + encodeURIComponent(profileName), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -1210,15 +1212,15 @@
                 await loadProfiles();
             } catch (e) {
                 console.error('Failed to save profile:', e);
-                showStatus('Failed to save profile: ' e.message, 'error');
+                showStatus('Failed to save profile: ' + e.message, 'error');
             }
         }
 
         async function deleteProfile(profileName) {
-            if (!confirm('Delete profile "' profileName '"?')) return;
+            if (!confirm('Delete profile "' + profileName + '"?')) return;
 
             try {
-                const res = await fetch(API_BASE '/api/context/profiles/' encodeURIComponent(profileName), {
+                const res = await fetch(API_BASE + '/api/context/profiles/' + encodeURIComponent(profileName), {
                     method: 'DELETE'
                 });
 
@@ -1238,7 +1240,7 @@
 
         async function refreshContext() {
             try {
-                const res = await fetch(API_BASE '/api/context/current');
+                const res = await fetch(API_BASE + '/api/context/current');
                 const ctx = await res.json();
 
                 document.getElementById('ctx-app').textContent = ctx.app_name || '--';
@@ -1298,7 +1300,7 @@
             if (!word) return;
 
             try {
-                await fetch(API_BASE '/api/dictionary', {
+                await fetch(API_BASE + '/api/dictionary', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ word })
@@ -1313,7 +1315,7 @@
 
         async function removeDictionaryEntry(word) {
             try {
-                await fetch(API_BASE '/api/dictionary', {
+                await fetch(API_BASE + '/api/dictionary', {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ word })
@@ -1326,7 +1328,7 @@
         }
 
         function updateApiKeyStatus(id, hasValue) {
-            const statusEl = document.getElementById(id '-status');
+            const statusEl = document.getElementById(id + '-status');
             if (hasValue) {
                 statusEl.textContent = 'Set';
                 statusEl.className = 'input-status set';
@@ -1438,7 +1440,7 @@
                     translation: data.secondary_hotkey_translation,
                     act: data.secondary_hotkey_act_on_text
                 });
-                const res = await fetch(API_BASE '/api/config', {
+                const res = await fetch(API_BASE + '/api/config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -1446,7 +1448,7 @@
                 if (res.ok) {
                     showStatus('Configuration saved! Restart Dicton to apply changes.', 'success');
                     // Reload config from server
-                    const reloaded = await fetch(API_BASE '/api/config').then(r => r.json());
+                    const reloaded = await fetch(API_BASE + '/api/config').then(r => r.json());
                     console.log('Reloaded config from server:', reloaded);
                     console.log('Reloaded secondary hotkeys:', {
                         basic: reloaded.secondary_hotkey,
@@ -1466,7 +1468,7 @@
         function showStatus(message, type) {
             const status = document.getElementById('status');
             status.textContent = message;
-            status.className = 'status ' type;
+            status.className = 'status ' + type;
             setTimeout(() => { status.className = 'status'; }, 5000);
         }
 
@@ -1511,7 +1513,7 @@
             testAbortController = new AbortController();
 
             try {
-                const res = await fetch(API_BASE '/api/test/start', {
+                const res = await fetch(API_BASE + '/api/test/start', {
                     method: 'POST',
                     signal: testAbortController.signal
                 });
@@ -1522,7 +1524,7 @@
                 }
             } catch (e) {
                 if (e.name !== 'AbortError') {
-                    showStatus('Failed to start test: ' e.message, 'error');
+                    showStatus('Failed to start test: ' + e.message, 'error');
                     resetTestUI();
                 }
             }
@@ -1539,7 +1541,7 @@
             status.textContent = '⏳ Processing transcription...';
 
             try {
-                const res = await fetch(API_BASE '/api/test/stop', { method: 'POST' });
+                const res = await fetch(API_BASE + '/api/test/stop', { method: 'POST' });
                 const data = await res.json();
 
                 if (data.error) {
@@ -1551,7 +1553,7 @@
                 // Show results
                 showTestResults(data);
             } catch (e) {
-                showStatus('Test failed: ' e.message, 'error');
+                showStatus('Test failed: ' + e.message, 'error');
                 resetTestUI();
             }
         }
@@ -1587,7 +1589,7 @@
 
         function formatMs(ms) {
             if (ms === undefined || ms === null) return '--';
-            return ms.toFixed(0) ' ms';
+            return ms.toFixed(0) + ' ms';
         }
 
         function resetTestUI() {
@@ -1666,7 +1668,7 @@
         // Start capturing secondary hotkey (single key)
         // mode: 'basic', 'translation', or 'act'
         function captureSecondaryHotkey(mode) {
-            captureMode = 'secondary-' mode;
+            captureMode = 'secondary-' + mode;
             capturedKey = null;
 
             const modeLabels = {
@@ -1675,7 +1677,7 @@
                 'act': 'Act on Text Mode'
             };
 
-            document.getElementById('modal-title').textContent = 'Capture ' modeLabels[mode] ' Hotkey';
+            document.getElementById('modal-title').textContent = 'Capture ' + modeLabels[mode] + ' Hotkey';
             document.getElementById('modal-hint').textContent = 'Press a single key (F1-F12, Escape, CapsLock, etc.)';
             document.getElementById('key-display').textContent = 'Waiting for input...';
             document.getElementById('key-display').className = 'key-display waiting';
@@ -1788,7 +1790,7 @@
 
                 // Don't capture modifier-only presses
                 if (['control', 'alt', 'shift', 'meta'].includes(key)) {
-                    keyDisplay.textContent = modifiers.join('+') '+...';
+                    keyDisplay.textContent = modifiers.join('+') + '+...';
                     keyDisplay.className = 'key-display waiting';
                     return;
                 }
@@ -1800,7 +1802,7 @@
                     return;
                 }
 
-                capturedKey = modifiers.join('+') '+' key;
+                capturedKey = modifiers.join('+') + '+' + key;
                 keyDisplay.textContent = formatHotkeyDisplay(capturedKey);
                 keyDisplay.className = 'key-display captured';
                 confirmBtn.disabled = false;
@@ -1824,7 +1826,7 @@
                     keyDisplay.className = 'key-display captured';
                     confirmBtn.disabled = false;
                 } else {
-                    keyDisplay.textContent = 'Unsupported key: ' key;
+                    keyDisplay.textContent = 'Unsupported key: ' + key;
                     keyDisplay.className = 'key-display error';
                     confirmBtn.disabled = true;
                 }
@@ -1834,7 +1836,7 @@
         function formatHotkeyDisplay(hotkeyStr) {
             if (!hotkeyStr || hotkeyStr === 'none') return 'None';
             return hotkeyStr.split('+').map(part =>
-                part.charAt(0).toUpperCase() part.slice(1)
+                part.charAt(0).toUpperCase() + part.slice(1)
             ).join(' ');
         }
 
