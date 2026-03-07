@@ -114,6 +114,10 @@ def test_check_script_covers_ci_targets():
     assert '"docs/**"' in workflow
     assert '"LICENSE"' in workflow
     assert 'cron: "0 8 * * 1"' in workflow
+    assert "name: Test (Python 3.12)" in workflow
+    assert "name: Test Compatibility (Python ${{ matrix.python-version }})" in workflow
+    assert "if: github.event_name == 'schedule'" in workflow
+    assert 'python-version: ["3.10", "3.11"]' in workflow
 
 
 def test_windows_packaging_files_exist():
