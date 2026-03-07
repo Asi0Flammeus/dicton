@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1]
+
+### Fixed
+
+- Fixed Linux packaged startup so Dicton no longer requires the `pynput` X11 backend just to launch and use the default hotkey flow.
+
 ## [1.2.0]
 
 ### Changed
