@@ -121,6 +121,9 @@ def get_current_config() -> dict[str, Any]:
         "anthropic_api_key_masked": _mask_api_key(anthropic_key),
         # Other config values
         "llm_provider": env_vars.get("LLM_PROVIDER", config.LLM_PROVIDER),
+        "enable_advanced_modes": (
+            env_vars.get("ENABLE_ADVANCED_MODES", "false").lower() == "true"
+        ),
         "theme_color": env_vars.get("THEME_COLOR", config.THEME_COLOR),
         "visualizer_style": env_vars.get("VISUALIZER_STYLE", config.VISUALIZER_STYLE),
         "animation_position": env_vars.get("ANIMATION_POSITION", config.ANIMATION_POSITION),
@@ -133,7 +136,7 @@ def get_current_config() -> dict[str, Any]:
             "HOTKEY_DOUBLE_TAP_WINDOW_MS", str(config.HOTKEY_DOUBLE_TAP_WINDOW_MS)
         ),
         "filter_fillers": env_vars.get("FILTER_FILLERS", "true").lower() == "true",
-        "enable_reformulation": env_vars.get("ENABLE_REFORMULATION", "true").lower() == "true",
+        "enable_reformulation": env_vars.get("ENABLE_REFORMULATION", "false").lower() == "true",
         "language": env_vars.get("LANGUAGE", config.LANGUAGE),
         "debug": env_vars.get("DEBUG", "false").lower() == "true",
         # Hotkey settings
@@ -166,6 +169,7 @@ def save_config(data: dict[str, Any]) -> None:
         "gemini_api_key": "GEMINI_API_KEY",
         "anthropic_api_key": "ANTHROPIC_API_KEY",
         "llm_provider": "LLM_PROVIDER",
+        "enable_advanced_modes": "ENABLE_ADVANCED_MODES",
         "theme_color": "THEME_COLOR",
         "visualizer_style": "VISUALIZER_STYLE",
         "animation_position": "ANIMATION_POSITION",
@@ -316,6 +320,7 @@ def create_app():
         gemini_api_key: str | None = None
         anthropic_api_key: str | None = None
         llm_provider: str | None = None
+        enable_advanced_modes: bool | None = None
         theme_color: str | None = None
         visualizer_style: str | None = None
         animation_position: str | None = None

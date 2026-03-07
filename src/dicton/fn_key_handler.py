@@ -17,7 +17,7 @@ from enum import Enum, auto
 
 from .config import config
 from .platform_utils import IS_LINUX
-from .processing_mode import ProcessingMode
+from .processing_mode import ProcessingMode, advanced_modes_enabled
 
 # XF86WakeUp keycode - typically mapped to FN key on many laptops
 KEY_WAKEUP = 143  # evdev keycode for KEY_WAKEUP (XF86WakeUp)
@@ -288,10 +288,11 @@ class FnKeyHandler:
         if keycode:
             self._secondary_hotkeys[keycode] = ProcessingMode.TRANSLATION
 
-        # Act on Text mode (F3 by default)
-        keycode = SECONDARY_HOTKEY_MAP.get(config.SECONDARY_HOTKEY_ACT_ON_TEXT)
-        if keycode:
-            self._secondary_hotkeys[keycode] = ProcessingMode.ACT_ON_TEXT
+        if advanced_modes_enabled():
+            # Advanced mode hotkeys stay opt-in.
+            keycode = SECONDARY_HOTKEY_MAP.get(config.SECONDARY_HOTKEY_ACT_ON_TEXT)
+            if keycode:
+                self._secondary_hotkeys[keycode] = ProcessingMode.ACT_ON_TEXT
 
     def _parse_custom_hotkey(self):
         """Parse CUSTOM_HOTKEY_VALUE into required modifiers and main key.
@@ -853,18 +854,17 @@ class FnKeyHandler:
         - FN + Space → RAW (Yellow)
         - FN only → BASIC (Orange)
         """
-        if self._ctrl_pressed and self._shift_pressed:
+        if self._ctrl_pressed and self._shift_pressed and advanced_modes_enabled():
             return ProcessingMode.TRANSLATE_REFORMAT
-        elif self._ctrl_pressed:
+        if self._ctrl_pressed:
             return ProcessingMode.TRANSLATION
-        elif self._shift_pressed:
+        if self._shift_pressed and advanced_modes_enabled():
             return ProcessingMode.ACT_ON_TEXT
-        elif self._alt_pressed:
+        if self._alt_pressed and advanced_modes_enabled():
             return ProcessingMode.REFORMULATION
-        elif self._space_pressed:
+        if self._space_pressed and advanced_modes_enabled():
             return ProcessingMode.RAW
-        else:
-            return ProcessingMode.BASIC
+        return ProcessingMode.BASIC
 
     def _on_custom_hotkey_down(self):
         """Handle custom hotkey press (e.g., alt+g, ctrl+shift+d).

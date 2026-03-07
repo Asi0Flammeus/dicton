@@ -6,8 +6,9 @@ decoupled from platform/vendor-specific implementations via ports.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from .cancel_token import CancelToken
 from .ports import (
@@ -20,7 +21,6 @@ from .ports import (
     UIFeedback,
 )
 from .state_machine import SessionEvent, SessionStateMachine
-
 
 if TYPE_CHECKING:
     from ..context_detector import ContextInfo

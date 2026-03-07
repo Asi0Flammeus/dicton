@@ -14,6 +14,17 @@ def _load_env_files():
     2. Current working directory - for development
     3. System install (/opt/dicton/) - read-only defaults
     """
+    if os.getenv("DICTON_DISABLE_ENV_FILE_LOAD", "").lower() == "true":
+        return None
+
+    explicit_env = os.getenv("DICTON_ENV_FILE")
+    if explicit_env:
+        env_path = Path(explicit_env).expanduser()
+        if env_path.exists():
+            load_dotenv(env_path)
+            return str(env_path)
+        return None
+
     locations = [
         Path.home() / ".config" / "dicton" / ".env",  # User config dir - FIRST!
         Path.cwd() / ".env",  # Current working directory
@@ -166,6 +177,9 @@ class Config:
         "SECONDARY_HOTKEY_ACT_ON_TEXT", "none"
     ).lower()  # Act on Text mode
 
+    # Keep the default UI focused on direct dictation + translation.
+    ENABLE_ADVANCED_MODES = os.getenv("ENABLE_ADVANCED_MODES", "false").lower() == "true"
+
     # Visualizer theme color (red, orange, yellow, green, cyan, blue, purple, magenta)
     THEME_COLOR = os.getenv("THEME_COLOR", "orange").lower()
 
@@ -208,7 +222,7 @@ class Config:
 
     # LLM-based reformulation: "true" to enable light reformulation via configured LLM_PROVIDER
     # When enabled, uses LLM for smarter cleanup. When disabled, uses local filler removal only.
-    ENABLE_REFORMULATION = os.getenv("ENABLE_REFORMULATION", "true").lower() == "true"
+    ENABLE_REFORMULATION = os.getenv("ENABLE_REFORMULATION", "false").lower() == "true"
 
     # Paste threshold: texts with more words than this will use clipboard paste
     # instead of character-by-character streaming (faster for long dictations)

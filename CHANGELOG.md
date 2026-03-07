@@ -5,6 +5,24 @@ All notable changes to Dicton will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- Simplified the default product surface to direct transcription plus translation to English.
+- Hid advanced modes behind `ENABLE_ADVANCED_MODES=true` instead of exposing them by default.
+- Made basic mode plain transcription instead of automatic reformulation.
+- Made tests independent from user-level `~/.config/dicton/.env`.
+- Updated README and example configuration to match the simplified defaults.
+
+## [1.1.1]
+
+### Added
+
+- Mistral Voxtral STT provider support with fallback integration.
+- Core controller/state-machine orchestration for dictation sessions.
+- Playback mute / pause support during recording.
+
 ## [1.0.0] - 2024-12-21
 
 ### Added

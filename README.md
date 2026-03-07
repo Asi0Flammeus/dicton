@@ -11,15 +11,15 @@
 
 # Dicton
 
-A fast, low-latency voice-to-text dictation tool for Linux. Press the FN key to start recording, release to transcribe directly at your cursor position.
+A fast, low-latency voice-to-text dictation tool for Linux. By default, Dicton focuses on two workflows: direct transcription and translation to English.
 
 ## Features
 
 - **FN Key Activation**: Use your laptop's FN key for seamless push-to-talk dictation
-- **Multiple Processing Modes**: Basic transcription, translation, LLM reformulation
+- **Simple Defaults**: Direct transcription and translation to English are enabled out of the box
 - **Real-time Visualizer**: Animated toric ring shows audio levels with mode-specific colors
-- **ElevenLabs STT**: Fast, accurate transcription via ElevenLabs Scribe API
-- **LLM Enhancement**: Optional text cleanup and translation via Gemini or Anthropic (with automatic fallback)
+- **Provider Fallback**: Mistral or ElevenLabs for STT, with automatic fallback
+- **Translation**: Optional translation to English via Gemini or Anthropic
 - **System-wide**: Works in any application where you can type
 - **Low Latency**: Optimized pipeline for natural dictation flow
 
@@ -33,17 +33,14 @@ Dicton uses the **FN key** (XF86WakeUp) as the primary trigger, with modifier ke
 | **Hold FN** | Push-to-talk: records while held, transcribes on release |
 | **Double-tap FN** | Toggle mode: tap to start, tap again to stop |
 
-### Processing Modes
+### Default Modes
 
 | Hotkey | Mode | Ring Color | Description |
 |--------|------|------------|-------------|
-| FN | Basic | Orange | Transcribe with auto-reformulation |
+| FN | Basic | Orange | Direct transcription |
 | FN + Ctrl | Translation | Green | Transcribe and translate to English |
-| FN + Alt | Reformulation | Purple | LLM-powered text cleanup |
-| FN + Shift | Act on Text | Magenta | **(WIP)** Apply instruction to selected text |
-| FN + Space | Raw | Yellow | Raw transcription, no processing |
 
-> **Note**: Act on Text mode is experimental and still under development.
+Advanced modes still exist in the codebase, but they are hidden by default. Set `ENABLE_ADVANCED_MODES=true` if you want to expose reformulation, raw mode, or act-on-text again.
 
 ### Visual Feedback
 - **Animated ring**: Recording in progress
@@ -56,8 +53,10 @@ Dicton uses the **FN key** (XF86WakeUp) as the primary trigger, with modifier ke
 - Python 3.10+
 - X11 or Wayland (with XWayland)
 - System packages: `xdotool`, `libnotify-bin`, `xclip` (or `wl-clipboard` for Wayland)
-- ElevenLabs API key ([get one here](https://elevenlabs.io/))
-- LLM API key (optional, for text cleanup and translation):
+- STT API key:
+  - Mistral API key ([get one here](https://console.mistral.ai/api-keys)), or
+  - ElevenLabs API key ([get one here](https://elevenlabs.io/))
+- LLM API key (optional, for translation):
   - Gemini API key ([get one here](https://aistudio.google.com/app/apikey)), or
   - Anthropic API key ([get one here](https://console.anthropic.com/settings/keys))
 
@@ -79,8 +78,10 @@ sudo ./install.sh install
 
 # Configure API keys
 sudo nano /opt/dicton/.env
-# Set: ELEVENLABS_API_KEY=your_key
-# Set: GEMINI_API_KEY=your_key (optional, for LLM features)
+# Set one STT key:
+# MISTRAL_API_KEY=your_key
+# or ELEVENLABS_API_KEY=your_key
+# Set: GEMINI_API_KEY=your_key (optional, for translation)
 # Or:  ANTHROPIC_API_KEY=your_key (alternative LLM provider)
 
 # Add user to input group (required for FN key)
@@ -101,8 +102,10 @@ pip install dicton[fnkey]
 mkdir -p ~/.config/dicton
 
 # Add API keys
-echo "ELEVENLABS_API_KEY=your_key" > ~/.config/dicton/.env
-# Add one or both LLM providers (Gemini is default, Anthropic as fallback)
+echo "MISTRAL_API_KEY=your_key" > ~/.config/dicton/.env
+# Or use ElevenLabs instead:
+# echo "ELEVENLABS_API_KEY=your_key" > ~/.config/dicton/.env
+# Add one or both LLM providers if you want translation
 echo "GEMINI_API_KEY=your_key" >> ~/.config/dicton/.env
 echo "ANTHROPIC_API_KEY=your_key" >> ~/.config/dicton/.env
 
@@ -133,21 +136,23 @@ sudo pacman -S wl-clipboard
 ## Configuration
 
 Configuration is read from (in order):
-1. `./.env` (current directory)
-2. `~/.config/dicton/.env` (user config)
+1. `~/.config/dicton/.env` (user config)
+2. `./.env` (current directory)
 3. `/opt/dicton/.env` (system install)
 
 ### Environment Variables
 
 ```bash
-# Required
+# Required: set at least one STT provider
+MISTRAL_API_KEY=your_mistral_key
 ELEVENLABS_API_KEY=your_elevenlabs_key
 
-# Optional - LLM Features
+# Optional - LLM Translation
 LLM_PROVIDER=gemini             # "gemini" (default) or "anthropic"
 GEMINI_API_KEY=your_gemini_key
 ANTHROPIC_API_KEY=your_anthropic_key
-ENABLE_REFORMULATION=true       # Enable LLM-powered text cleanup
+ENABLE_ADVANCED_MODES=false     # Expose reformulation/raw/act-on-text
+ENABLE_REFORMULATION=false      # Only used when advanced modes are enabled
 
 # Hotkey Settings
 HOTKEY_BASE=fn                    # "fn" for FN key, "alt+g" for legacy
@@ -202,11 +207,6 @@ Or use **double-tap** for longer recordings:
 
 1. **Hold FN + Ctrl** and speak in any language
 2. **Release** to get English translation
-
-### LLM Reformulation
-
-1. **Hold FN + Alt** and speak naturally
-2. **Release** to get cleaned-up text (removes fillers, fixes grammar)
 
 ## Service Management (Linux)
 
