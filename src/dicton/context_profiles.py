@@ -10,6 +10,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .app_paths import get_user_contexts_path
 from .context_detector import ContextInfo
 
 logger = logging.getLogger(__name__)
@@ -91,7 +92,7 @@ class ContextProfileManager:
 
     Loads profiles from:
     1. Default bundled profiles (src/dicton/default_contexts.json)
-    2. User profiles (~/.config/dicton/contexts.json) - overrides defaults
+    2. User profiles (per-user config directory) - overrides defaults
     """
 
     # Typing speed presets (delay in seconds between characters)
@@ -117,7 +118,7 @@ class ContextProfileManager:
             self._load_from_file(default_path)
 
         # Load user overrides
-        user_path = Path.home() / ".config" / "dicton" / "contexts.json"
+        user_path = get_user_contexts_path()
         if user_path.exists():
             self._load_from_file(user_path)
 

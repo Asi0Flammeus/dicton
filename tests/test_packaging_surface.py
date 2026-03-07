@@ -86,3 +86,21 @@ def test_check_script_covers_ci_targets():
     assert "./scripts/check.sh build" in (ROOT / ".github" / "workflows" / "ci.yml").read_text(
         encoding="utf-8"
     )
+
+
+def test_windows_packaging_files_exist():
+    assert (ROOT / "packaging" / "windows" / "dicton.spec").exists()
+    assert (ROOT / "packaging" / "windows" / "pyinstaller_entry.py").exists()
+    assert (ROOT / "scripts" / "build-windows.ps1").exists()
+    assert (ROOT / "docs" / "windows-packaging.md").exists()
+    spec = (ROOT / "packaging" / "windows" / "dicton.spec").read_text(encoding="utf-8")
+    assert "__file__" not in spec
+    assert "SPECPATH" in spec
+    assert 'project_root / "packaging" / "windows" / "pyinstaller_entry.py"' in spec
+
+
+def test_windows_package_job_present():
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "windows-package:" in workflow
+    assert r".\scripts\build-windows.ps1" in workflow
+    assert "dicton-windows-x64.zip" in workflow

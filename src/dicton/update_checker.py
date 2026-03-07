@@ -7,12 +7,12 @@ and notifies users when a new version is available.
 import json
 import threading
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import NamedTuple
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from . import __version__
+from .app_paths import get_update_cache_path
 from .config import config
 
 # GitHub repository info
@@ -21,7 +21,7 @@ GITHUB_REPO = "dicton"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
 
 # Cache settings
-CACHE_FILE = Path.home() / ".config" / "dicton" / "update_cache.json"
+CACHE_FILE = get_update_cache_path()
 CHECK_INTERVAL_HOURS = 24  # Only check once per day
 
 

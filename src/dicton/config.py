@@ -5,12 +5,14 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from .app_paths import get_user_config_dir, get_user_data_dir, get_user_env_path
+
 
 def _load_env_files():
     """Load .env from multiple possible locations (first found wins).
 
     Priority order:
-    1. User config dir (~/.config/dicton/) - where dashboard saves settings
+    1. User config dir - where dashboard saves settings
     2. Current working directory - for development
     3. System install (/opt/dicton/) - read-only defaults
     """
@@ -26,7 +28,7 @@ def _load_env_files():
         return None
 
     locations = [
-        Path.home() / ".config" / "dicton" / ".env",  # User config dir - FIRST!
+        get_user_env_path(),  # User config dir - FIRST!
         Path.cwd() / ".env",  # Current working directory
         Path("/opt/dicton/.env"),  # System install (read-only fallback)
     ]
@@ -113,8 +115,8 @@ class Config:
     """Configuration for Dicton"""
 
     # Paths - use user-writable directories
-    CONFIG_DIR = Path.home() / ".config" / "dicton"
-    DATA_DIR = Path.home() / ".local" / "share" / "dicton"
+    CONFIG_DIR = get_user_config_dir()
+    DATA_DIR = get_user_data_dir()
     MODELS_DIR = DATA_DIR / "models"
 
     # ElevenLabs API

@@ -120,3 +120,32 @@ jobs:
         run: |
           python -c "import dicton; print(dicton.__version__)"
           python -m dicton --version
+
+  windows-package:
+    name: Windows Package
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package dependencies
+        shell: bash
+        run: pip install -e ".[windows,context-windows,notifications,llm,configui,mistral,packaging]"
+
+      - name: Build Windows bundle
+        shell: powershell
+        run: .\scripts\build-windows.ps1
+
+      - name: Smoke packaged executable
+        shell: powershell
+        run: .\dist\dicton\dicton.exe --version
+
+      - name: Upload Windows bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: dicton-windows-x64
+          path: dist/dicton-windows-x64.zip
