@@ -1,524 +1,23 @@
 #!/usr/bin/env python3
-"""Dicton: Voice-to-text with FN key activation and processing modes"""
+"""CLI commands and runtime startup for Dicton."""
 
+from __future__ import annotations
+
+import argparse
 import os
 import signal
-import threading
 import warnings
-from typing import TYPE_CHECKING
 
-# Suppress warnings
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 warnings.filterwarnings("ignore")
 
-from .adapters.config_env import load_app_config
+from .bootstrap.container import build_runtime_service
 from .config import config
-from .core.controller import SessionContext
-from .platform_utils import IS_LINUX, IS_WINDOWS
-from .processing_mode import ProcessingMode, get_mode_color, is_mode_enabled
+from .platform_utils import IS_WINDOWS
 
-if TYPE_CHECKING:
-    from .context_detector import ContextInfo
 
-
-class Dicton:
-    """Main application with FN key hotkey and processing modes"""
-
-    def __init__(self):
-        from .adapters.audio import AudioCaptureAdapter, STTAdapter
-        from .adapters.audio_session_control import AudioSessionControlAdapter
-        from .adapters.metrics import MetricsAdapter
-        from .adapters.text_processing import TextOutputAdapter, TextProcessorAdapter
-        from .adapters.ui_feedback import UIFeedbackAdapter
-        from .core.controller import DictationController
-        from .keyboard_handler import KeyboardHandler
-        from .latency_tracker import get_latency_tracker
-        from .speech_recognition_engine import SpeechRecognizer
-
-        config.create_dirs()
-        self.recognizer = SpeechRecognizer()
-
-        # Warn prominently if no STT provider is available
-        if not self.recognizer._provider_available:
-            print("❌ No STT provider configured - dictation will not work!")
-
-        self.keyboard = KeyboardHandler(self._legacy_toggle)
-        self.recording = False
-        self.record_thread = None
-        self._shutdown_event = threading.Event()
-        self._current_mode = ProcessingMode.BASIC
-        self._visualizer = None
-        self._selected_text = None  # For Act on Text mode
-        self._current_context: ContextInfo | None = None  # Context at recording start
-
-        # FN key handler (Linux only, requires evdev)
-        self._fn_handler = None
-        self._use_fn_key = False
-        self._app_config = load_app_config()
-
-        # Core controller (Phase 1)
-        self._metrics = get_latency_tracker()
-        self._controller = DictationController(
-            audio_capture=AudioCaptureAdapter(self.recognizer),
-            audio_control=AudioSessionControlAdapter(),
-            stt=STTAdapter(self.recognizer),
-            text_processor=TextProcessorAdapter(self._process_text),
-            text_output=TextOutputAdapter(self._output_result),
-            ui=UIFeedbackAdapter(),
-            metrics=MetricsAdapter(self._metrics),
-        )
-
-    def _init_fn_handler(self) -> bool:
-        """Initialize FN key handler if available.
-
-        Supports both FN key mode and custom hotkey mode (e.g., alt+g).
-        """
-        if not IS_LINUX:
-            return False
-
-        hotkey_base = config.HOTKEY_BASE.lower()
-        # Only use FnKeyHandler for "fn" or "custom" modes
-        # Other values fall back to legacy pynput-based keyboard handler
-        if hotkey_base not in ("fn", "custom"):
-            return False
-
-        try:
-            from .fn_key_handler import FnKeyHandler
-
-            self._fn_handler = FnKeyHandler(
-                on_start_recording=self._on_start_recording,
-                on_stop_recording=self._on_stop_recording,
-                on_cancel_recording=self._on_cancel_recording,
-            )
-            return self._fn_handler.start()
-        except ImportError:
-            print("FN key support requires evdev: pip install dicton[fnkey]")
-            return False
-        except Exception as e:
-            if self._app_config.debug:
-                print(f"FN handler init failed: {e}")
-            return False
-
-    def _legacy_toggle(self):
-        """Legacy toggle for Alt+G hotkey (backward compatibility)"""
-        if self.recording:
-            self._on_stop_recording()
-        else:
-            self._on_start_recording(ProcessingMode.BASIC)
-
-    def _on_start_recording(self, mode: ProcessingMode):
-        """Start recording with specified processing mode"""
-        if self.recording:
-            return
-
-        if not is_mode_enabled(mode):
-            mode = ProcessingMode.BASIC
-
-        self._current_mode = mode
-        self._selected_text = None  # Reset selected text
-        self._current_context = None  # Reset context
-
-        # Detect context at recording start (not on every frame)
-        if self._app_config.context_enabled:
-            try:
-                from .context_detector import get_context_detector
-
-                detector = get_context_detector()
-                if detector:
-                    self._current_context = detector.get_context()
-            except Exception as e:
-                if self._app_config.context_debug:
-                    print(f"[Context] Detection failed: {e}")
-
-        # For Act on Text, capture selection BEFORE starting recording
-        if mode == ProcessingMode.ACT_ON_TEXT:
-            selected = self._capture_selection_for_act_on_text()
-            if not selected:
-                return  # Already notified user, don't start recording
-            self._selected_text = selected
-            print(
-                f"📋 Selected: {selected[:50]}..."
-                if len(selected) > 50
-                else f"📋 Selected: {selected}"
-            )
-
-        self.recording = True
-
-        # Update visualizer color based on mode
-        self._update_visualizer_color(mode)
-
-        # Start recording thread
-        self.record_thread = threading.Thread(target=self._record_and_transcribe, daemon=True)
-        self.record_thread.start()
-
-    def _on_stop_recording(self):
-        """Stop recording (will process audio)"""
-        if not self.recording:
-            return
-
-        print("⏹ Stopping...")
-        self._controller.stop()
-        self.recording = False
-
-    def _on_cancel_recording(self):
-        """Cancel recording (tap detected, discard audio)"""
-        if not self.recording:
-            return
-
-        if self._app_config.debug:
-            print("⏹ Cancelled (tap)")
-        self._controller.cancel()
-        self.recording = False
-
-    def _update_visualizer_color(self, mode: ProcessingMode):
-        """Update visualizer ring color for current mode"""
-        try:
-            if self._visualizer is None:
-                from .visualizer import get_visualizer
-
-                self._visualizer = get_visualizer()
-
-            color = get_mode_color(mode)
-            self._visualizer.set_colors(color)
-        except Exception:
-            pass  # Visualizer not critical
-
-    def _record_and_transcribe(self):
-        """Record audio and process based on current mode"""
-        mode = self._current_mode
-        tracker = self._metrics
-        mode_names = {
-            ProcessingMode.BASIC: "Recording",
-            ProcessingMode.ACT_ON_TEXT: "Act on Text",
-            ProcessingMode.REFORMULATION: "Reformulation",
-            ProcessingMode.TRANSLATION: "Translation",
-            ProcessingMode.TRANSLATE_REFORMAT: "Translate+Reformat",
-            ProcessingMode.RAW: "Raw Mode",
-        }
-
-        # Get visualizer reference (use same import logic as speech_recognition_engine)
-        viz = None
-        try:
-            if config.VISUALIZER_BACKEND == "gtk":
-                try:
-                    from .visualizer_gtk import get_visualizer
-
-                    viz = get_visualizer()
-                except ImportError:
-                    from .visualizer import get_visualizer
-
-                    viz = get_visualizer()
-            elif config.VISUALIZER_BACKEND == "vispy":
-                try:
-                    from .visualizer_vispy import get_visualizer
-
-                    viz = get_visualizer()
-                except ImportError:
-                    from .visualizer import get_visualizer
-
-                    viz = get_visualizer()
-            else:
-                from .visualizer import get_visualizer
-
-                viz = get_visualizer()
-        except Exception:
-            viz = None
-
-        try:
-            # For Act on Text, use pre-captured selection
-            selected_text = None
-            if mode == ProcessingMode.ACT_ON_TEXT:
-                selected_text = self._selected_text
-                if not selected_text:
-                    # This shouldn't happen - selection is checked before recording starts
-                    print("⚠ No selection captured")
-                    return
-
-            session_ctx = SessionContext(
-                selected_text=selected_text,
-                context=self._current_context,
-            )
-
-            def _pre_output():
-                nonlocal viz
-                if viz:
-                    viz.stop()
-                    viz = None  # Don't stop again in finally
-
-            success, session = self._controller.run_session(
-                mode=mode,
-                session=session_ctx,
-                mode_names=mode_names,
-                pre_output=_pre_output,
-            )
-            if not success:
-                return
-
-            if self._app_config.debug and session:
-                total_ms = session.total_duration_ms()
-                print(f"⏱ Total latency: {total_ms:.0f}ms")
-
-        except Exception as e:
-            print(f"Error: {e}")
-            from .ui_feedback import notify
-
-            notify("❌ Error", str(e)[:50])
-            try:
-                tracker.end_session()
-            except Exception:
-                pass
-        finally:
-            self.recording = False
-            # Stop visualizer if not already stopped
-            if viz:
-                viz.stop()
-
-    def _capture_selection_for_act_on_text(self) -> str | None:
-        """Capture selected text for Act on Text mode (called before recording starts)"""
-        try:
-            from .platform_utils import IS_WAYLAND
-            from .selection_handler import get_primary_selection, has_selection
-
-            if not has_selection():
-                print("⚠ No text selected")
-                from .ui_feedback import notify
-
-                notify("⚠ No Selection", "Highlight text first, then press FN+Shift")
-                return None
-
-            selected = get_primary_selection()
-            if not selected:
-                tool_hint = "wl-clipboard" if IS_WAYLAND else "xclip"
-                print(f"⚠ Could not read selection (install {tool_hint})")
-                from .ui_feedback import notify
-
-                notify("⚠ Selection Error", f"Install {tool_hint}")
-                return None
-
-            return selected
-
-        except ImportError as e:
-            print(f"⚠ Selection handler not available: {e}")
-            from .ui_feedback import notify
-
-            notify("⚠ Not Available", "Install xclip or wl-clipboard")
-            return None
-
-    def _process_text(
-        self,
-        text: str,
-        mode: ProcessingMode,
-        selected_text: str | None = None,
-        context: "ContextInfo | None" = None,
-    ) -> str | None:
-        """Process transcribed text based on mode"""
-        if not is_mode_enabled(mode):
-            mode = ProcessingMode.BASIC
-
-        if mode == ProcessingMode.BASIC:
-            return text
-
-        if mode == ProcessingMode.RAW:
-            # No processing, return as-is
-            return text
-
-        # LLM-powered modes
-        try:
-            from . import llm_processor
-
-            if not llm_processor.is_available():
-                print("⚠ LLM not available (set GEMINI_API_KEY or ANTHROPIC_API_KEY)")
-                from .ui_feedback import notify
-
-                notify("⚠ LLM Not Available", "Configure LLM_PROVIDER")
-                return text  # Fallback to raw text
-
-            if mode == ProcessingMode.ACT_ON_TEXT and selected_text:
-                return llm_processor.act_on_text(selected_text, text, context=context)
-
-            elif mode == ProcessingMode.REFORMULATION:
-                # Check if LLM reformulation is enabled
-                if config.ENABLE_REFORMULATION:
-                    return llm_processor.reformulate(text, context=context)
-                else:
-                    # Fallback to local filler removal only
-                    return self._filter_fillers_local(text)
-
-            elif mode == ProcessingMode.TRANSLATION:
-                return llm_processor.translate(text, "English", context=context)
-
-            elif mode == ProcessingMode.TRANSLATE_REFORMAT:
-                # Translate first, then reformulate
-                translated = llm_processor.translate(text, "English", context=context)
-                if translated:
-                    return llm_processor.reformulate(translated, context=context)
-                return None
-
-        except ImportError:
-            print("⚠ LLM processor not available")
-            return text
-
-        return text
-
-    def _filter_fillers_local(self, text: str) -> str:
-        """Local filler word removal (no LLM)"""
-        try:
-            from .text_processor import filter_filler_words
-
-            return filter_filler_words(text)
-        except ImportError:
-            return text
-
-    def _output_result(
-        self,
-        text: str,
-        mode: ProcessingMode,
-        replace_selection: bool,
-        context: "ContextInfo | None" = None,
-    ):
-        """Output the processed text using character-by-character typing.
-
-        Args:
-            text: The processed text to output.
-            mode: The processing mode used.
-            replace_selection: Whether we're replacing a selection (Act on Text).
-            context: Optional context for adaptive typing speed.
-        """
-        # Calculate typing delay from context profile
-        typing_delay_ms = 50  # Default: 50ms
-
-        if context:
-            from .context_profiles import get_profile_manager
-
-            manager = get_profile_manager()
-            profile = manager.match_context(context)
-            if profile:
-                # get_typing_delay returns seconds, convert to ms
-                typing_delay_ms = int(manager.get_typing_delay(profile) * 1000)
-                if self._app_config.context_debug:
-                    print(f"[Context] Typing delay: {typing_delay_ms}ms ({profile.typing_speed})")
-
-        # All modes use insert_text (xdotool type) for reliable output
-        # For Act on Text: selection is still active, typing replaces it naturally
-        self.keyboard.insert_text(text, typing_delay_ms=typing_delay_ms)
-
-        if mode == ProcessingMode.ACT_ON_TEXT:
-            print(f"✓ Replaced: {text[:50]}..." if len(text) > 50 else f"✓ {text}")
-            from .ui_feedback import notify
-
-            notify("✓ Text Replaced", text[:100])
-        else:
-            print(f"✓ {text[:50]}..." if len(text) > 50 else f"✓ {text}")
-            from .ui_feedback import notify
-
-            notify("✓ Done", text[:100])
-
-    def _check_vpn_active(self) -> bool:
-        """Check if a VPN is active (may block API calls)."""
-        if IS_WINDOWS:
-            return False  # TODO: Windows VPN detection
-
-        try:
-            import subprocess
-
-            # Check for common VPN interfaces
-            result = subprocess.run(
-                ["ip", "link", "show"],
-                capture_output=True,
-                text=True,
-                timeout=2,
-            )
-            vpn_interfaces = ["tun", "tap", "wg", "vpn", "proton", "nord", "mullvad"]
-            for iface in vpn_interfaces:
-                if iface in result.stdout.lower():
-                    return True
-            return False
-        except Exception:
-            return False
-
-    def run(self):
-        """Run the application"""
-        print("\n" + "=" * 50)
-        print("🚀 Dicton")
-        print("=" * 50)
-
-        # Check for VPN that might block API calls
-        if self._check_vpn_active():
-            print("⚠ VPN detected - API calls may fail or timeout")
-            print("  If dictation hangs, try disconnecting VPN")
-
-        # Check for updates in background (non-blocking)
-        try:
-            from .update_checker import check_for_updates_async
-
-            check_for_updates_async()
-        except ImportError:
-            pass  # Update checker not critical
-
-        # Try to initialize FN key handler
-        self._use_fn_key = self._init_fn_handler()
-
-        if self._use_fn_key:
-            print("Hotkey: FN key (hold=PTT, double-tap=toggle)")
-            print("Modes: FN=Direct transcription, FN+Ctrl=Translate to English")
-            if config.ENABLE_ADVANCED_MODES:
-                print("Advanced: FN+Alt=Reformulation, FN+Shift=Act on Text, FN+Space=Raw")
-        else:
-            print(f"Hotkey: {config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}")
-            try:
-                self.keyboard.start()
-            except ImportError as exc:
-                print("❌ No usable hotkey backend is available.")
-                if IS_LINUX:
-                    print(
-                        "Configure a Linux hotkey in `dicton --config-ui` and ensure evdev access, or run under an X session for the legacy listener."
-                    )
-                else:
-                    print(str(exc))
-                return
-
-        print(f"STT: {self.recognizer.provider_name}")
-        print("\nPress hotkey to start/stop recording")
-        print("Press Ctrl+C to quit")
-        print("=" * 50 + "\n")
-
-        hotkey_display = (
-            "FN" if self._use_fn_key else f"{config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}"
-        )
-        from .ui_feedback import notify
-
-        notify("Dicton Ready", f"Press {hotkey_display}")
-
-        # Cross-platform wait loop
-        try:
-            if IS_WINDOWS:
-                self._shutdown_event.wait()
-            else:
-                signal.pause()
-        except KeyboardInterrupt:
-            pass
-
-        self.shutdown()
-
-    def shutdown(self):
-        """Clean shutdown"""
-        print("\nShutting down...")
-        self._shutdown_event.set()
-
-        if self._fn_handler:
-            self._fn_handler.stop()
-
-        self.keyboard.stop()
-        self.recognizer.cleanup()
-        print("✓ Done")
-
-    def request_shutdown(self):
-        """Request application shutdown (thread-safe)"""
-        self._shutdown_event.set()
-
-
-def show_latency_report():
-    """Show latency report from log file"""
+def show_latency_report() -> None:
+    """Show latency report from log file."""
     from .latency_tracker import LatencyTracker
 
     tracker = LatencyTracker(enabled=True)
@@ -535,8 +34,8 @@ def show_latency_report():
     print(f"\nLog file: {tracker.log_path}")
 
 
-def clear_latency_log():
-    """Clear the latency log file"""
+def clear_latency_log() -> None:
+    """Clear the latency log file."""
     from .latency_tracker import LatencyTracker
 
     tracker = LatencyTracker(enabled=True)
@@ -544,9 +43,7 @@ def clear_latency_log():
     print(f"✓ Cleared latency log: {tracker.log_path}")
 
 
-def main():
-    import argparse
-
+def build_parser() -> argparse.ArgumentParser:
     epilog = """
 Hotkeys (default):
   FN (hold)        Direct transcription
@@ -586,43 +83,25 @@ Examples:
         epilog=epilog,
     )
     parser.add_argument(
-        "--benchmark",
-        action="store_true",
-        help="Show latency report from previous sessions",
+        "--benchmark", action="store_true", help="Show latency report from previous sessions"
+    )
+    parser.add_argument("--check-update", action="store_true", help="Check for available updates")
+    parser.add_argument("--clear-log", action="store_true", help="Clear the latency log file")
+    parser.add_argument("--version", action="store_true", help="Show version information")
+    parser.add_argument(
+        "--config", action="store_true", help="Launch the guided setup flow in browser"
     )
     parser.add_argument(
-        "--check-update",
-        action="store_true",
-        help="Check for available updates",
+        "--config-ui", action="store_true", help="Launch configuration UI in browser"
     )
     parser.add_argument(
-        "--clear-log",
-        action="store_true",
-        help="Clear the latency log file",
+        "--config-port", type=int, default=6873, help="Port for config UI server (default: 6873)"
     )
-    parser.add_argument(
-        "--version",
-        action="store_true",
-        help="Show version information",
-    )
-    parser.add_argument(
-        "--config",
-        action="store_true",
-        help="Launch the guided setup flow in browser",
-    )
-    parser.add_argument(
-        "--config-ui",
-        action="store_true",
-        help="Launch configuration UI in browser",
-    )
-    parser.add_argument(
-        "--config-port",
-        type=int,
-        default=6873,
-        help="Port for config UI server (default: 6873)",
-    )
+    return parser
 
-    args = parser.parse_args()
+
+def main() -> None:
+    args = build_parser().parse_args()
 
     if args.version:
         from . import __version__
@@ -661,8 +140,7 @@ Examples:
         show_latency_report()
         return
 
-    # Normal operation
-    app = Dicton()
+    app = build_runtime_service()
 
     def signal_handler(sig, frame):
         app.request_shutdown()
@@ -672,7 +150,3 @@ Examples:
         signal.signal(signal.SIGTERM, signal_handler)
 
     app.run()
-
-
-if __name__ == "__main__":
-    main()
