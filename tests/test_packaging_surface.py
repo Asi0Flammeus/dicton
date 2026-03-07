@@ -92,6 +92,9 @@ def test_windows_packaging_files_exist():
     assert (ROOT / "packaging" / "windows" / "dicton.spec").exists()
     assert (ROOT / "scripts" / "build-windows.ps1").exists()
     assert (ROOT / "docs" / "windows-packaging.md").exists()
+    spec = (ROOT / "packaging" / "windows" / "dicton.spec").read_text(encoding="utf-8")
+    assert "__file__" not in spec
+    assert "SPECPATH" in spec
 
 
 def test_windows_package_job_present():

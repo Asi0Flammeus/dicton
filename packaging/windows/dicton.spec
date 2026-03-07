@@ -5,7 +5,8 @@ from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files
 
 
-project_root = Path(__file__).resolve().parents[2]
+spec_dir = Path(globals().get("SPECPATH", Path.cwd())).resolve()
+project_root = spec_dir.parents[1]
 datas = collect_data_files(
     "dicton",
     includes=[
