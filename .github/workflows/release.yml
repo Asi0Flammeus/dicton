@@ -4,9 +4,31 @@ on:
   push:
     tags:
       - "v*"
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      tag_name:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to build from
+        required: true
+        type: string
+      tag_name:
+        description: Release tag to publish
+        required: true
+        type: string
 
 permissions:
   contents: write
+
+env:
+  RELEASE_REF: ${{ inputs.ref || github.ref_name }}
+  RELEASE_TAG: ${{ inputs.tag_name || github.ref_name }}
 
 jobs:
   python-dist:
@@ -14,6 +36,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -37,6 +61,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -70,6 +96,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_REF }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -107,6 +135,7 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_TAG }}
           generate_release_notes: true
           files: |
             release-artifacts/python-dist/*
