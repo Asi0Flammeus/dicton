@@ -11,4 +11,4 @@ if not exist "venv\Scripts\python.exe" (
 
 REM Activate venv and run
 call venv\Scripts\activate.bat
-python src\main.py
+python -m dicton %*

@@ -1,8 +1,8 @@
-"""Dicton - Cross-platform voice-to-text transcription with ElevenLabs"""
+"""Dicton - cross-platform voice-to-text dictation."""
 
-__version__ = "1.0.0"
+__version__ = "1.1.1"
 __author__ = "asi0 flammeus"
-__description__ = "Cross-platform voice-to-text transcription with ElevenLabs"
+__description__ = "Voice-to-text dictation with direct transcription and translation"
 
 __all__ = ["main", "Dicton", "__version__"]
 

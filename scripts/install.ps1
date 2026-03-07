@@ -53,7 +53,7 @@ python -m pip install --upgrade pip
 
 # Install dependencies
 Write-Host "[4/4] Installing dependencies..." -ForegroundColor Cyan
-pip install -r requirements.txt
+pip install -e ".[windows,context-windows,notifications,llm,configui,mistral]"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
@@ -65,16 +65,20 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host ""
 }
 
+if (-not (Test-Path ".env")) {
+    Copy-Item ".env.example" ".env"
+}
+
 Write-Host ""
 Write-Host "========================================"
 Write-Host "Installation complete!" -ForegroundColor Green
 Write-Host "========================================"
 Write-Host ""
 Write-Host "Setup:"
-Write-Host "  1. Copy .env.example to .env"
-Write-Host "  2. Add your ELEVENLABS_API_KEY to .env"
+Write-Host "  1. Edit .env and add one STT API key"
+Write-Host "  2. Optional: add GEMINI_API_KEY or ANTHROPIC_API_KEY for translation"
 Write-Host ""
 Write-Host "Run:"
 Write-Host "  .\run.bat"
-Write-Host "  or: .\venv\Scripts\python.exe src\main.py"
+Write-Host "  or: .\venv\Scripts\python.exe -m dicton"
 Write-Host ""

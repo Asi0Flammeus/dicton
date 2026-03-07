@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dicton"
-version = "1.1.1"
 description = "Voice-to-text dictation with direct transcription and translation"
+dynamic = ["version"]
 readme = "README.md"
 license = "MIT"
 authors = [
@@ -81,6 +81,7 @@ notifications = [
 ]
 windows = [
     "pyautogui>=0.9.54",
+    "pyperclip>=1.9.0",
 ]
 context-windows = [
     # Windows context detection
@@ -108,12 +109,15 @@ all = [
 ]
 
 [project.scripts]
-dicton = "dicton.main:main"
+dicton = "dicton.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/asi0flammern/dicton"
-Repository = "https://github.com/asi0flammern/dicton"
-Issues = "https://github.com/asi0flammern/dicton/issues"
+Homepage = "https://github.com/Asi0Flammeus/dicton"
+Repository = "https://github.com/Asi0Flammeus/dicton"
+Issues = "https://github.com/Asi0Flammeus/dicton/issues"
+
+[tool.hatch.version]
+path = "src/dicton/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dicton"]

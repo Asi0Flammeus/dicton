@@ -46,11 +46,12 @@ python3 -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 # Install in editable mode with dev dependencies
+# Windows: add platform extras for the supported fallback path
 pip install -e ".[dev]"
 
 # Copy and configure environment
 cp .env.example .env
-# Edit .env and add your ELEVENLABS_API_KEY
+# Edit .env and add one STT API key
 ```
 
 ## Running Tests

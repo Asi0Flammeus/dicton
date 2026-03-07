@@ -60,3 +60,49 @@ jobs:
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
+
+  smoke:
+    name: Smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y portaudio19-dev
+
+      - name: Install macOS system dependencies
+        if: matrix.os == 'macos-latest'
+        run: brew install portaudio
+
+      - name: Install package
+        shell: bash
+        run: |
+          case "${{ matrix.os }}" in
+            ubuntu-latest)
+              pip install -e ".[dev]"
+              ;;
+            windows-latest)
+              pip install -e ".[dev,windows,context-windows,notifications]"
+              ;;
+            macos-latest)
+              pip install -e ".[dev,notifications]"
+              ;;
+          esac
+
+      - name: Run smoke checks
+        run: |
+          python -c "import dicton; print(dicton.__version__)"
+          python -m dicton --version

@@ -9,4 +9,4 @@ fi
 
 # Activate virtual environment and run
 source venv/bin/activate
-python src/main.py "$@"
+python -m dicton "$@"
