@@ -119,6 +119,15 @@ dicton
 The first Windows packaging path produces a one-folder bundle for the fallback desktop workflow.
 Build details and supported scope are documented in [docs/windows-packaging.md](docs/windows-packaging.md).
 
+### Linux Release Package
+
+Linux release builds now also produce:
+
+- a frozen bundle tarball
+- a Debian package installable with `apt install ./dicton_<version>_amd64.deb`
+
+Build details are documented in [docs/linux-packaging.md](docs/linux-packaging.md).
+
 ### System Dependencies
 
 **Debian/Ubuntu:**

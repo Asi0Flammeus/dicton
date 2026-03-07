@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed stale Windows/Linux launcher scripts and aligned installers with `pyproject.toml`.
 - Made the package version single-source and corrected GitHub/update metadata.
 - Started a Windows PyInstaller packaging path and moved user config/data handling toward platform-native directories.
+- Added a Linux release package path and a tag-based GitHub release workflow that publishes Windows, Linux, and Python distribution assets.
 
 ## [1.1.1]
 

@@ -106,6 +106,12 @@ python -m dicton
 powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
 ```
 
+## Linux Release Package Build
+
+```bash
+./scripts/build-linux-package.sh
+```
+
 ## Configuration
 
 Edit `.env` to customize behavior:
