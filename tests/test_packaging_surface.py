@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 import dicton
+from dicton.config_server import CONFIG_BOOL_FIELDS, CONFIG_FIELD_MAP, CONFIG_STRING_FIELDS
 from dicton.update_checker import GITHUB_API_URL
 
 ROOT = Path(__file__).resolve().parents[1]

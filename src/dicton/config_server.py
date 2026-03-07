@@ -14,6 +14,69 @@ from .config import Config, config
 from .platform_utils import IS_LINUX, IS_MACOS, IS_WINDOWS, get_platform_info
 from .startup import get_autostart_state, has_display_session, launch_background, set_autostart
 
+CONFIG_FIELD_MAP = {
+    "stt_provider": "STT_PROVIDER",
+    "mistral_api_key": "MISTRAL_API_KEY",
+    "elevenlabs_api_key": "ELEVENLABS_API_KEY",
+    "gemini_api_key": "GEMINI_API_KEY",
+    "anthropic_api_key": "ANTHROPIC_API_KEY",
+    "llm_provider": "LLM_PROVIDER",
+    "enable_advanced_modes": "ENABLE_ADVANCED_MODES",
+    "theme_color": "THEME_COLOR",
+    "visualizer_style": "VISUALIZER_STYLE",
+    "animation_position": "ANIMATION_POSITION",
+    "visualizer_backend": "VISUALIZER_BACKEND",
+    "hotkey_base": "HOTKEY_BASE",
+    "hotkey_hold_threshold_ms": "HOTKEY_HOLD_THRESHOLD_MS",
+    "hotkey_double_tap_window_ms": "HOTKEY_DOUBLE_TAP_WINDOW_MS",
+    "filter_fillers": "FILTER_FILLERS",
+    "enable_reformulation": "ENABLE_REFORMULATION",
+    "language": "LANGUAGE",
+    "debug": "DEBUG",
+    "custom_hotkey_value": "CUSTOM_HOTKEY_VALUE",
+    "secondary_hotkey": "SECONDARY_HOTKEY",
+    "secondary_hotkey_translation": "SECONDARY_HOTKEY_TRANSLATION",
+    "secondary_hotkey_act_on_text": "SECONDARY_HOTKEY_ACT_ON_TEXT",
+    "context_enabled": "CONTEXT_ENABLED",
+    "context_debug": "CONTEXT_DEBUG",
+    "mute_playback_on_recording": "MUTE_PLAYBACK_ON_RECORDING",
+    "playback_mute_strategy": "PLAYBACK_MUTE_STRATEGY",
+    "mute_backend": "MUTE_BACKEND",
+}
+
+CONFIG_STRING_FIELDS = {
+    "stt_provider",
+    "mistral_api_key",
+    "elevenlabs_api_key",
+    "gemini_api_key",
+    "anthropic_api_key",
+    "llm_provider",
+    "theme_color",
+    "visualizer_style",
+    "animation_position",
+    "visualizer_backend",
+    "hotkey_base",
+    "hotkey_hold_threshold_ms",
+    "hotkey_double_tap_window_ms",
+    "language",
+    "custom_hotkey_value",
+    "secondary_hotkey",
+    "secondary_hotkey_translation",
+    "secondary_hotkey_act_on_text",
+    "playback_mute_strategy",
+    "mute_backend",
+}
+
+CONFIG_BOOL_FIELDS = {
+    "enable_advanced_modes",
+    "filter_fillers",
+    "enable_reformulation",
+    "debug",
+    "context_enabled",
+    "context_debug",
+    "mute_playback_on_recording",
+}
+
 
 def _load_logo_base64() -> str:
     """Load logo from package assets folder and convert to base64."""
