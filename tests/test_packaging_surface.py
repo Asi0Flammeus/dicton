@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 import importlib.metadata
 import os
 import shutil
@@ -71,6 +72,22 @@ def test_cli_config_ui_works_without_full_app_startup(monkeypatch):
     cli.main()
 
     assert calls == [9999]
+
+
+def test_keyboard_handler_module_import_does_not_require_pynput(monkeypatch):
+    real_import = __import__
+
+    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "pynput" or name.startswith("pynput."):
+            raise ImportError("pynput blocked for test")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr("builtins.__import__", guarded_import)
+    sys.modules.pop("dicton.keyboard_handler", None)
+
+    module = importlib.import_module("dicton.keyboard_handler")
+
+    assert hasattr(module, "KeyboardHandler")
 
 
 @pytest.mark.parametrize(

@@ -465,7 +465,17 @@ class Dicton:
                 print("Advanced: FN+Alt=Reformulation, FN+Shift=Act on Text, FN+Space=Raw")
         else:
             print(f"Hotkey: {config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}")
-            self.keyboard.start()
+            try:
+                self.keyboard.start()
+            except ImportError as exc:
+                print("❌ No usable hotkey backend is available.")
+                if IS_LINUX:
+                    print(
+                        "Configure a Linux hotkey in `dicton --config-ui` and ensure evdev access, or run under an X session for the legacy listener."
+                    )
+                else:
+                    print(str(exc))
+                return
 
         print(f"STT: {self.recognizer.provider_name}")
         print("\nPress hotkey to start/stop recording")

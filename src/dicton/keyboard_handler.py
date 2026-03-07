@@ -3,10 +3,6 @@
 import subprocess
 import time
 
-from pynput import keyboard
-from pynput.keyboard import Controller as KeyboardController
-from pynput.keyboard import Key
-
 from .config import config
 from .platform_utils import IS_LINUX, IS_MACOS, IS_WINDOWS
 
@@ -19,7 +15,25 @@ class KeyboardHandler:
         self.listener = None
         self.pressed_keys = set()
         self.hotkey_active = False
-        self._keyboard_controller = KeyboardController()
+        self._keyboard_controller = None
+
+    def _get_pynput_components(self):
+        """Import pynput lazily so Linux startup can avoid X-only backends."""
+        try:
+            from pynput import keyboard as pynput_keyboard
+            from pynput.keyboard import Controller as KeyboardController
+            from pynput.keyboard import Key
+        except Exception as exc:  # pragma: no cover - depends on local desktop backend
+            raise ImportError(str(exc)) from exc
+
+        return pynput_keyboard, KeyboardController, Key
+
+    def _get_keyboard_controller(self):
+        """Create the pynput controller only when a fallback path needs it."""
+        if self._keyboard_controller is None:
+            _, keyboard_controller_cls, _ = self._get_pynput_components()
+            self._keyboard_controller = keyboard_controller_cls()
+        return self._keyboard_controller
 
     def _verify_clipboard(self, expected_text: str, get_clipboard_fn) -> bool:
         """Verify clipboard contains expected text (prevents X11 race condition).
@@ -54,7 +68,10 @@ class KeyboardHandler:
 
     def start(self):
         """Start keyboard listener"""
-        self.listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
+        pynput_keyboard, _, _ = self._get_pynput_components()
+        self.listener = pynput_keyboard.Listener(
+            on_press=self._on_press, on_release=self._on_release
+        )
         self.listener.start()
 
     def stop(self):
@@ -78,7 +95,7 @@ class KeyboardHandler:
                 # This "cancels" the pending keypress before apps receive it
                 hotkey_char = config.HOTKEY_KEY.lower()
                 try:
-                    self._keyboard_controller.release(hotkey_char)
+                    self._get_keyboard_controller().release(hotkey_char)
                 except Exception:
                     pass
                 if self.on_toggle:
@@ -89,35 +106,45 @@ class KeyboardHandler:
     def _on_release(self, key):
         """Track key releases"""
         try:
+            _, _, key_cls = self._get_pynput_components()
+
             if hasattr(key, "char") and key.char:
                 self.pressed_keys.discard(key.char.lower())
             else:
                 self.pressed_keys.discard(key)
 
             # Reset hotkey state when modifier released
-            if key in (Key.alt, Key.alt_l, Key.alt_r, Key.ctrl, Key.ctrl_l, Key.ctrl_r):
+            if key in (
+                key_cls.alt,
+                key_cls.alt_l,
+                key_cls.alt_r,
+                key_cls.ctrl,
+                key_cls.ctrl_l,
+                key_cls.ctrl_r,
+            ):
                 self.hotkey_active = False
         except Exception:
             pass
 
     def _is_hotkey_pressed(self) -> bool:
         """Check if configured hotkey is pressed"""
+        _, _, key_cls = self._get_pynput_components()
         mod = config.HOTKEY_MODIFIER.lower()
         key = config.HOTKEY_KEY.lower()
 
         # Check modifier
         if mod in ("alt", "alt_l", "alt_r"):
             if not (
-                Key.alt in self.pressed_keys
-                or Key.alt_l in self.pressed_keys
-                or Key.alt_r in self.pressed_keys
+                key_cls.alt in self.pressed_keys
+                or key_cls.alt_l in self.pressed_keys
+                or key_cls.alt_r in self.pressed_keys
             ):
                 return False
         elif mod in ("ctrl", "ctrl_l", "ctrl_r"):
             if not (
-                Key.ctrl in self.pressed_keys
-                or Key.ctrl_l in self.pressed_keys
-                or Key.ctrl_r in self.pressed_keys
+                key_cls.ctrl in self.pressed_keys
+                or key_cls.ctrl_l in self.pressed_keys
+                or key_cls.ctrl_r in self.pressed_keys
             ):
                 return False
 
@@ -205,15 +232,17 @@ class KeyboardHandler:
                 print("⚠ Clipboard verification failed, falling back to streaming")
                 return False
 
-            self._keyboard_controller.press(Key.ctrl)
-            self._keyboard_controller.press(Key.shift)
-            self._keyboard_controller.press("v")
-            self._keyboard_controller.release("v")
-            self._keyboard_controller.release(Key.shift)
-            self._keyboard_controller.release(Key.ctrl)
+            subprocess.run(
+                ["xdotool", "key", "--clearmodifiers", "ctrl+shift+v"],
+                timeout=10,
+                check=False,
+            )
 
             return True
 
+        except FileNotFoundError:
+            print("⚠ xdotool not found for paste operation")
+            return False
         except Exception as e:
             print(f"⚠ Paste error: {e}, falling back to streaming")
             return False
@@ -260,8 +289,9 @@ class KeyboardHandler:
         try:
             # Convert ms to seconds for sleep
             delay_seconds = typing_delay_ms / 1000.0
+            keyboard_controller = self._get_keyboard_controller()
             for char in text:
-                self._keyboard_controller.type(char)
+                keyboard_controller.type(char)
                 time.sleep(delay_seconds)
         except Exception as e:
             print(f"⚠ Text insertion error: {e}")
@@ -304,13 +334,17 @@ class KeyboardHandler:
                 print("⚠ Clipboard verification failed for selection replace")
                 return False
 
-            self._keyboard_controller.press(Key.ctrl)
-            self._keyboard_controller.press("v")
-            self._keyboard_controller.release("v")
-            self._keyboard_controller.release(Key.ctrl)
+            subprocess.run(
+                ["xdotool", "key", "--clearmodifiers", "ctrl+v"],
+                timeout=10,
+                check=False,
+            )
 
             return True
 
+        except FileNotFoundError:
+            print("⚠ xdotool not found for selection replace")
+            return False
         except Exception as e:
             print(f"⚠ Replace selection error: {e}")
             return False
@@ -323,16 +357,19 @@ class KeyboardHandler:
         try:
             import pyperclip
 
+            _, _, key_cls = self._get_pynput_components()
+            keyboard_controller = self._get_keyboard_controller()
+
             pyperclip.copy(text)
 
             if not self._verify_clipboard(text, pyperclip.paste):
                 print("⚠ Clipboard verification failed for Windows selection replace")
                 return False
 
-            self._keyboard_controller.press(Key.ctrl)
-            self._keyboard_controller.press("v")
-            self._keyboard_controller.release("v")
-            self._keyboard_controller.release(Key.ctrl)
+            keyboard_controller.press(key_cls.ctrl)
+            keyboard_controller.press("v")
+            keyboard_controller.release("v")
+            keyboard_controller.release(key_cls.ctrl)
 
             return True
 
