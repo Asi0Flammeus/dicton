@@ -44,7 +44,7 @@ echo [3/4] Upgrading pip...
 python -m pip install --upgrade pip
 
 echo [4/4] Installing dependencies...
-pip install -r requirements.txt
+pip install -e ".[windows,context-windows,notifications,llm,configui,mistral]"
 if errorlevel 1 (
     echo.
     echo WARNING: Some dependencies may have failed to install.
@@ -55,17 +55,21 @@ if errorlevel 1 (
     echo.
 )
 
+if not exist ".env" (
+    copy /Y ".env.example" ".env" >nul
+)
+
 echo.
 echo ========================================
 echo Installation complete!
 echo ========================================
 echo.
 echo Setup:
-echo   1. Copy .env.example to .env
-echo   2. Add your ELEVENLABS_API_KEY to .env
+echo   1. Edit .env and add one STT API key
+echo   2. Optional: add GEMINI_API_KEY or ANTHROPIC_API_KEY for translation
 echo.
 echo Run:
 echo   run.bat
-echo   or: venv\Scripts\python.exe src\main.py
+echo   or: venv\Scripts\python.exe -m dicton
 echo.
 pause

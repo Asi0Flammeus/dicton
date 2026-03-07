@@ -31,7 +31,7 @@ Describe the tests you ran to verify your changes:
 ## Checklist
 
 - [ ] My code follows the project's code style
-- [ ] I have run `ruff check .` and fixed any issues
+- [ ] I have run `./scripts/check.sh`
 - [ ] I have added tests that prove my fix/feature works
 - [ ] I have updated documentation if needed
 - [ ] My commits follow the conventional commit format

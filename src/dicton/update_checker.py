@@ -16,7 +16,7 @@ from . import __version__
 from .config import config
 
 # GitHub repository info
-GITHUB_OWNER = "asi0flammmeus"  # Update with actual owner
+GITHUB_OWNER = "Asi0Flammeus"
 GITHUB_REPO = "dicton"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
 

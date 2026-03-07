@@ -61,8 +61,9 @@ Advanced modes still exist in the codebase, but they are hidden by default. Set 
   - Anthropic API key ([get one here](https://console.anthropic.com/settings/keys))
 
 ### Other Platforms
-- Windows and macOS have basic support but FN key mode is Linux-only
-- Use `Alt+G` hotkey on other platforms
+- Windows has an experimental fallback path with `Alt+G` and basic context detection
+- macOS currently supports fallback typing and notifications, but not full feature parity
+- FN key mode remains Linux-only
 
 ## Installation
 
@@ -155,7 +156,10 @@ ENABLE_ADVANCED_MODES=false     # Expose reformulation/raw/act-on-text
 ENABLE_REFORMULATION=false      # Only used when advanced modes are enabled
 
 # Hotkey Settings
-HOTKEY_BASE=fn                    # "fn" for FN key, "alt+g" for legacy
+HOTKEY_BASE=fn                    # "fn" or "custom"
+CUSTOM_HOTKEY_VALUE=alt+g         # Used when HOTKEY_BASE=custom
+HOTKEY_MODIFIER=alt               # Legacy fallback hotkey (Windows/macOS/default fallback)
+HOTKEY_KEY=g
 HOTKEY_HOLD_THRESHOLD_MS=100      # Hold duration for PTT vs tap
 HOTKEY_DOUBLE_TAP_WINDOW_MS=300   # Window for double-tap detection
 HOTKEY_ACTIVATION_DELAY_MS=50     # Delay before activation (avoids double-tap confusion)
@@ -225,6 +229,22 @@ journalctl --user -u dicton -f
 systemctl --user status dicton
 ```
 
+## Project Checks
+
+Run the same core checks locally that CI runs on pull requests:
+
+```bash
+./scripts/check.sh
+```
+
+Individual stages are also available:
+
+```bash
+./scripts/check.sh lint
+./scripts/check.sh test
+./scripts/check.sh build
+```
+
 ## Context-Aware Dictation
 
 Dicton can detect your active application context to adapt LLM prompts and typing behavior.
@@ -243,7 +263,7 @@ This context is matched against profiles that customize:
 
 ### Configuration
 
-Enable/disable context detection via the dashboard's **Context** tab at `http://localhost:8765`.
+Enable/disable context detection via the dashboard's **Context** tab at `http://localhost:6873`.
 
 Custom profiles can be added to `~/.config/dicton/contexts.json`:
 
@@ -286,10 +306,14 @@ Native support via compositor CLI tools (`swaymsg`, `hyprctl`). No additional se
 #### Windows
 Context detection uses Windows UI Automation API:
 ```powershell
-# Usually pre-installed on Windows 10/11
-# If missing, install:
-pip install pywin32 comtypes
+# Installed automatically by the Windows setup script.
+# Manual fallback:
+pip install pywin32 comtypes pyperclip
 ```
+
+#### macOS
+macOS currently uses the fallback text insertion path. Context detection and
+selection-aware features are not implemented yet.
 
 ### Debugging
 
@@ -366,11 +390,11 @@ dbus-send --session --print-reply \
 
 **Windows:**
 ```powershell
-# Verify pywin32 is installed
-pip show pywin32 comtypes
+# Verify Windows extras are installed
+pip show pywin32 comtypes pyperclip
 
 # If missing:
-pip install pywin32 comtypes
+pip install pywin32 comtypes pyperclip
 ```
 
 **Debug context detection:**

@@ -57,15 +57,11 @@ Branch naming conventions:
 ### Making Changes
 
 1. Make your changes
-2. Run linting:
+2. Run the project checks:
    ```bash
-   ruff check .
+   ./scripts/check.sh
    ```
-3. Run tests:
-   ```bash
-   pytest
-   ```
-4. Commit your changes following the commit convention
+3. Commit your changes following the commit convention
 
 ## Commit Convention
 
@@ -99,14 +95,22 @@ chore: update dependencies
 - Maximum line length: 100 characters
 - Use type hints where appropriate
 
-### Running Linting
+### Running Checks
 
 ```bash
-# Check for issues
-ruff check .
+# Run the same checks as CI
+./scripts/check.sh
 
-# Auto-fix issues
+# Or run individual stages
+./scripts/check.sh lint
+./scripts/check.sh test
+./scripts/check.sh build
+
+# Auto-fix lint issues
 ruff check --fix .
+
+# Auto-format before re-running checks
+ruff format .
 ```
 
 ## Testing
@@ -141,8 +145,7 @@ pytest tests/test_config.py
 
 ### PR Checklist
 
-- [ ] Tests pass locally
-- [ ] Linting passes (`ruff check .`)
+- [ ] Local checks pass (`./scripts/check.sh`)
 - [ ] Documentation updated if needed
 - [ ] Commit messages follow convention
 - [ ] PR description explains the changes
