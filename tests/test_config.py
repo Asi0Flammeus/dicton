@@ -65,6 +65,26 @@ class TestConfigDefaults:
 
         assert config_module.Config.DEBUG is False
 
+    def test_default_advanced_modes_disabled(self, clean_env, monkeypatch):
+        """Test advanced modes are hidden by default."""
+        import importlib
+
+        import dicton.config as config_module
+
+        importlib.reload(config_module)
+
+        assert config_module.Config.ENABLE_ADVANCED_MODES is False
+
+    def test_default_reformulation_disabled(self, clean_env, monkeypatch):
+        """Test reformulation is disabled by default."""
+        import importlib
+
+        import dicton.config as config_module
+
+        importlib.reload(config_module)
+
+        assert config_module.Config.ENABLE_REFORMULATION is False
+
 
 class TestConfigFromEnv:
     """Test configuration loading from environment variables."""

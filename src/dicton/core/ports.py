@@ -7,7 +7,8 @@ capability-oriented to keep the core decoupled.
 
 from __future__ import annotations
 
-from typing import ContextManager, Protocol, TYPE_CHECKING, runtime_checkable
+from contextlib import AbstractContextManager
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from ..context_detector import ContextInfo
@@ -58,7 +59,7 @@ class TextProcessor(Protocol):
         text: str,
         mode,
         selected_text: str | None = None,
-        context: "ContextInfo | None" = None,
+        context: ContextInfo | None = None,
     ) -> str | None:
         """Process text based on mode/context."""
 
@@ -68,7 +69,7 @@ class TextOutput(Protocol):
     """Outputs text to the active application."""
 
     def output(
-        self, text: str, mode, replace_selection: bool, context: "ContextInfo | None" = None
+        self, text: str, mode, replace_selection: bool, context: ContextInfo | None = None
     ) -> None:
         """Emit text to the active app."""
 
@@ -88,7 +89,7 @@ class MetricsSink(Protocol):
     def start_session(self) -> None:
         """Start a metrics session."""
 
-    def measure(self, name: str, **kwargs) -> ContextManager[None]:
+    def measure(self, name: str, **kwargs) -> AbstractContextManager[None]:
         """Return a context manager for timing a block."""
 
     def end_session(self):

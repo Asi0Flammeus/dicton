@@ -17,12 +17,12 @@ from .adapters.metrics import MetricsAdapter
 from .adapters.text_processing import TextOutputAdapter, TextProcessorAdapter
 from .adapters.ui_feedback import UIFeedbackAdapter
 from .config import config
-from .core.controller import DictationController, SessionContext
 from .context_detector import ContextInfo, get_context_detector
+from .core.controller import DictationController, SessionContext
 from .keyboard_handler import KeyboardHandler
 from .latency_tracker import get_latency_tracker
 from .platform_utils import IS_LINUX, IS_WINDOWS
-from .processing_mode import ProcessingMode, get_mode_color
+from .processing_mode import ProcessingMode, get_mode_color, is_mode_enabled
 from .speech_recognition_engine import SpeechRecognizer
 from .ui_feedback import notify
 
@@ -106,6 +106,9 @@ class Dicton:
         """Start recording with specified processing mode"""
         if self.recording:
             return
+
+        if not is_mode_enabled(mode):
+            mode = ProcessingMode.BASIC
 
         self._current_mode = mode
         self._selected_text = None  # Reset selected text
@@ -295,23 +298,14 @@ class Dicton:
         context: ContextInfo | None = None,
     ) -> str | None:
         """Process transcribed text based on mode"""
+        if not is_mode_enabled(mode):
+            mode = ProcessingMode.BASIC
+
+        if mode == ProcessingMode.BASIC:
+            return text
 
         if mode == ProcessingMode.RAW:
             # No processing, return as-is
-            return text
-
-        if mode == ProcessingMode.BASIC:
-            # Basic mode uses LLM reformulation by default (cleaner output)
-            try:
-                from . import llm_processor
-
-                if config.ENABLE_REFORMULATION and llm_processor.is_available():
-                    return llm_processor.reformulate(text, context=context)
-            except ImportError:
-                pass
-            # Fallback to local filler removal if LLM not available
-            if config.FILTER_FILLERS:
-                return self._filter_fillers_local(text)
             return text
 
         # LLM-powered modes
@@ -446,7 +440,9 @@ class Dicton:
 
         if self._use_fn_key:
             print("Hotkey: FN key (hold=PTT, double-tap=toggle)")
-            print("Modes: FN+Ctrl=Translate, FN+Shift=Act on Text (WIP)")
+            print("Modes: FN=Direct transcription, FN+Ctrl=Translate to English")
+            if config.ENABLE_ADVANCED_MODES:
+                print("Advanced: FN+Alt=Reformulation, FN+Shift=Act on Text, FN+Space=Raw")
         else:
             print(f"Hotkey: {config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}")
             self.keyboard.start()
@@ -519,17 +515,11 @@ def clear_latency_log():
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Dicton: Voice-to-text dictation tool",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Hotkeys (FN key mode):
-  FN (hold)        Push-to-talk (with auto-reformulation)
-  FN (double-tap)  Toggle recording (with auto-reformulation)
-  FN + Ctrl        Translate to English (toggle: press to start/stop)
-  FN + Shift       Act on Text (WIP) - apply instruction to selection
-  FN + Alt         LLM Reformulation (toggle: press to start/stop)
-  FN + Space       Raw mode - no processing (toggle)
+    epilog = """
+Hotkeys (default):
+  FN (hold)        Direct transcription
+  FN (double-tap)  Toggle recording
+  FN + Ctrl        Translate to English
 
 Examples:
   dicton                  Start dictation service
@@ -537,7 +527,29 @@ Examples:
   dicton --benchmark      Show latency statistics
   dicton --check-update   Check for new version
   dicton --clear-log      Clear latency history
-""",
+"""
+    if config.ENABLE_ADVANCED_MODES:
+        epilog = """
+Hotkeys (FN key mode):
+  FN (hold)        Direct transcription
+  FN (double-tap)  Toggle recording
+  FN + Ctrl        Translate to English
+  FN + Shift       Act on Text
+  FN + Alt         LLM Reformulation
+  FN + Space       Raw mode
+
+Examples:
+  dicton                  Start dictation service
+  dicton --config-ui      Open settings in browser
+  dicton --benchmark      Show latency statistics
+  dicton --check-update   Check for new version
+  dicton --clear-log      Clear latency history
+"""
+
+    parser = argparse.ArgumentParser(
+        description="Dicton: Voice-to-text dictation tool",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=epilog,
     )
     parser.add_argument(
         "--benchmark",

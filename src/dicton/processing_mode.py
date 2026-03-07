@@ -96,3 +96,17 @@ class ModeConfig:
 def get_mode_color(mode: ProcessingMode) -> str:
     """Get the Flexoki color name for a processing mode"""
     return MODE_COLORS.get(mode, "orange")
+
+
+def advanced_modes_enabled() -> bool:
+    """Return whether advanced processing modes are exposed to the user."""
+    from .config import config
+
+    return config.ENABLE_ADVANCED_MODES
+
+
+def is_mode_enabled(mode: ProcessingMode) -> bool:
+    """Return whether a processing mode is user-accessible."""
+    if mode in {ProcessingMode.BASIC, ProcessingMode.TRANSLATION}:
+        return True
+    return advanced_modes_enabled()

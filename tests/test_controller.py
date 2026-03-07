@@ -1,5 +1,12 @@
 from dicton.core.controller import DictationController, SessionContext
-from dicton.core.ports import AudioCapture, MetricsSink, STTService, TextOutput, TextProcessor, UIFeedback
+from dicton.core.ports import (
+    AudioCapture,
+    MetricsSink,
+    STTService,
+    TextOutput,
+    TextProcessor,
+    UIFeedback,
+)
 
 
 class _AudioCapture(AudioCapture):

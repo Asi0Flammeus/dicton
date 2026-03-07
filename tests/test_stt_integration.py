@@ -259,9 +259,18 @@ class TestErrorHandling:
 class TestProviderAvailability:
     """Test STT provider availability detection."""
 
-    def test_elevenlabs_available_with_api_key(self, api_key):
-        """Test ElevenLabs is available when API key is set."""
-        with patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio:
+    def test_provider_available_with_factory_result(self):
+        """Test the recognizer reports availability when the factory succeeds."""
+        mock_provider = MagicMock()
+        mock_provider.name = "Test Provider"
+
+        with (
+            patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio,
+            patch(
+                "dicton.speech_recognition_engine.get_stt_provider_with_fallback"
+            ) as mock_factory,
+        ):
+            mock_factory.return_value = mock_provider
             mock_audio = MagicMock()
             mock_pyaudio.PyAudio.return_value = mock_audio
             mock_audio.get_device_count.return_value = 1
@@ -282,6 +291,7 @@ class TestProviderAvailability:
 
             recognizer = SpeechRecognizer()
             assert recognizer.use_elevenlabs is True
+            assert recognizer.provider_name == "Test Provider"
 
     def test_provider_unavailable_without_api_keys(self):
         """Test STT provider is unavailable when no API keys are set."""

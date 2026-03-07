@@ -1,6 +1,19 @@
 """Pytest fixtures for Dicton tests."""
 
+import os
+import sys
+from pathlib import Path
+
 import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+SRC = ROOT / "src"
+
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
+
+# Keep tests isolated from any user-level ~/.config/dicton/.env file.
+os.environ.setdefault("DICTON_DISABLE_ENV_FILE_LOAD", "true")
 
 
 def pytest_addoption(parser):
@@ -60,6 +73,9 @@ def clean_env(monkeypatch):
         "MIC_DEVICE",
         "LANGUAGE",
         "DEBUG",
+        "ENABLE_ADVANCED_MODES",
+        "ENABLE_REFORMULATION",
+        "DICTON_ENV_FILE",
     ]
     for var in env_vars:
         monkeypatch.delenv(var, raising=False)
