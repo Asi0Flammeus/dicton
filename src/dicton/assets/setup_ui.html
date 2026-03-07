@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dicton Setup</title>
+    <style>
+        :root {
+            --bg: #0c0b0b;
+            --bg-2: #161412;
+            --panel: rgba(28, 27, 26, 0.92);
+            --panel-2: #23201e;
+            --line: rgba(206, 205, 195, 0.12);
+            --text: #cecdc3;
+            --muted: #878580;
+            --accent: #da702c;
+            --green: #879a39;
+            --red: #d14d41;
+            --blue: #4385be;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at top, rgba(218, 112, 44, 0.18), transparent 30%),
+                linear-gradient(180deg, #120f0d 0%, #090909 100%);
+        }
+        a { color: inherit; }
+        .shell {
+            max-width: 1040px;
+            margin: 0 auto;
+            padding: 32px 20px 64px;
+        }
+        .hero {
+            display: grid;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+        .logo {
+            width: min(360px, 100%);
+            border-radius: 16px;
+            border: 1px solid var(--line);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+        }
+        .hero h1 {
+            margin: 0;
+            font-size: clamp(2rem, 6vw, 3.5rem);
+            line-height: 0.95;
+        }
+        .hero p {
+            max-width: 700px;
+            margin: 0;
+            color: var(--muted);
+            font-size: 1rem;
+            line-height: 1.6;
+        }
+        .top-grid {
+            display: grid;
+            grid-template-columns: 1.4fr 1fr;
+            gap: 18px;
+            align-items: start;
+            margin-bottom: 24px;
+        }
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            padding: 22px;
+            backdrop-filter: blur(16px);
+        }
+        .card h2, .card h3 {
+            margin: 0 0 10px;
+            font-size: 1rem;
+            letter-spacing: 0.02em;
+        }
+        .muted { color: var(--muted); }
+        .summary-list {
+            display: grid;
+            gap: 10px;
+        }
+        .summary-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 0.78rem;
+        }
+        .ok { background: rgba(135, 154, 57, 0.2); color: #c0d17b; }
+        .warn { background: rgba(209, 77, 65, 0.18); color: #f2a29a; }
+        .info { background: rgba(67, 133, 190, 0.18); color: #96bee6; }
+        .step-nav {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .step-button {
+            padding: 14px;
+            border-radius: 16px;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text);
+            text-align: left;
+            cursor: pointer;
+        }
+        .step-button.active {
+            background: rgba(218, 112, 44, 0.12);
+            border-color: rgba(218, 112, 44, 0.45);
+        }
+        .step-button small {
+            display: block;
+            margin-top: 6px;
+            color: var(--muted);
+        }
+        .step-panel { display: none; }
+        .step-panel.active { display: block; }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+        .field { display: grid; gap: 8px; }
+        .field label { font-size: 0.92rem; }
+        .field input,
+        .field select {
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: #0d0c0c;
+            color: var(--text);
+            padding: 12px 14px;
+            font-size: 0.95rem;
+        }
+        .field input::placeholder { color: #66625e; }
+        .secret-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .secret-row input { flex: 1; }
+        .status-note {
+            margin-top: 10px;
+            padding: 12px 14px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.04);
+            color: var(--muted);
+            line-height: 1.5;
+        }
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 18px;
+        }
+        .btn {
+            border: 0;
+            border-radius: 999px;
+            padding: 12px 18px;
+            font-size: 0.92rem;
+            cursor: pointer;
+        }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-secondary {
+            background: rgba(255,255,255,0.05);
+            color: var(--text);
+            border: 1px solid var(--line);
+        }
+        .result-box {
+            min-height: 92px;
+            margin-top: 16px;
+            padding: 16px;
+            border-radius: 14px;
+            background: #0d0c0c;
+            border: 1px solid var(--line);
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+        .footer-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 18px;
+        }
+        .footer-links a {
+            color: var(--muted);
+            text-decoration: none;
+            border-bottom: 1px solid rgba(255,255,255,0.12);
+        }
+        .global-message {
+            display: none;
+            margin-bottom: 18px;
+            padding: 14px 16px;
+            border-radius: 16px;
+        }
+        .global-message.show { display: block; }
+        @media (max-width: 860px) {
+            .top-grid,
+            .form-grid,
+            .step-nav {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <section class="hero">
+            <img class="logo" src="data:image/png;base64,{{LOGO_BASE64}}" alt="Dicton logo">
+            <div>
+                <h1>Set up Dicton once. Start dictating everywhere.</h1>
+                <p>
+                    This setup flow is intentionally narrow: save one speech provider, validate the hotkey path,
+                    run a first transcription test, then let Dicton start automatically on login.
+                </p>
+            </div>
+        </section>
+
+        <div id="global-message" class="global-message"></div>
+
+        <section class="top-grid">
+            <div class="card">
+                <h2>Readiness</h2>
+                <div id="summary-list" class="summary-list"></div>
+            </div>
+            <div class="card">
+                <h2>Current Target</h2>
+                <div id="next-step" class="status-note"></div>
+                <div class="footer-links">
+                    <a href="/advanced" target="_blank" rel="noreferrer">Advanced settings</a>
+                    <a href="/advanced#tab-test" target="_blank" rel="noreferrer">Latency dashboard</a>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="step-nav">
+                <button class="step-button" data-step="welcome" onclick="setStep('welcome')">
+                    1. Environment
+                    <small>Check what Dicton can already do</small>
+                </button>
+                <button class="step-button" data-step="speech" onclick="setStep('speech')">
+                    2. Speech
+                    <small>Choose provider and save API key</small>
+                </button>
+                <button class="step-button" data-step="hotkey" onclick="setStep('hotkey')">
+                    3. Hotkey
+                    <small>Pick the trigger that will start dictation</small>
+                </button>
+                <button class="step-button" data-step="test" onclick="setStep('test')">
+                    4. First Test
+                    <small>Record a short sample and verify transcription</small>
+                </button>
+                <button class="step-button" data-step="autostart" onclick="setStep('autostart')">
+                    5. Launch
+                    <small>Start now and enable auto-start on login</small>
+                </button>
+            </div>
+
+            <div id="step-welcome" class="step-panel">
+                <h2>Environment Check</h2>
+                <div id="environment-note" class="status-note"></div>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="refreshSetup()">Refresh status</button>
+                    <button class="btn btn-secondary" onclick="setStep('speech')">Continue to speech setup</button>
+                </div>
+            </div>
+
+            <div id="step-speech" class="step-panel">
+                <h2>Speech Provider</h2>
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="stt_provider">STT provider</label>
+                        <select id="stt_provider">
+                            <option value="auto">Auto (tries Mistral, then ElevenLabs)</option>
+                            <option value="mistral">Mistral</option>
+                            <option value="elevenlabs">ElevenLabs</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="language">Language</label>
+                        <select id="language">
+                            <option value="auto">Auto detect</option>
+                            <option value="en">English</option>
+                            <option value="fr">French</option>
+                            <option value="es">Spanish</option>
+                            <option value="de">German</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="mistral_api_key">Mistral API key</label>
+                        <div class="secret-row">
+                            <input id="mistral_api_key" type="password" placeholder="Paste a new Mistral API key">
+                            <span id="mistral_status" class="badge warn">Not set</span>
+                        </div>
+                        <span class="muted">Use Mistral if you want the cheaper default path.</span>
+                    </div>
+                    <div class="field">
+                        <label for="elevenlabs_api_key">ElevenLabs API key</label>
+                        <div class="secret-row">
+                            <input id="elevenlabs_api_key" type="password" placeholder="Paste a new ElevenLabs API key">
+                            <span id="elevenlabs_status" class="badge warn">Not set</span>
+                        </div>
+                        <span class="muted">Keep this as a fallback or use it as your primary provider.</span>
+                    </div>
+                </div>
+                <div id="speech-note" class="status-note"></div>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="saveSetup('speech')">Save and validate</button>
+                    <button class="btn btn-secondary" onclick="setStep('hotkey')">Continue</button>
+                </div>
+            </div>
+
+            <div id="step-hotkey" class="step-panel">
+                <h2>Hotkey</h2>
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="hotkey_base">Primary hotkey mode</label>
+                        <select id="hotkey_base">
+                            <option value="fn">FN key</option>
+                            <option value="custom">Custom key combo</option>
+                            <option value="legacy">Legacy fallback</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="custom_hotkey_value">Custom hotkey value</label>
+                        <input id="custom_hotkey_value" type="text" placeholder="alt+g">
+                    </div>
+                    <div class="field">
+                        <label for="secondary_hotkey">Secondary hotkey</label>
+                        <select id="secondary_hotkey">
+                            <option value="none">None</option>
+                            <option value="f1">F1</option>
+                            <option value="f2">F2</option>
+                            <option value="capslock">Caps Lock</option>
+                            <option value="escape">Escape</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="secondary_hotkey_translation">Translation hotkey</label>
+                        <select id="secondary_hotkey_translation">
+                            <option value="none">None</option>
+                            <option value="f2">F2</option>
+                            <option value="f3">F3</option>
+                            <option value="f4">F4</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="hotkey-note" class="status-note"></div>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="saveSetup('hotkey')">Save hotkey settings</button>
+                    <button class="btn btn-secondary" onclick="setStep('test')">Continue</button>
+                </div>
+            </div>
+
+            <div id="step-test" class="step-panel">
+                <h2>First Transcription Test</h2>
+                <div class="status-note">
+                    Say one short sentence. If Dicton returns text here, the setup is good enough to start.
+                </div>
+                <div class="actions">
+                    <button id="start-test-btn" class="btn btn-primary" onclick="startTest()">Start recording</button>
+                    <button id="stop-test-btn" class="btn btn-secondary" onclick="stopTest()" disabled>Stop and transcribe</button>
+                </div>
+                <div id="test-result" class="result-box">No test run yet.</div>
+            </div>
+
+            <div id="step-autostart" class="step-panel">
+                <h2>Start Dicton</h2>
+                <div id="autostart-note" class="status-note"></div>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="toggleAutostart(true)">Enable auto-start on login</button>
+                    <button class="btn btn-secondary" onclick="toggleAutostart(false)">Disable auto-start</button>
+                    <button class="btn btn-primary" onclick="launchDicton()">Start Dicton now</button>
+                </div>
+                <div class="result-box" id="launch-result">
+                    Once Dicton reports that it started, you can close this browser tab.
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+        const state = {
+            config: null,
+            setup: null,
+            currentStep: 'welcome',
+            testRecording: false,
+        };
+
+        function setStep(step) {
+            state.currentStep = step;
+            document.querySelectorAll('.step-panel').forEach((panel) => panel.classList.remove('active'));
+            document.querySelectorAll('.step-button').forEach((button) => button.classList.remove('active'));
+            document.getElementById(`step-${step}`).classList.add('active');
+            document.querySelector(`[data-step="${step}"]`).classList.add('active');
+        }
+
+        function setMessage(message, type = 'info') {
+            const el = document.getElementById('global-message');
+            el.textContent = message;
+            el.className = `global-message show ${type === 'error' ? 'warn' : type === 'success' ? 'ok' : 'info'}`;
+        }
+
+        function renderSummary() {
+            const list = document.getElementById('summary-list');
+            const setup = state.setup;
+            const rows = [
+                ['Speech provider', setup.checks.stt.ready, setup.checks.stt.detail],
+                ['Hotkey backend', setup.checks.hotkey.ready, setup.checks.hotkey.detail],
+                ['Text insertion', setup.checks.text_output.ready, setup.checks.text_output.detail],
+                ['First test', setup.first_test_passed, setup.first_test_passed ? 'A transcription test already succeeded in this session.' : 'Run one short test before finishing setup.'],
+                ['Auto-start', setup.checks.autostart.enabled, setup.checks.autostart.supported ? (setup.checks.autostart.enabled ? 'Dicton will start when you log in.' : 'Optional but recommended for daily use.') : 'Not automated on this platform yet.'],
+            ];
+
+            list.innerHTML = rows.map(([label, ready, detail]) => `
+                <div class="summary-item">
+                    <div>
+                        <div>${label}</div>
+                        <div class="muted">${detail}</div>
+                    </div>
+                    <span class="badge ${ready ? 'ok' : 'warn'}">${ready ? 'Ready' : 'Needs work'}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('next-step').textContent = nextStepMessage(setup.next_step);
+            document.getElementById('environment-note').textContent = `${setup.launch_detail} Config file: ${setup.config_path}`;
+            document.getElementById('speech-note').textContent = setup.checks.stt.detail;
+            document.getElementById('hotkey-note').textContent = setup.checks.hotkey.detail;
+            document.getElementById('autostart-note').textContent = setup.checks.autostart.supported
+                ? `${setup.checks.autostart.enabled ? 'Autostart is enabled.' : 'Autostart is currently disabled.'} ${setup.checks.autostart.path || ''}`.trim()
+                : 'Autostart is not automated on this platform yet.';
+
+            if (setup.last_test_text) {
+                document.getElementById('test-result').textContent = `Latest successful test:\n\n${setup.last_test_text}`;
+            }
+        }
+
+        function nextStepMessage(step) {
+            const messages = {
+                speech: 'Next: save a working speech provider key.',
+                hotkey: 'Next: make sure Dicton can listen for your hotkey.',
+                test: 'Next: run a first transcription test.',
+                autostart: 'Next: enable auto-start and launch Dicton.',
+                done: 'Setup looks complete. Launch Dicton and close this tab.',
+            };
+            return messages[step] || 'Review the checks and continue.';
+        }
+
+        function populateConfig() {
+            const config = state.config;
+            document.getElementById('stt_provider').value = config.stt_provider || 'auto';
+            document.getElementById('language').value = config.language || 'auto';
+            document.getElementById('hotkey_base').value = config.hotkey_base || 'fn';
+            document.getElementById('custom_hotkey_value').value = config.custom_hotkey_value || 'alt+g';
+            document.getElementById('secondary_hotkey').value = config.secondary_hotkey || 'none';
+            document.getElementById('secondary_hotkey_translation').value = config.secondary_hotkey_translation || 'none';
+            updateSecretState('mistral', config.mistral_api_key_set, config.mistral_api_key_masked);
+            updateSecretState('elevenlabs', config.elevenlabs_api_key_set, config.elevenlabs_api_key_masked);
+        }
+
+        function updateSecretState(prefix, isSet, masked) {
+            const badge = document.getElementById(`${prefix}_status`);
+            badge.textContent = isSet ? 'Saved' : 'Not set';
+            badge.className = `badge ${isSet ? 'ok' : 'warn'}`;
+            const input = document.getElementById(`${prefix}_api_key`);
+            input.placeholder = masked || input.placeholder;
+        }
+
+        function buildPayload() {
+            const payload = {
+                stt_provider: document.getElementById('stt_provider').value,
+                language: document.getElementById('language').value,
+                hotkey_base: document.getElementById('hotkey_base').value,
+                custom_hotkey_value: document.getElementById('custom_hotkey_value').value.trim(),
+                secondary_hotkey: document.getElementById('secondary_hotkey').value,
+                secondary_hotkey_translation: document.getElementById('secondary_hotkey_translation').value,
+            };
+
+            const mistral = document.getElementById('mistral_api_key').value.trim();
+            const elevenlabs = document.getElementById('elevenlabs_api_key').value.trim();
+            if (mistral) payload.mistral_api_key = mistral;
+            if (elevenlabs) payload.elevenlabs_api_key = elevenlabs;
+            return payload;
+        }
+
+        async function refreshSetup(preferredStep = null) {
+            const [configRes, setupRes] = await Promise.all([
+                fetch(`${API_BASE}/api/config`),
+                fetch(`${API_BASE}/api/setup/status`),
+            ]);
+
+            state.config = await configRes.json();
+            state.setup = await setupRes.json();
+            populateConfig();
+            renderSummary();
+
+            const step = preferredStep || state.currentStep || state.setup.next_step || 'welcome';
+            setStep(step === 'done' ? 'autostart' : step);
+        }
+
+        async function saveSetup(stepAfterSave) {
+            const res = await fetch(`${API_BASE}/api/setup/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(buildPayload()),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setMessage(data.message || 'Failed to save setup.', 'error');
+                return;
+            }
+
+            setMessage('Configuration saved.', 'success');
+            await refreshSetup(stepAfterSave);
+        }
+
+        async function startTest() {
+            const res = await fetch(`${API_BASE}/api/test/start`, { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) {
+                setMessage(data.error || 'Could not start the test.', 'error');
+                return;
+            }
+
+            state.testRecording = true;
+            document.getElementById('start-test-btn').disabled = true;
+            document.getElementById('stop-test-btn').disabled = false;
+            document.getElementById('test-result').textContent = 'Recording... Speak now, then click “Stop and transcribe”.';
+        }
+
+        async function stopTest() {
+            const res = await fetch(`${API_BASE}/api/test/stop`, { method: 'POST' });
+            const data = await res.json();
+            state.testRecording = false;
+            document.getElementById('start-test-btn').disabled = false;
+            document.getElementById('stop-test-btn').disabled = true;
+
+            if (!res.ok || data.error) {
+                document.getElementById('test-result').textContent = data.error || 'The test did not complete.';
+                setMessage(data.error || 'The test did not complete.', 'error');
+                await refreshSetup('test');
+                return;
+            }
+
+            const totalLatency = Math.round(data.latency.total);
+            document.getElementById('test-result').textContent = `Transcribed text:\n\n${data.text}\n\nTotal latency: ${totalLatency} ms`;
+            setMessage('First transcription test passed.', 'success');
+            await refreshSetup('autostart');
+        }
+
+        async function toggleAutostart(enabled) {
+            const res = await fetch(`${API_BASE}/api/setup/autostart`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled }),
+            });
+            const data = await res.json();
+            setMessage(data.message || (enabled ? 'Autostart enabled.' : 'Autostart disabled.'), res.ok ? 'success' : 'error');
+            await refreshSetup('autostart');
+        }
+
+        async function launchDicton() {
+            const res = await fetch(`${API_BASE}/api/setup/launch`, { method: 'POST' });
+            const data = await res.json();
+            document.getElementById('launch-result').textContent = data.message || 'Launch command sent.';
+            setMessage(data.message || 'Launch command sent.', res.ok ? 'success' : 'error');
+            await refreshSetup('autostart');
+        }
+
+        refreshSetup();
+    </script>
+</body>
+</html>

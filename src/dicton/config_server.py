@@ -2,6 +2,8 @@
 
 import base64
 import json
+import os
+import shutil
 import webbrowser
 from pathlib import Path
 from threading import Timer
@@ -9,6 +11,8 @@ from typing import Any
 
 from .app_paths import get_user_contexts_path
 from .config import Config, config
+from .platform_utils import IS_LINUX, IS_MACOS, IS_WINDOWS, get_platform_info
+from .startup import get_autostart_state, has_display_session, launch_background, set_autostart
 
 
 def _load_logo_base64() -> str:
@@ -22,17 +26,63 @@ def _load_logo_base64() -> str:
 LOGO_BASE64 = _load_logo_base64()
 
 
-def _load_html_template() -> str:
+def _load_html_template(template_name: str) -> str:
     """Load HTML template for the configuration UI."""
-    template_path = Path(__file__).parent / "assets" / "config_ui.html"
+    template_path = Path(__file__).parent / "assets" / template_name
     if template_path.exists():
         html = template_path.read_text(encoding="utf-8")
         return html.replace("{{LOGO_BASE64}}", LOGO_BASE64)
     return "<html><body>Config UI template missing.</body></html>"
 
 
-# HTML template with dashboard
-HTML_TEMPLATE = _load_html_template()
+SETUP_HTML_TEMPLATE = _load_html_template("setup_ui.html")
+ADVANCED_HTML_TEMPLATE = _load_html_template("config_ui.html")
+
+CONFIG_FIELD_MAP = {
+    "stt_provider": "STT_PROVIDER",
+    "mistral_api_key": "MISTRAL_API_KEY",
+    "elevenlabs_api_key": "ELEVENLABS_API_KEY",
+    "gemini_api_key": "GEMINI_API_KEY",
+    "anthropic_api_key": "ANTHROPIC_API_KEY",
+    "llm_provider": "LLM_PROVIDER",
+    "enable_advanced_modes": "ENABLE_ADVANCED_MODES",
+    "theme_color": "THEME_COLOR",
+    "visualizer_style": "VISUALIZER_STYLE",
+    "animation_position": "ANIMATION_POSITION",
+    "visualizer_backend": "VISUALIZER_BACKEND",
+    "hotkey_base": "HOTKEY_BASE",
+    "hotkey_hold_threshold_ms": "HOTKEY_HOLD_THRESHOLD_MS",
+    "hotkey_double_tap_window_ms": "HOTKEY_DOUBLE_TAP_WINDOW_MS",
+    "filter_fillers": "FILTER_FILLERS",
+    "enable_reformulation": "ENABLE_REFORMULATION",
+    "language": "LANGUAGE",
+    "debug": "DEBUG",
+    "custom_hotkey_value": "CUSTOM_HOTKEY_VALUE",
+    "secondary_hotkey": "SECONDARY_HOTKEY",
+    "secondary_hotkey_translation": "SECONDARY_HOTKEY_TRANSLATION",
+    "secondary_hotkey_act_on_text": "SECONDARY_HOTKEY_ACT_ON_TEXT",
+    "context_enabled": "CONTEXT_ENABLED",
+    "context_debug": "CONTEXT_DEBUG",
+    "mute_playback_on_recording": "MUTE_PLAYBACK_ON_RECORDING",
+    "playback_mute_strategy": "PLAYBACK_MUTE_STRATEGY",
+    "mute_backend": "MUTE_BACKEND",
+}
+
+CONFIG_BOOL_FIELDS = {
+    "enable_advanced_modes",
+    "filter_fillers",
+    "enable_reformulation",
+    "debug",
+    "context_enabled",
+    "context_debug",
+    "mute_playback_on_recording",
+}
+CONFIG_STRING_FIELDS = set(CONFIG_FIELD_MAP) - CONFIG_BOOL_FIELDS
+
+_setup_state = {
+    "first_test_passed": False,
+    "last_test_text": "",
+}
 
 
 def get_env_path() -> Path:
@@ -160,38 +210,7 @@ def save_config(data: dict[str, Any]) -> None:
     """Save configuration to .env file."""
     env_vars = read_env_file()
 
-    # Map UI fields to env vars
-    field_map = {
-        "stt_provider": "STT_PROVIDER",
-        "mistral_api_key": "MISTRAL_API_KEY",
-        "elevenlabs_api_key": "ELEVENLABS_API_KEY",
-        "gemini_api_key": "GEMINI_API_KEY",
-        "anthropic_api_key": "ANTHROPIC_API_KEY",
-        "llm_provider": "LLM_PROVIDER",
-        "enable_advanced_modes": "ENABLE_ADVANCED_MODES",
-        "theme_color": "THEME_COLOR",
-        "visualizer_style": "VISUALIZER_STYLE",
-        "animation_position": "ANIMATION_POSITION",
-        "visualizer_backend": "VISUALIZER_BACKEND",
-        "hotkey_base": "HOTKEY_BASE",
-        "hotkey_hold_threshold_ms": "HOTKEY_HOLD_THRESHOLD_MS",
-        "hotkey_double_tap_window_ms": "HOTKEY_DOUBLE_TAP_WINDOW_MS",
-        "filter_fillers": "FILTER_FILLERS",
-        "enable_reformulation": "ENABLE_REFORMULATION",
-        "language": "LANGUAGE",
-        "debug": "DEBUG",
-        "custom_hotkey_value": "CUSTOM_HOTKEY_VALUE",
-        "secondary_hotkey": "SECONDARY_HOTKEY",
-        "secondary_hotkey_translation": "SECONDARY_HOTKEY_TRANSLATION",
-        "secondary_hotkey_act_on_text": "SECONDARY_HOTKEY_ACT_ON_TEXT",
-        "context_enabled": "CONTEXT_ENABLED",
-        "context_debug": "CONTEXT_DEBUG",
-        "mute_playback_on_recording": "MUTE_PLAYBACK_ON_RECORDING",
-        "playback_mute_strategy": "PLAYBACK_MUTE_STRATEGY",
-        "mute_backend": "MUTE_BACKEND",
-    }
-
-    for ui_field, env_var in field_map.items():
+    for ui_field, env_var in CONFIG_FIELD_MAP.items():
         if ui_field in data:
             value = data[ui_field]
             if isinstance(value, bool):
@@ -199,6 +218,179 @@ def save_config(data: dict[str, Any]) -> None:
             env_vars[env_var] = str(value)
 
     write_env_file(env_vars)
+
+
+def _get_env_string(env_vars: dict[str, str], key: str, default: str = "") -> str:
+    return env_vars.get(key, default).strip()
+
+
+def _get_env_bool(env_vars: dict[str, str], key: str, default: bool = False) -> bool:
+    if key not in env_vars:
+        return default
+    return env_vars[key].strip().lower() == "true"
+
+
+def _stt_status(env_vars: dict[str, str]) -> dict[str, Any]:
+    selected = _get_env_string(env_vars, "STT_PROVIDER", config.STT_PROVIDER).lower()
+    has_mistral = bool(_get_env_string(env_vars, "MISTRAL_API_KEY"))
+    has_elevenlabs = bool(_get_env_string(env_vars, "ELEVENLABS_API_KEY"))
+
+    available = []
+    if has_mistral:
+        available.append("mistral")
+    if has_elevenlabs:
+        available.append("elevenlabs")
+
+    if selected == "mistral":
+        ready = has_mistral
+        detail = "Mistral API key saved." if ready else "Add a Mistral API key."
+    elif selected == "elevenlabs":
+        ready = has_elevenlabs
+        detail = "ElevenLabs API key saved." if ready else "Add an ElevenLabs API key."
+    else:
+        ready = bool(available)
+        if ready:
+            detail = f"Auto mode can use: {', '.join(name.title() for name in available)}."
+        else:
+            detail = "Add a Mistral or ElevenLabs API key."
+
+    return {
+        "ready": ready,
+        "selected": selected,
+        "available": available,
+        "detail": detail,
+    }
+
+
+def _hotkey_status(env_vars: dict[str, str]) -> dict[str, Any]:
+    hotkey_base = _get_env_string(env_vars, "HOTKEY_BASE", config.HOTKEY_BASE).lower()
+    custom_hotkey = _get_env_string(
+        env_vars, "CUSTOM_HOTKEY_VALUE", config.CUSTOM_HOTKEY_VALUE
+    ).lower()
+
+    if IS_LINUX:
+        if hotkey_base in {"fn", "custom"}:
+            try:
+                import evdev  # noqa: F401
+            except ImportError:
+                return {
+                    "ready": False,
+                    "mode": hotkey_base,
+                    "detail": "Linux FN/custom hotkeys require the evdev dependency.",
+                }
+
+            readable_devices = any(
+                os.access(path, os.R_OK) for path in Path("/dev/input").glob("event*")
+            )
+            if not readable_devices:
+                return {
+                    "ready": False,
+                    "mode": hotkey_base,
+                    "detail": "Dicton cannot read /dev/input yet. Log out and back in after installation or add your user to the input group.",
+                }
+
+            if hotkey_base == "custom" and not custom_hotkey:
+                return {
+                    "ready": False,
+                    "mode": hotkey_base,
+                    "detail": "Choose a custom hotkey before continuing.",
+                }
+
+            return {
+                "ready": True,
+                "mode": hotkey_base,
+                "detail": "Hotkey backend is ready.",
+            }
+
+        if os.environ.get("DISPLAY"):
+            return {
+                "ready": True,
+                "mode": hotkey_base,
+                "detail": "Legacy X11 hotkey backend is available.",
+            }
+
+        return {
+            "ready": False,
+            "mode": hotkey_base,
+            "detail": "Legacy hotkeys require an X11 session. Prefer FN or custom mode on Linux.",
+        }
+
+    if hotkey_base == "custom" and not custom_hotkey:
+        return {
+            "ready": False,
+            "mode": hotkey_base,
+            "detail": "Choose a custom hotkey before continuing.",
+        }
+
+    return {
+        "ready": True,
+        "mode": hotkey_base,
+        "detail": "Hotkey backend will use the packaged keyboard listener.",
+    }
+
+
+def _text_output_status() -> dict[str, Any]:
+    if IS_LINUX:
+        if shutil.which("xdotool"):
+            return {
+                "ready": True,
+                "detail": "xdotool is installed for text insertion.",
+            }
+        return {
+            "ready": False,
+            "detail": "Install xdotool for reliable text insertion on Linux.",
+        }
+
+    if IS_WINDOWS:
+        return {"ready": True, "detail": "Windows text insertion backend is available."}
+
+    if IS_MACOS:
+        return {
+            "ready": True,
+            "detail": "macOS text insertion backend uses the fallback keyboard driver.",
+        }
+
+    return {"ready": False, "detail": "Unsupported platform."}
+
+
+def build_setup_status() -> dict[str, Any]:
+    """Build the setup/readiness status for the onboarding UI."""
+    env_vars = read_env_file()
+    stt = _stt_status(env_vars)
+    hotkey = _hotkey_status(env_vars)
+    output = _text_output_status()
+    autostart = get_autostart_state()
+    launch_ready = has_display_session()
+
+    if not stt["ready"]:
+        next_step = "speech"
+    elif not hotkey["ready"]:
+        next_step = "hotkey"
+    elif not _setup_state["first_test_passed"]:
+        next_step = "test"
+    elif autostart["supported"] and not autostart["enabled"]:
+        next_step = "autostart"
+    else:
+        next_step = "done"
+
+    return {
+        "platform": get_platform_info(),
+        "config_path": str(get_env_path()),
+        "config_saved": get_env_path().exists(),
+        "first_test_passed": _setup_state["first_test_passed"],
+        "last_test_text": _setup_state["last_test_text"],
+        "launch_ready": launch_ready,
+        "launch_detail": (
+            "Desktop session detected." if launch_ready else "Start Dicton from a desktop session."
+        ),
+        "checks": {
+            "stt": stt,
+            "hotkey": hotkey,
+            "text_output": output,
+            "autostart": autostart,
+        },
+        "next_step": next_step,
+    }
 
 
 def get_dictionary() -> dict[str, Any]:
@@ -306,44 +498,27 @@ def create_app():
     try:
         from fastapi import FastAPI, Request
         from fastapi.responses import HTMLResponse, JSONResponse
-        from pydantic import BaseModel
+        from pydantic import create_model
     except ImportError as e:
         raise ImportError(
             "FastAPI not installed. Install with: pip install dicton[configui]"
         ) from e
 
-    app = FastAPI(title="Dicton Dashboard")
+    app = FastAPI(title="Dicton Setup")
 
-    class ConfigData(BaseModel):
-        elevenlabs_api_key: str | None = None
-        gemini_api_key: str | None = None
-        anthropic_api_key: str | None = None
-        llm_provider: str | None = None
-        enable_advanced_modes: bool | None = None
-        theme_color: str | None = None
-        visualizer_style: str | None = None
-        animation_position: str | None = None
-        visualizer_backend: str | None = None
-        hotkey_base: str | None = None
-        hotkey_hold_threshold_ms: str | None = None
-        hotkey_double_tap_window_ms: str | None = None
-        filter_fillers: bool | None = None
-        enable_reformulation: bool | None = None
-        language: str | None = None
-        debug: bool | None = None
-        custom_hotkey_value: str | None = None
-        secondary_hotkey: str | None = None
-        secondary_hotkey_translation: str | None = None
-        secondary_hotkey_act_on_text: str | None = None
-        context_enabled: bool | None = None
-        context_debug: bool | None = None
-        mute_playback_on_recording: bool | None = None
-        playback_mute_strategy: str | None = None
-        mute_backend: str | None = None
+    config_fields = dict.fromkeys(CONFIG_STRING_FIELDS, (str | None, None))
+    config_fields.update(dict.fromkeys(CONFIG_BOOL_FIELDS, (bool | None, None)))
+    ConfigData = create_model("ConfigData", **config_fields)
+
+    AutostartData = create_model("AutostartData", enabled=(bool, ...))
 
     @app.get("/", response_class=HTMLResponse)
     async def root():
-        return HTML_TEMPLATE
+        return SETUP_HTML_TEMPLATE
+
+    @app.get("/advanced", response_class=HTMLResponse)
+    async def advanced():
+        return ADVANCED_HTML_TEMPLATE
 
     @app.get("/api/config")
     async def api_get_config():
@@ -353,19 +528,40 @@ def create_app():
     async def api_save_config(data: ConfigData):
         try:
             config_dict = data.model_dump(exclude_none=True)
-            print(f"[DEBUG] Received config data: {config_dict}")
-            print(
-                f"[DEBUG] Secondary hotkeys: basic={config_dict.get('secondary_hotkey')}, translation={config_dict.get('secondary_hotkey_translation')}, act={config_dict.get('secondary_hotkey_act_on_text')}"
-            )
-            print(f"[DEBUG] Writing to: {get_env_path()}")
             save_config(config_dict)
-            return {"status": "ok"}
+            _setup_state["first_test_passed"] = False
+            _setup_state["last_test_text"] = ""
+            return {"status": "ok", "setup": build_setup_status()}
         except Exception as e:
             import traceback
 
             print(f"[ERROR] Save config failed: {e}")
             traceback.print_exc()
             return JSONResponse({"status": "error", "message": str(e)}, status_code=500)
+
+    @app.get("/api/setup/status")
+    async def api_setup_status():
+        return JSONResponse(build_setup_status())
+
+    @app.post("/api/setup/save")
+    async def api_setup_save(data: ConfigData):
+        return await api_save_config(data)
+
+    @app.post("/api/setup/autostart")
+    async def api_setup_autostart(data: AutostartData):
+        result = set_autostart(data.enabled)
+        payload = {"status": "ok" if result.get("ok") else "error", **result}
+        payload["setup"] = build_setup_status()
+        status_code = 200 if result.get("ok") else 400
+        return JSONResponse(payload, status_code=status_code)
+
+    @app.post("/api/setup/launch")
+    async def api_setup_launch():
+        result = launch_background()
+        payload = {"status": "ok" if result.get("ok") else "error", **result}
+        payload["setup"] = build_setup_status()
+        status_code = 200 if result.get("ok") else 400
+        return JSONResponse(payload, status_code=status_code)
 
     @app.get("/api/dictionary")
     async def api_get_dictionary():
@@ -603,7 +799,11 @@ def create_app():
         # Convert captured frames to audio array
         frames = _test_state["frames"]
         if not frames:
-            return JSONResponse({"error": "No audio captured"}, status_code=400)
+            _setup_state["first_test_passed"] = False
+            return JSONResponse(
+                {"error": "No audio captured", "setup": build_setup_status()},
+                status_code=400,
+            )
 
         audio_data = b"".join(frames)
         audio_array = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32) / 32768.0
@@ -611,7 +811,11 @@ def create_app():
         # Get the recognizer used for recording (same instance for transcription)
         recognizer = _test_state["recognizer"]
         if not recognizer:
-            return JSONResponse({"error": "Recognizer not available"}, status_code=500)
+            _setup_state["first_test_passed"] = False
+            return JSONResponse(
+                {"error": "Recognizer not available", "setup": build_setup_status()},
+                status_code=500,
+            )
 
         result = {
             "latency": {
@@ -632,6 +836,8 @@ def create_app():
 
             if not text:
                 result["error"] = "No speech detected"
+                _setup_state["first_test_passed"] = False
+                result["setup"] = build_setup_status()
                 return JSONResponse(result)
 
             # === STEP 2: LLM Processing (mirrors production _process_text for BASIC mode) ===
@@ -657,9 +863,12 @@ def create_app():
             result["latency"]["total"] = (
                 result["latency"]["recording"] + result["latency"]["stt"] + result["latency"]["llm"]
             )
+            _setup_state["first_test_passed"] = True
+            _setup_state["last_test_text"] = text
 
         except Exception as e:
             result["error"] = str(e)
+            _setup_state["first_test_passed"] = False
 
         finally:
             # Cleanup
@@ -668,6 +877,7 @@ def create_app():
                 _test_state["recognizer"] = None
             _test_state["frames"] = []
 
+        result["setup"] = build_setup_status()
         return JSONResponse(result)
 
     return app
