@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1]
+
+### Changed
+
+- Refactored runtime startup into bootstrap and application service layers instead of concentrating orchestration in `main.py`.
+- Split the configuration UI route surface into dedicated interface modules while keeping the existing CLI and HTTP behavior stable.
+- Extracted FN-key parsing and device-discovery helpers into infrastructure submodules and added architecture boundary tests.
+
 ## [1.3.0]
 
 ### Added
