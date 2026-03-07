@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0]
+
+### Added
+
+- Added a guided `dicton --config` setup flow with readiness checks, first transcription testing, and Linux auto-start integration.
+- Added a dedicated onboarding page while keeping the legacy dashboard available at `/advanced`.
+
+### Changed
+
+- Made `dicton --config` the primary setup entrypoint and kept `dicton --config-ui` as a compatibility alias.
+
 ## [1.2.1]
 
 ### Fixed
