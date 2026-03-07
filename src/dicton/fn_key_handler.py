@@ -13,165 +13,25 @@ import os
 import threading
 import time
 from collections.abc import Callable
-from enum import Enum, auto
 
 from .config import config
+from .infrastructure.input.fn.device_registry import build_device_fd_map, find_keyboard_devices
+from .infrastructure.input.fn.parser import (
+    KEY_LEFTALT,
+    KEY_LEFTCTRL,
+    KEY_LEFTSHIFT,
+    KEY_RIGHTALT,
+    KEY_RIGHTCTRL,
+    KEY_RIGHTSHIFT,
+    KEY_SPACE,
+    KEY_WAKEUP,
+    build_secondary_hotkeys,
+    parse_custom_hotkey,
+    secondary_hotkey_name,
+)
+from .infrastructure.input.fn.state_machine import HotkeyState
 from .platform_utils import IS_LINUX
 from .processing_mode import ProcessingMode, advanced_modes_enabled
-
-# XF86WakeUp keycode - typically mapped to FN key on many laptops
-KEY_WAKEUP = 143  # evdev keycode for KEY_WAKEUP (XF86WakeUp)
-
-# Modifier keycodes (from evdev/ecodes)
-KEY_SPACE = 57
-KEY_LEFTCTRL = 29
-KEY_RIGHTCTRL = 97
-KEY_LEFTSHIFT = 42
-KEY_RIGHTSHIFT = 54
-KEY_LEFTALT = 56
-KEY_RIGHTALT = 100
-
-# Secondary hotkey keycode mapping (name -> evdev keycode)
-SECONDARY_HOTKEY_MAP = {
-    "escape": 1,
-    "esc": 1,
-    "f1": 59,
-    "f2": 60,
-    "f3": 61,
-    "f4": 62,
-    "f5": 63,
-    "f6": 64,
-    "f7": 65,
-    "f8": 66,
-    "f9": 67,
-    "f10": 68,
-    "f11": 87,
-    "f12": 88,
-    "capslock": 58,
-    "caps": 58,
-    "pause": 119,
-    "break": 119,
-    "insert": 110,
-    "ins": 110,
-    "home": 102,
-    "end": 107,
-    "pageup": 104,
-    "pgup": 104,
-    "pagedown": 109,
-    "pgdn": 109,
-}
-
-# Full key name to evdev keycode mapping (for custom hotkey parsing)
-KEY_NAME_MAP = {
-    # Letters
-    "a": 30,
-    "b": 48,
-    "c": 46,
-    "d": 32,
-    "e": 18,
-    "f": 33,
-    "g": 34,
-    "h": 35,
-    "i": 23,
-    "j": 36,
-    "k": 37,
-    "l": 38,
-    "m": 50,
-    "n": 49,
-    "o": 24,
-    "p": 25,
-    "q": 16,
-    "r": 19,
-    "s": 31,
-    "t": 20,
-    "u": 22,
-    "v": 47,
-    "w": 17,
-    "x": 45,
-    "y": 21,
-    "z": 44,
-    # Numbers
-    "0": 11,
-    "1": 2,
-    "2": 3,
-    "3": 4,
-    "4": 5,
-    "5": 6,
-    "6": 7,
-    "7": 8,
-    "8": 9,
-    "9": 10,
-    # Special keys (include secondary hotkeys for completeness)
-    "escape": 1,
-    "esc": 1,
-    "f1": 59,
-    "f2": 60,
-    "f3": 61,
-    "f4": 62,
-    "f5": 63,
-    "f6": 64,
-    "f7": 65,
-    "f8": 66,
-    "f9": 67,
-    "f10": 68,
-    "f11": 87,
-    "f12": 88,
-    "capslock": 58,
-    "caps": 58,
-    "tab": 15,
-    "space": 57,
-    "enter": 28,
-    "return": 28,
-    "backspace": 14,
-    "delete": 111,
-    "del": 111,
-    "insert": 110,
-    "ins": 110,
-    "home": 102,
-    "end": 107,
-    "pageup": 104,
-    "pgup": 104,
-    "pagedown": 109,
-    "pgdn": 109,
-    "up": 103,
-    "down": 108,
-    "left": 105,
-    "right": 106,
-    "pause": 119,
-    "break": 119,
-    "grave": 41,
-    "`": 41,
-    "minus": 12,
-    "-": 12,
-    "equal": 13,
-    "=": 13,
-    "bracketleft": 26,
-    "[": 26,
-    "bracketright": 27,
-    "]": 27,
-    "backslash": 43,
-    "\\": 43,
-    "semicolon": 39,
-    ";": 39,
-    "apostrophe": 40,
-    "'": 40,
-    "comma": 51,
-    ",": 51,
-    "period": 52,
-    ".": 52,
-    "slash": 53,
-    "/": 53,
-}
-
-
-class HotkeyState(Enum):
-    """State machine states for FN key detection"""
-
-    IDLE = auto()
-    WAITING_ACTIVATION = auto()  # Key pressed, waiting for activation delay
-    RECORDING_PTT = auto()  # Push-to-talk mode (recording active)
-    WAITING_DOUBLE = auto()  # First tap released, waiting for second
-    RECORDING_TOGGLE = auto()  # Toggle mode (double-tap locked)
 
 
 class FnKeyHandler:
@@ -270,29 +130,16 @@ class FnKeyHandler:
 
     def _build_secondary_hotkeys_map(self):
         """Build mapping of secondary hotkey keycodes to their processing modes."""
-        self._secondary_hotkeys = {}
-
-        # Debug: show what config values we're reading
         if config.DEBUG:
             print(
                 f"Secondary hotkey config: basic={config.SECONDARY_HOTKEY}, translation={config.SECONDARY_HOTKEY_TRANSLATION}, act={config.SECONDARY_HOTKEY_ACT_ON_TEXT}"
             )
-
-        # Basic mode (F1 by default)
-        keycode = SECONDARY_HOTKEY_MAP.get(config.SECONDARY_HOTKEY)
-        if keycode:
-            self._secondary_hotkeys[keycode] = ProcessingMode.BASIC
-
-        # Translation mode (F2 by default)
-        keycode = SECONDARY_HOTKEY_MAP.get(config.SECONDARY_HOTKEY_TRANSLATION)
-        if keycode:
-            self._secondary_hotkeys[keycode] = ProcessingMode.TRANSLATION
-
-        if advanced_modes_enabled():
-            # Advanced mode hotkeys stay opt-in.
-            keycode = SECONDARY_HOTKEY_MAP.get(config.SECONDARY_HOTKEY_ACT_ON_TEXT)
-            if keycode:
-                self._secondary_hotkeys[keycode] = ProcessingMode.ACT_ON_TEXT
+        self._secondary_hotkeys = build_secondary_hotkeys(
+            secondary_hotkey=config.SECONDARY_HOTKEY,
+            secondary_hotkey_translation=config.SECONDARY_HOTKEY_TRANSLATION,
+            secondary_hotkey_act_on_text=config.SECONDARY_HOTKEY_ACT_ON_TEXT,
+            advanced_modes_enabled=advanced_modes_enabled(),
+        )
 
     def _parse_custom_hotkey(self):
         """Parse CUSTOM_HOTKEY_VALUE into required modifiers and main key.
@@ -300,59 +147,24 @@ class FnKeyHandler:
         Format: modifier+modifier+key (e.g., "alt+g", "ctrl+shift+d")
         Supported modifiers: ctrl, shift, alt
         """
-        if config.HOTKEY_BASE.lower() == "fn":
-            # Using FN key, custom hotkey not active
-            self._custom_hotkey_enabled = False
-            return
-
-        hotkey_value = config.CUSTOM_HOTKEY_VALUE.lower().strip()
-        if not hotkey_value:
-            self._custom_hotkey_enabled = False
-            return
-
-        # Split by + to get modifiers and main key
-        parts = [p.strip() for p in hotkey_value.split("+")]
-        if not parts:
-            self._custom_hotkey_enabled = False
-            return
-
-        # Parse modifiers and main key
-        # Last part is the main key, rest are modifiers
-        main_key = parts[-1]
-        modifiers = parts[:-1]
-
-        # Look up main key keycode
-        keycode = KEY_NAME_MAP.get(main_key)
-        if keycode is None:
-            print(f"⚠ Unknown key in custom hotkey: '{main_key}'")
-            self._custom_hotkey_enabled = False
-            return
-
-        # Parse modifiers
-        requires_ctrl = False
-        requires_shift = False
-        requires_alt = False
-
-        for mod in modifiers:
-            if mod in ("ctrl", "control"):
-                requires_ctrl = True
-            elif mod in ("shift",):
-                requires_shift = True
-            elif mod in ("alt",):
-                requires_alt = True
-            else:
-                print(f"⚠ Unknown modifier in custom hotkey: '{mod}'")
-
-        # Store parsed values
-        self._custom_hotkey_enabled = True
-        self._custom_hotkey_keycode = keycode
-        self._custom_hotkey_requires_ctrl = requires_ctrl
-        self._custom_hotkey_requires_shift = requires_shift
-        self._custom_hotkey_requires_alt = requires_alt
+        spec = parse_custom_hotkey(
+            hotkey_base=config.HOTKEY_BASE.lower(),
+            hotkey_value=config.CUSTOM_HOTKEY_VALUE,
+            logger=print,
+        )
+        self._custom_hotkey_enabled = spec.enabled
+        self._custom_hotkey_keycode = spec.keycode
+        self._custom_hotkey_requires_ctrl = spec.requires_ctrl
+        self._custom_hotkey_requires_shift = spec.requires_shift
+        self._custom_hotkey_requires_alt = spec.requires_alt
 
         if config.DEBUG:
             print(
-                f"Custom hotkey parsed: key={main_key}({keycode}), ctrl={requires_ctrl}, shift={requires_shift}, alt={requires_alt}"
+                "Custom hotkey parsed: "
+                f"key={self._custom_hotkey_keycode}, "
+                f"ctrl={self._custom_hotkey_requires_ctrl}, "
+                f"shift={self._custom_hotkey_requires_shift}, "
+                f"alt={self._custom_hotkey_requires_alt}"
             )
 
     def _is_custom_hotkey_modifiers_pressed(self) -> bool:
@@ -427,9 +239,7 @@ class FnKeyHandler:
         if self._secondary_hotkeys:
             for keycode, mode in self._secondary_hotkeys.items():
                 # Find the key name from the keycode
-                key_name = next(
-                    (k for k, v in SECONDARY_HOTKEY_MAP.items() if v == keycode), str(keycode)
-                )
+                key_name = secondary_hotkey_name(keycode)
                 print(f"Secondary hotkey: '{key_name}' → {mode.name}")
             if self._secondary_devices:
                 device_names = [d.name for d in self._secondary_devices]
@@ -580,110 +390,19 @@ class FnKeyHandler:
             - primary_device: Laptop keyboard for FN/KEY_WAKEUP or custom hotkey
             - secondary_devices: List of ALL keyboards for secondary hotkey
         """
-        try:
-            import evdev
-            from evdev import ecodes
-
-            devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
-
-            # Helper to check if device is an external keyboard (ZSA, etc.)
-            def is_external_keyboard(name: str) -> bool:
-                external_brands = ["ZSA", "Voyager", "Ergodox", "Moonlander", "Planck"]
-                return any(brand.lower() in name.lower() for brand in external_brands)
-
-            # Debug: list all devices with KEY_WAKEUP capability
-            if config.DEBUG:
-                print("Scanning input devices...")
-                for device in devices:
-                    caps = device.capabilities()
-                    if ecodes.EV_KEY in caps:
-                        keys = caps[ecodes.EV_KEY]
-                        has_wakeup = KEY_WAKEUP in keys
-                        is_ext = is_external_keyboard(device.name)
-                        if has_wakeup or is_ext:
-                            print(
-                                f"  {device.path}: {device.name} (WAKEUP={has_wakeup}, external={is_ext})"
-                            )
-
-            primary_device = None
-            secondary_devices = []
-
-            # For custom hotkey mode, find any keyboard with the main key
-            if self._custom_hotkey_enabled and self._custom_hotkey_keycode:
-                for device in devices:
-                    if is_external_keyboard(device.name):
-                        continue
-                    caps = device.capabilities()
-                    if ecodes.EV_KEY in caps:
-                        keys = caps[ecodes.EV_KEY]
-                        # Must have the custom hotkey main key and modifier keys
-                        if self._custom_hotkey_keycode in keys and ecodes.KEY_A in keys:
-                            if config.DEBUG:
-                                print(f"Found keyboard for custom hotkey: {device.name}")
-                            primary_device = device
-                            break
-
-            # Find primary device: laptop keyboard with KEY_WAKEUP (skip external)
-            if not primary_device:
-                for device in devices:
-                    if is_external_keyboard(device.name):
-                        continue
-                    caps = device.capabilities()
-                    if ecodes.EV_KEY in caps:
-                        keys = caps[ecodes.EV_KEY]
-                        if KEY_WAKEUP in keys or 464 in keys:
-                            primary_device = device
-                            break
-
-            # Find ALL keyboards that support any secondary hotkey
-            if self._secondary_hotkeys:
-                for device in devices:
-                    # Skip the primary device (already listening on it)
-                    if device == primary_device:
-                        continue
-                    caps = device.capabilities()
-                    if ecodes.EV_KEY in caps:
-                        keys = caps[ecodes.EV_KEY]
-                        # Must have at least one secondary hotkey AND be a full keyboard (has A-Z keys)
-                        has_secondary = any(kc in keys for kc in self._secondary_hotkeys.keys())
-                        if has_secondary and ecodes.KEY_A in keys:
-                            secondary_devices.append(device)
-
-            # Fallback for primary: any laptop keyboard
-            if not primary_device:
-                for device in devices:
-                    if is_external_keyboard(device.name):
-                        continue
-                    caps = device.capabilities()
-                    if ecodes.EV_KEY in caps:
-                        keys = caps[ecodes.EV_KEY]
-                        if ecodes.KEY_A in keys and ecodes.KEY_Z in keys:
-                            if config.DEBUG:
-                                print(f"Using fallback laptop keyboard: {device.name}")
-                            primary_device = device
-                            break
-
-            return primary_device, secondary_devices
-        except PermissionError:
-            print("Permission denied accessing input devices")
-            print("Add user to 'input' group: sudo usermod -aG input $USER")
-            return None, []
-        except Exception as e:
-            if config.DEBUG:
-                print(f"Error finding keyboard device: {e}")
-            return None, []
+        return find_keyboard_devices(
+            custom_hotkey_enabled=self._custom_hotkey_enabled,
+            custom_hotkey_keycode=self._custom_hotkey_keycode,
+            secondary_hotkeys=self._secondary_hotkeys,
+            debug=config.DEBUG,
+        )
 
     def _build_device_fd_map(self) -> dict:
         """Build a map of file descriptors to devices.
 
         Must be called with _devices_lock held.
         """
-        devices = {}
-        if self._device:
-            devices[self._device.fd] = self._device
-        for sec_device in self._secondary_devices:
-            devices[sec_device.fd] = sec_device
-        return devices
+        return build_device_fd_map(self._device, self._secondary_devices)
 
     def _listen_loop(self):
         """Main event loop for evdev - reads from both primary and secondary devices.
