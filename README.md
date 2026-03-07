@@ -229,6 +229,22 @@ journalctl --user -u dicton -f
 systemctl --user status dicton
 ```
 
+## Project Checks
+
+Run the same core checks locally that CI runs on pull requests:
+
+```bash
+./scripts/check.sh
+```
+
+Individual stages are also available:
+
+```bash
+./scripts/check.sh lint
+./scripts/check.sh test
+./scripts/check.sh build
+```
+
 ## Context-Aware Dictation
 
 Dicton can detect your active application context to adapt LLM prompts and typing behavior.
