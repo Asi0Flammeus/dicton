@@ -43,13 +43,13 @@ Download the latest release here:
 Download the `.deb` file from the latest release, then install it with:
 
 ```bash
-sudo apt install ./dicton_1.2.2_amd64.deb
+sudo apt install ./dicton_1.3.0_amd64.deb
 ```
 
 If your system prefers `dpkg`:
 
 ```bash
-sudo dpkg -i dicton_1.2.2_amd64.deb
+sudo dpkg -i dicton_1.3.0_amd64.deb
 sudo apt-get install -f
 ```
 
@@ -78,10 +78,17 @@ For translation to English, add one of these too:
 The easiest way to configure Dicton is:
 
 ```bash
-dicton --config-ui
+dicton --config
 ```
 
-That opens the settings page in your browser.
+That opens the guided setup page in your browser. It walks through:
+
+- speech provider key
+- hotkey validation
+- first transcription test
+- start-on-login
+
+`dicton --config-ui` still works, but `dicton --config` is the main onboarding command now.
 
 If you prefer editing the file directly, Dicton reads `.env` from its user config directory:
 

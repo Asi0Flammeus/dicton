@@ -555,6 +555,7 @@ Hotkeys (default):
 
 Examples:
   dicton                  Start dictation service
+  dicton --config         Open the guided setup flow
   dicton --config-ui      Open settings in browser
   dicton --benchmark      Show latency statistics
   dicton --check-update   Check for new version
@@ -572,6 +573,7 @@ Hotkeys (FN key mode):
 
 Examples:
   dicton                  Start dictation service
+  dicton --config         Open the guided setup flow
   dicton --config-ui      Open settings in browser
   dicton --benchmark      Show latency statistics
   dicton --check-update   Check for new version
@@ -604,9 +606,14 @@ Examples:
         help="Show version information",
     )
     parser.add_argument(
+        "--config",
+        action="store_true",
+        help="Launch the guided setup flow in browser",
+    )
+    parser.add_argument(
         "--config-ui",
         action="store_true",
-        help="Launch configuration web UI in browser",
+        help="Launch configuration UI in browser",
     )
     parser.add_argument(
         "--config-port",
@@ -623,7 +630,7 @@ Examples:
         print(f"Dicton v{__version__}")
         return
 
-    if args.config_ui:
+    if args.config or args.config_ui:
         try:
             from .config_server import run_config_server
 

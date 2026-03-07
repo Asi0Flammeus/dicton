@@ -12,7 +12,6 @@ from pathlib import Path
 import pytest
 
 import dicton
-from dicton.config_server import CONFIG_BOOL_FIELDS, CONFIG_FIELD_MAP, CONFIG_STRING_FIELDS
 from dicton.update_checker import GITHUB_API_URL
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -73,6 +72,29 @@ def test_cli_config_ui_works_without_full_app_startup(monkeypatch):
     cli.main()
 
     assert calls == [9999]
+
+
+def test_cli_config_alias_works_without_full_app_startup(monkeypatch):
+    cli = importlib.import_module("dicton.__main__")
+    calls: list[int] = []
+    real_import = __import__
+
+    def fake_run_config_server(*, port: int) -> None:
+        calls.append(port)
+
+    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name in {"dicton.config_server", "config_server"}:
+            return type("ConfigServerStub", (), {"run_config_server": fake_run_config_server})
+        if name in {"dicton.main", "main"}:
+            raise AssertionError("config should not import dicton.main")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr("builtins.__import__", guarded_import)
+    monkeypatch.setattr(sys, "argv", ["dicton", "--config", "--config-port", "8877"])
+
+    cli.main()
+
+    assert calls == [8877]
 
 
 def test_keyboard_handler_module_import_does_not_require_pynput(monkeypatch):
@@ -140,11 +162,12 @@ def test_check_script_covers_ci_targets():
     assert 'python-version: ["3.10", "3.11"]' in workflow
 
 
-def test_config_ui_field_sets_cover_saved_config_fields():
-    api_fields = CONFIG_STRING_FIELDS | CONFIG_BOOL_FIELDS
-    assert api_fields == set(CONFIG_FIELD_MAP)
-    assert "mistral_api_key" in api_fields
-    assert "stt_provider" in api_fields
+def test_config_server_field_maps_cover_saved_configuration():
+    from dicton.config_server import CONFIG_BOOL_FIELDS, CONFIG_FIELD_MAP, CONFIG_STRING_FIELDS
+
+    assert CONFIG_STRING_FIELDS | CONFIG_BOOL_FIELDS == set(CONFIG_FIELD_MAP)
+    assert "mistral_api_key" in CONFIG_FIELD_MAP
+    assert "stt_provider" in CONFIG_FIELD_MAP
 
 
 def test_windows_packaging_files_exist():
@@ -213,23 +236,94 @@ def test_config_ui_embedded_script_has_valid_javascript():
     if node is None:
         pytest.skip("node is not available in this environment")
 
-    html = (ROOT / "src" / "dicton" / "assets" / "config_ui.html").read_text(encoding="utf-8")
-    start = html.index("<script>") + len("<script>")
-    end = html.index("</script>", start)
-    script = html[start:end].strip()
+    for relative_path in ("config_ui.html", "setup_ui.html"):
+        html = (ROOT / "src" / "dicton" / "assets" / relative_path).read_text(encoding="utf-8")
+        start = html.index("<script>") + len("<script>")
+        end = html.index("</script>", start)
+        script = html[start:end].strip()
 
-    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as tmp:
-        tmp.write(script)
-        tmp_path = Path(tmp.name)
+        with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as tmp:
+            tmp.write(script)
+            tmp_path = Path(tmp.name)
 
-    try:
-        result = subprocess.run(
-            [node, "--check", str(tmp_path)],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    finally:
-        tmp_path.unlink(missing_ok=True)
+        try:
+            result = subprocess.run(
+                [node, "--check", str(tmp_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        finally:
+            tmp_path.unlink(missing_ok=True)
 
-    assert result.returncode == 0, result.stderr
+        assert result.returncode == 0, f"{relative_path}: {result.stderr}"
+
+
+def test_setup_status_endpoint_defaults_to_speech_step(monkeypatch, tmp_path):
+    TestClient = pytest.importorskip("fastapi.testclient").TestClient
+
+    import dicton.config_server as config_server
+
+    monkeypatch.setattr(config_server.Config, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(
+        config_server,
+        "get_autostart_state",
+        lambda: {"supported": True, "enabled": False, "path": str(tmp_path / "dicton.desktop")},
+    )
+    monkeypatch.setattr(config_server, "has_display_session", lambda: True)
+    monkeypatch.setattr(config_server, "read_env_file", lambda: {})
+    monkeypatch.setattr(
+        config_server,
+        "_hotkey_status",
+        lambda env_vars: {"ready": True, "mode": "fn", "detail": "ready"},
+    )
+    monkeypatch.setattr(
+        config_server,
+        "_text_output_status",
+        lambda: {"ready": True, "detail": "ready"},
+    )
+    config_server._setup_state["first_test_passed"] = False
+    config_server._setup_state["last_test_text"] = ""
+
+    client = TestClient(config_server.create_app())
+    response = client.get("/api/setup/status")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["next_step"] == "speech"
+    assert data["checks"]["stt"]["ready"] is False
+
+
+def test_setup_save_persists_speech_provider_fields(monkeypatch, tmp_path):
+    TestClient = pytest.importorskip("fastapi.testclient").TestClient
+
+    import dicton.config_server as config_server
+
+    monkeypatch.setattr(config_server.Config, "CONFIG_DIR", tmp_path)
+    monkeypatch.setattr(
+        config_server,
+        "get_autostart_state",
+        lambda: {"supported": True, "enabled": False, "path": str(tmp_path / "dicton.desktop")},
+    )
+    monkeypatch.setattr(config_server, "has_display_session", lambda: True)
+    monkeypatch.setattr(
+        config_server,
+        "_hotkey_status",
+        lambda env_vars: {"ready": True, "mode": "fn", "detail": "ready"},
+    )
+    monkeypatch.setattr(
+        config_server,
+        "_text_output_status",
+        lambda: {"ready": True, "detail": "ready"},
+    )
+
+    client = TestClient(config_server.create_app())
+    response = client.post(
+        "/api/setup/save",
+        json={"stt_provider": "mistral", "mistral_api_key": "test-key"},
+    )
+
+    assert response.status_code == 200
+    env_vars = config_server.read_env_file()
+    assert env_vars["STT_PROVIDER"] == "mistral"
+    assert env_vars["MISTRAL_API_KEY"] == "test-key"
