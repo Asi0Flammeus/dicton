@@ -104,16 +104,16 @@ def test_update_checker_points_to_canonical_repo():
 
 def test_check_script_covers_ci_targets():
     content = (ROOT / "scripts" / "check.sh").read_text(encoding="utf-8")
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     assert "lint|test|build|all" in content
-    assert "./scripts/check.sh lint" in (ROOT / ".github" / "workflows" / "ci.yml").read_text(
-        encoding="utf-8"
-    )
-    assert "./scripts/check.sh test" in (ROOT / ".github" / "workflows" / "ci.yml").read_text(
-        encoding="utf-8"
-    )
-    assert "./scripts/check.sh build" in (ROOT / ".github" / "workflows" / "ci.yml").read_text(
-        encoding="utf-8"
-    )
+    assert "./scripts/check.sh lint" in workflow
+    assert "./scripts/check.sh test" in workflow
+    assert "./scripts/check.sh build" in workflow
+    assert "paths-ignore:" in workflow
+    assert '"**/*.md"' in workflow
+    assert '"docs/**"' in workflow
+    assert '"LICENSE"' in workflow
+    assert 'cron: "0 8 * * 1"' in workflow
 
 
 def test_windows_packaging_files_exist():
@@ -128,11 +128,12 @@ def test_windows_packaging_files_exist():
     assert 'collect_submodules("pynput")' in spec
 
 
-def test_windows_package_job_present():
+def test_smoke_job_is_pr_or_schedule_only():
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    assert "windows-package:" in workflow
-    assert r".\scripts\build-windows.ps1" in workflow
-    assert "dicton-windows-x64.zip" in workflow
+    assert "smoke:" in workflow
+    assert "if: github.event_name == 'pull_request' || github.event_name == 'schedule'" in workflow
+    assert "windows-latest" in workflow
+    assert "macos-latest" in workflow
 
 
 def test_linux_packaging_files_exist():
@@ -145,18 +146,17 @@ def test_linux_packaging_files_exist():
     assert 'collect_submodules("Xlib")' in spec
 
 
-def test_linux_package_job_present():
+def test_ci_does_not_build_release_packages():
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    assert "linux-package:" in workflow
-    assert "./scripts/build-linux-package.sh" in workflow
-    assert "dicton-linux-x64.tar.gz" in workflow
-    assert "dicton_*_amd64.deb" in workflow
+    assert "windows-package:" not in workflow
+    assert "linux-package:" not in workflow
+    assert "./scripts/build-linux-package.sh" not in workflow
+    assert r".\scripts\build-windows.ps1" not in workflow
 
 
 def test_release_workflow_present():
     workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
-    assert "tags:" in workflow
-    assert "v*" in workflow
+    assert "push:" not in workflow
     assert "workflow_call:" in workflow
     assert "workflow_dispatch:" in workflow
     assert "softprops/action-gh-release" in workflow
