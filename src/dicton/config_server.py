@@ -9,7 +9,6 @@ from pathlib import Path
 from threading import Timer
 from typing import Any
 
-from .app_paths import get_user_contexts_path
 from .config import Config, config
 from .platform_utils import IS_LINUX, IS_MACOS, IS_WINDOWS, get_platform_info
 from .startup import get_autostart_state, has_display_session, launch_background, set_autostart

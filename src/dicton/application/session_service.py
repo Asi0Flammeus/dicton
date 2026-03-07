@@ -235,7 +235,7 @@ class SessionService:
         text: str,
         mode: ProcessingMode,
         selected_text: str | None = None,
-        context: "ContextInfo | None" = None,
+        context: ContextInfo | None = None,
     ) -> str | None:
         """Process transcribed text based on the current mode."""
         if not is_mode_enabled(mode):
@@ -278,7 +278,7 @@ class SessionService:
         text: str,
         mode: ProcessingMode,
         replace_selection: bool,
-        context: "ContextInfo | None" = None,
+        context: ContextInfo | None = None,
     ) -> None:
         """Emit processed text to the active application."""
         typing_delay_ms = 50
