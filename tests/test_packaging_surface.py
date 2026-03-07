@@ -260,7 +260,7 @@ def test_config_ui_embedded_script_has_valid_javascript():
 
 
 def test_setup_status_endpoint_defaults_to_speech_step(monkeypatch, tmp_path):
-    from fastapi.testclient import TestClient
+    TestClient = pytest.importorskip("fastapi.testclient").TestClient
 
     import dicton.config_server as config_server
 
@@ -295,7 +295,7 @@ def test_setup_status_endpoint_defaults_to_speech_step(monkeypatch, tmp_path):
 
 
 def test_setup_save_persists_speech_provider_fields(monkeypatch, tmp_path):
-    from fastapi.testclient import TestClient
+    TestClient = pytest.importorskip("fastapi.testclient").TestClient
 
     import dicton.config_server as config_server
 
