@@ -43,13 +43,13 @@ Download the latest release here:
 Download the `.deb` file from the latest release, then install it with:
 
 ```bash
-sudo apt install ./dicton_1.1.3_amd64.deb
+sudo apt install ./dicton_1.2.0_amd64.deb
 ```
 
 If your system prefers `dpkg`:
 
 ```bash
-sudo dpkg -i dicton_1.1.3_amd64.deb
+sudo dpkg -i dicton_1.2.0_amd64.deb
 sudo apt-get install -f
 ```
 

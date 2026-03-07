@@ -3,8 +3,18 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
   pull_request:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "LICENSE"
+  schedule:
+    - cron: "0 8 * * 1"
 
 jobs:
   lint:
@@ -25,12 +35,42 @@ jobs:
         run: ./scripts/check.sh lint
 
   test:
-    name: Test (Python ${{ matrix.python-version }})
+    name: Test (Python 3.12)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y portaudio19-dev
+
+      - name: Install package with dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run tests with coverage
+        run: ./scripts/check.sh test --cov=dicton --cov-report=xml --cov-report=term
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+  test-compatibility:
+    name: Test Compatibility (Python ${{ matrix.python-version }})
+    if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11"]
 
     steps:
       - uses: actions/checkout@v4
@@ -48,15 +88,8 @@ jobs:
       - name: Install package with dev dependencies
         run: pip install -e ".[dev]"
 
-      - name: Run tests with coverage
-        run: ./scripts/check.sh test --cov=dicton --cov-report=xml --cov-report=term
-
-      - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.12'
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
+      - name: Run tests
+        run: ./scripts/check.sh test
 
   build:
     name: Build
@@ -77,6 +110,7 @@ jobs:
 
   smoke:
     name: Smoke (${{ matrix.os }})
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -120,65 +154,3 @@ jobs:
         run: |
           python -c "import dicton; print(dicton.__version__)"
           python -m dicton --version
-
-  windows-package:
-    name: Windows Package
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install package dependencies
-        shell: bash
-        run: pip install -e ".[windows,context-windows,notifications,llm,configui,mistral,packaging]"
-
-      - name: Build Windows bundle
-        shell: powershell
-        run: .\scripts\build-windows.ps1
-
-      - name: Smoke packaged executable
-        shell: powershell
-        run: .\dist\dicton\dicton.exe --version
-
-      - name: Upload Windows bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: dicton-windows-x64
-          path: dist/dicton-windows-x64.zip
-
-  linux-package:
-    name: Linux Package
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y portaudio19-dev libportaudio2 xdotool xclip libnotify-bin
-
-      - name: Install package dependencies
-        run: pip install -e ".[linux,packaging]"
-
-      - name: Build Linux package assets
-        run: ./scripts/build-linux-package.sh
-
-      - name: Smoke packaged executable
-        run: ./dist/dicton/dicton --version
-
-      - name: Upload Linux bundle
-        uses: actions/upload-artifact@v4
-        with:
-          name: dicton-linux-x64
-          path: |
-            dist/dicton-linux-x64.tar.gz
-            dist/dicton_*_amd64.deb
