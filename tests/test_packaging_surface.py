@@ -130,3 +130,12 @@ def test_release_workflow_present():
     assert "windows-package" in workflow
     assert "linux-package" in workflow
     assert "python-dist" in workflow
+
+
+def test_auto_tag_release_workflow_present():
+    workflow = (ROOT / ".github" / "workflows" / "auto-tag-release.yml").read_text(encoding="utf-8")
+    assert "branches: [main]" in workflow
+    assert "contents: write" in workflow
+    assert "src/dicton/__init__.py" in workflow
+    assert 'echo "tag=v${version}"' in workflow
+    assert 'git push origin "${{ steps.version.outputs.tag }}"' in workflow
