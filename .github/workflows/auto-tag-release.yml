@@ -15,6 +15,9 @@ jobs:
   create-release-tag:
     name: Create Release Tag
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      tag_exists: ${{ steps.tag_check.outputs.exists }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,3 +59,13 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
           git push origin "${{ steps.version.outputs.tag }}"
+
+  publish-release:
+    name: Publish Release
+    needs: create-release-tag
+    if: needs.create-release-tag.outputs.tag_exists == 'false'
+    uses: ./.github/workflows/release.yml
+    with:
+      ref: ${{ needs.create-release-tag.outputs.tag }}
+      tag_name: ${{ needs.create-release-tag.outputs.tag }}
+    secrets: inherit

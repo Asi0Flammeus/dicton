@@ -157,7 +157,10 @@ def test_release_workflow_present():
     workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
     assert "tags:" in workflow
     assert "v*" in workflow
+    assert "workflow_call:" in workflow
+    assert "workflow_dispatch:" in workflow
     assert "softprops/action-gh-release" in workflow
+    assert "tag_name: ${{ env.RELEASE_TAG }}" in workflow
     assert "windows-package" in workflow
     assert "linux-package" in workflow
     assert "python-dist" in workflow
@@ -170,3 +173,5 @@ def test_auto_tag_release_workflow_present():
     assert "src/dicton/__init__.py" in workflow
     assert 'echo "tag=v${version}"' in workflow
     assert 'git push origin "${{ steps.version.outputs.tag }}"' in workflow
+    assert "uses: ./.github/workflows/release.yml" in workflow
+    assert "tag_exists" in workflow
