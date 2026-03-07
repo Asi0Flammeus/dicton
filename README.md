@@ -36,7 +36,7 @@ It is built for speed and low friction: press a hotkey, talk, release, and the t
 
 Download the latest release here:
 
-`https://github.com/Asi0Flammeus/dicton/releases/latest`
+[Latest release](https://github.com/Asi0Flammeus/dicton/releases/latest)
 
 ### Linux
 
@@ -115,7 +115,7 @@ GEMINI_API_KEY=your_key_here
 
 ## Releases
 
-- Latest release: `https://github.com/Asi0Flammeus/dicton/releases/latest`
+- Latest release: [https://github.com/Asi0Flammeus/dicton/releases/latest](https://github.com/Asi0Flammeus/dicton/releases/latest)
 - All releases: `https://github.com/Asi0Flammeus/dicton/releases`
 
 ## Development

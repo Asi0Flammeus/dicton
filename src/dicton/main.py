@@ -5,32 +5,36 @@ import os
 import signal
 import threading
 import warnings
+from typing import TYPE_CHECKING
 
 # Suppress warnings
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 warnings.filterwarnings("ignore")
 
-from .adapters.audio import AudioCaptureAdapter, STTAdapter
-from .adapters.audio_session_control import AudioSessionControlAdapter
 from .adapters.config_env import load_app_config
-from .adapters.metrics import MetricsAdapter
-from .adapters.text_processing import TextOutputAdapter, TextProcessorAdapter
-from .adapters.ui_feedback import UIFeedbackAdapter
 from .config import config
-from .context_detector import ContextInfo, get_context_detector
-from .core.controller import DictationController, SessionContext
-from .keyboard_handler import KeyboardHandler
-from .latency_tracker import get_latency_tracker
+from .core.controller import SessionContext
 from .platform_utils import IS_LINUX, IS_WINDOWS
 from .processing_mode import ProcessingMode, get_mode_color, is_mode_enabled
-from .speech_recognition_engine import SpeechRecognizer
-from .ui_feedback import notify
+
+if TYPE_CHECKING:
+    from .context_detector import ContextInfo
 
 
 class Dicton:
     """Main application with FN key hotkey and processing modes"""
 
     def __init__(self):
+        from .adapters.audio import AudioCaptureAdapter, STTAdapter
+        from .adapters.audio_session_control import AudioSessionControlAdapter
+        from .adapters.metrics import MetricsAdapter
+        from .adapters.text_processing import TextOutputAdapter, TextProcessorAdapter
+        from .adapters.ui_feedback import UIFeedbackAdapter
+        from .core.controller import DictationController
+        from .keyboard_handler import KeyboardHandler
+        from .latency_tracker import get_latency_tracker
+        from .speech_recognition_engine import SpeechRecognizer
+
         config.create_dirs()
         self.recognizer = SpeechRecognizer()
 
@@ -117,6 +121,8 @@ class Dicton:
         # Detect context at recording start (not on every frame)
         if self._app_config.context_enabled:
             try:
+                from .context_detector import get_context_detector
+
                 detector = get_context_detector()
                 if detector:
                     self._current_context = detector.get_context()
@@ -254,6 +260,8 @@ class Dicton:
 
         except Exception as e:
             print(f"Error: {e}")
+            from .ui_feedback import notify
+
             notify("❌ Error", str(e)[:50])
             try:
                 tracker.end_session()
@@ -273,6 +281,8 @@ class Dicton:
 
             if not has_selection():
                 print("⚠ No text selected")
+                from .ui_feedback import notify
+
                 notify("⚠ No Selection", "Highlight text first, then press FN+Shift")
                 return None
 
@@ -280,6 +290,8 @@ class Dicton:
             if not selected:
                 tool_hint = "wl-clipboard" if IS_WAYLAND else "xclip"
                 print(f"⚠ Could not read selection (install {tool_hint})")
+                from .ui_feedback import notify
+
                 notify("⚠ Selection Error", f"Install {tool_hint}")
                 return None
 
@@ -287,6 +299,8 @@ class Dicton:
 
         except ImportError as e:
             print(f"⚠ Selection handler not available: {e}")
+            from .ui_feedback import notify
+
             notify("⚠ Not Available", "Install xclip or wl-clipboard")
             return None
 
@@ -295,7 +309,7 @@ class Dicton:
         text: str,
         mode: ProcessingMode,
         selected_text: str | None = None,
-        context: ContextInfo | None = None,
+        context: "ContextInfo | None" = None,
     ) -> str | None:
         """Process transcribed text based on mode"""
         if not is_mode_enabled(mode):
@@ -314,6 +328,8 @@ class Dicton:
 
             if not llm_processor.is_available():
                 print("⚠ LLM not available (set GEMINI_API_KEY or ANTHROPIC_API_KEY)")
+                from .ui_feedback import notify
+
                 notify("⚠ LLM Not Available", "Configure LLM_PROVIDER")
                 return text  # Fallback to raw text
 
@@ -358,7 +374,7 @@ class Dicton:
         text: str,
         mode: ProcessingMode,
         replace_selection: bool,
-        context: ContextInfo | None = None,
+        context: "ContextInfo | None" = None,
     ):
         """Output the processed text using character-by-character typing.
 
@@ -388,9 +404,13 @@ class Dicton:
 
         if mode == ProcessingMode.ACT_ON_TEXT:
             print(f"✓ Replaced: {text[:50]}..." if len(text) > 50 else f"✓ {text}")
+            from .ui_feedback import notify
+
             notify("✓ Text Replaced", text[:100])
         else:
             print(f"✓ {text[:50]}..." if len(text) > 50 else f"✓ {text}")
+            from .ui_feedback import notify
+
             notify("✓ Done", text[:100])
 
     def _check_vpn_active(self) -> bool:
@@ -455,6 +475,8 @@ class Dicton:
         hotkey_display = (
             "FN" if self._use_fn_key else f"{config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}"
         )
+        from .ui_feedback import notify
+
         notify("Dicton Ready", f"Press {hotkey_display}")
 
         # Cross-platform wait loop

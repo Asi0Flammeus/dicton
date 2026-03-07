@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 
 spec_dir = Path(globals().get("SPECPATH", Path.cwd())).resolve()
@@ -27,6 +27,7 @@ hiddenimports = [
     "dicton.stt_elevenlabs",
     "dicton.stt_mistral",
 ]
+hiddenimports += collect_submodules("pynput")
 
 
 a = Analysis(
