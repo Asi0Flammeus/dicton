@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3]
+
+### Fixed
+
+- Fixed the configuration dashboard JavaScript so the non-default tabs work again in the packaged `dicton --config-ui` UI.
+
 ## [1.1.2]
 
 ### Changed
