@@ -95,6 +95,7 @@ def test_windows_packaging_files_exist():
     spec = (ROOT / "packaging" / "windows" / "dicton.spec").read_text(encoding="utf-8")
     assert "__file__" not in spec
     assert "SPECPATH" in spec
+    assert 'project_root / "src" / "dicton" / "__main__.py"' in spec
 
 
 def test_windows_package_job_present():

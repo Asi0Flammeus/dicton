@@ -30,7 +30,7 @@ hiddenimports = [
 
 
 a = Analysis(
-    ["src/dicton/__main__.py"],
+    [str(project_root / "src" / "dicton" / "__main__.py")],
     pathex=[str(project_root / "src")],
     binaries=[],
     datas=datas,
