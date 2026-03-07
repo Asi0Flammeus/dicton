@@ -82,13 +82,21 @@ Examples:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=epilog,
     )
-    parser.add_argument("--benchmark", action="store_true", help="Show latency report from previous sessions")
+    parser.add_argument(
+        "--benchmark", action="store_true", help="Show latency report from previous sessions"
+    )
     parser.add_argument("--check-update", action="store_true", help="Check for available updates")
     parser.add_argument("--clear-log", action="store_true", help="Clear the latency log file")
     parser.add_argument("--version", action="store_true", help="Show version information")
-    parser.add_argument("--config", action="store_true", help="Launch the guided setup flow in browser")
-    parser.add_argument("--config-ui", action="store_true", help="Launch configuration UI in browser")
-    parser.add_argument("--config-port", type=int, default=6873, help="Port for config UI server (default: 6873)")
+    parser.add_argument(
+        "--config", action="store_true", help="Launch the guided setup flow in browser"
+    )
+    parser.add_argument(
+        "--config-ui", action="store_true", help="Launch configuration UI in browser"
+    )
+    parser.add_argument(
+        "--config-port", type=int, default=6873, help="Port for config UI server (default: 6873)"
+    )
     return parser
 
 

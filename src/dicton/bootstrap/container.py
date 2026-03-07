@@ -33,14 +33,14 @@ def build_runtime_service() -> RuntimeService:
     )
     session_service.bind_controller(
         DictationController(
-        audio_capture=AudioCaptureAdapter(recognizer),
-        audio_control=AudioSessionControlAdapter(),
-        stt=STTAdapter(recognizer),
-        text_processor=TextProcessorAdapter(session_service.process_text),
-        text_output=TextOutputAdapter(session_service.output_result),
-        ui=UIFeedbackAdapter(),
-        metrics=MetricsAdapter(metrics),
-    )
+            audio_capture=AudioCaptureAdapter(recognizer),
+            audio_control=AudioSessionControlAdapter(),
+            stt=STTAdapter(recognizer),
+            text_processor=TextProcessorAdapter(session_service.process_text),
+            text_output=TextOutputAdapter(session_service.output_result),
+            ui=UIFeedbackAdapter(),
+            metrics=MetricsAdapter(metrics),
+        )
     )
     keyboard.on_toggle = session_service.toggle_basic_recording
 

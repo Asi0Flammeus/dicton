@@ -62,7 +62,9 @@ def register_context_routes(app) -> None:
             profile = manager.get_profile(profile_name)
 
             if not profile:
-                return JSONResponse({"error": f"Profile '{profile_name}' not found"}, status_code=404)
+                return JSONResponse(
+                    {"error": f"Profile '{profile_name}' not found"}, status_code=404
+                )
 
             return {
                 "name": profile.name,
