@@ -149,3 +149,36 @@ jobs:
         with:
           name: dicton-windows-x64
           path: dist/dicton-windows-x64.zip
+
+  linux-package:
+    name: Linux Package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y portaudio19-dev libportaudio2 xdotool xclip libnotify-bin
+
+      - name: Install package dependencies
+        run: pip install -e ".[linux,packaging]"
+
+      - name: Build Linux package assets
+        run: ./scripts/build-linux-package.sh
+
+      - name: Smoke packaged executable
+        run: ./dist/dicton/dicton --version
+
+      - name: Upload Linux bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: dicton-linux-x64
+          path: |
+            dist/dicton-linux-x64.tar.gz
+            dist/dicton_*_amd64.deb

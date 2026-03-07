@@ -104,3 +104,29 @@ def test_windows_package_job_present():
     assert "windows-package:" in workflow
     assert r".\scripts\build-windows.ps1" in workflow
     assert "dicton-windows-x64.zip" in workflow
+
+
+def test_linux_packaging_files_exist():
+    assert (ROOT / "packaging" / "linux" / "dicton.spec").exists()
+    assert (ROOT / "scripts" / "build-linux-package.sh").exists()
+    assert (ROOT / "docs" / "linux-packaging.md").exists()
+    spec = (ROOT / "packaging" / "linux" / "dicton.spec").read_text(encoding="utf-8")
+    assert 'project_root / "packaging" / "windows" / "pyinstaller_entry.py"' in spec
+
+
+def test_linux_package_job_present():
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    assert "linux-package:" in workflow
+    assert "./scripts/build-linux-package.sh" in workflow
+    assert "dicton-linux-x64.tar.gz" in workflow
+    assert "dicton_*_amd64.deb" in workflow
+
+
+def test_release_workflow_present():
+    workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+    assert "tags:" in workflow
+    assert "v*" in workflow
+    assert "softprops/action-gh-release" in workflow
+    assert "windows-package" in workflow
+    assert "linux-package" in workflow
+    assert "python-dist" in workflow
