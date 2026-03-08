@@ -117,12 +117,6 @@ def test_keyboard_handler_module_import_does_not_require_pynput(monkeypatch):
     ("relative_path", "forbidden", "required"),
     [
         (
-            "install.bat",
-            "requirements.txt",
-            'pip install -e ".[windows,context-windows,notifications,llm,configui,mistral]"',
-        ),
-        ("install.bat", "src\\main.py", "python.exe -m dicton"),
-        (
             "scripts/install.ps1",
             "requirements.txt",
             'pip install -e ".[windows,context-windows,notifications,llm,configui,mistral]"',
@@ -179,6 +173,8 @@ def test_windows_packaging_files_exist():
     assert "__file__" not in spec
     assert "SPECPATH" in spec
     assert 'project_root / "packaging" / "windows" / "pyinstaller_entry.py"' in spec
+    assert '"assets/setup_ui.html"' in spec
+    assert '"assets/config_ui.html"' in spec
     assert 'collect_submodules("pynput")' in spec
 
 
@@ -196,6 +192,8 @@ def test_linux_packaging_files_exist():
     assert (ROOT / "docs" / "linux-packaging.md").exists()
     spec = (ROOT / "packaging" / "linux" / "dicton.spec").read_text(encoding="utf-8")
     assert 'project_root / "packaging" / "windows" / "pyinstaller_entry.py"' in spec
+    assert '"assets/setup_ui.html"' in spec
+    assert '"assets/config_ui.html"' in spec
     assert 'collect_submodules("pynput")' in spec
     assert 'collect_submodules("Xlib")' in spec
 

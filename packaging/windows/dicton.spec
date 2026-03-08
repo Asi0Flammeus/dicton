@@ -10,6 +10,7 @@ project_root = spec_dir.parents[1]
 datas = collect_data_files(
     "dicton",
     includes=[
+        "assets/setup_ui.html",
         "assets/config_ui.html",
         "assets/logo.png",
         "default_contexts.json",

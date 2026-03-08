@@ -140,6 +140,13 @@ def main() -> None:
         show_latency_report()
         return
 
+    from .singleton import acquire_instance_lock
+
+    _lock = acquire_instance_lock()
+    if _lock is None:
+        print("⚠ Dicton is already running. Exiting.")
+        return
+
     app = build_runtime_service()
 
     def signal_handler(sig, frame):

@@ -58,13 +58,6 @@
             font-size: 1rem;
             line-height: 1.6;
         }
-        .top-grid {
-            display: grid;
-            grid-template-columns: 1.4fr 1fr;
-            gap: 18px;
-            align-items: start;
-            margin-bottom: 24px;
-        }
         .card {
             background: var(--panel);
             border: 1px solid var(--line);
@@ -209,8 +202,55 @@
             border-radius: 16px;
         }
         .global-message.show { display: block; }
+        .test-textarea {
+            width: 100%;
+            min-height: 120px;
+            margin-top: 16px;
+            padding: 16px;
+            border-radius: 14px;
+            background: #0d0c0c;
+            border: 1px solid var(--line);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            resize: vertical;
+            transition: border-color 0.2s;
+        }
+        .test-textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(218, 112, 44, 0.25);
+        }
+        .test-textarea::placeholder { color: #66625e; }
+        .test-congrats {
+            margin-top: 16px;
+            padding: 18px;
+            border-radius: 14px;
+            background: rgba(135, 154, 57, 0.12);
+            border: 1px solid rgba(135, 154, 57, 0.35);
+            line-height: 1.5;
+        }
+        .test-congrats .congrats-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #c0d17b;
+        }
+        .test-congrats .congrats-text {
+            color: var(--text);
+            white-space: pre-wrap;
+        }
+        .test-troubleshoot {
+            margin-top: 16px;
+            padding: 16px;
+            border-radius: 14px;
+            background: rgba(209, 77, 65, 0.08);
+            border: 1px solid rgba(209, 77, 65, 0.25);
+            color: var(--muted);
+            line-height: 1.6;
+        }
         @media (max-width: 860px) {
-            .top-grid,
             .form-grid,
             .step-nav {
                 grid-template-columns: 1fr;
@@ -233,18 +273,12 @@
 
         <div id="global-message" class="global-message"></div>
 
-        <section class="top-grid">
-            <div class="card">
-                <h2>Readiness</h2>
-                <div id="summary-list" class="summary-list"></div>
-            </div>
-            <div class="card">
-                <h2>Current Target</h2>
-                <div id="next-step" class="status-note"></div>
-                <div class="footer-links">
-                    <a href="/advanced" target="_blank" rel="noreferrer">Advanced settings</a>
-                    <a href="/advanced#tab-test" target="_blank" rel="noreferrer">Latency dashboard</a>
-                </div>
+        <section class="card" style="margin-bottom: 24px;">
+            <h2>Readiness</h2>
+            <div id="summary-list" class="summary-list"></div>
+            <div class="footer-links">
+                <a href="/advanced" target="_blank" rel="noreferrer">Advanced settings</a>
+                <a href="/advanced#tab-test" target="_blank" rel="noreferrer">Latency dashboard</a>
             </div>
         </section>
 
@@ -262,13 +296,13 @@
                     3. Hotkey
                     <small>Pick the trigger that will start dictation</small>
                 </button>
-                <button class="step-button" data-step="test" onclick="setStep('test')">
-                    4. First Test
-                    <small>Record a short sample and verify transcription</small>
-                </button>
                 <button class="step-button" data-step="autostart" onclick="setStep('autostart')">
-                    5. Launch
+                    4. Launch
                     <small>Start now and enable auto-start on login</small>
+                </button>
+                <button class="step-button" data-step="test" onclick="setStep('test')">
+                    5. First Test
+                    <small>Test with actual hotkey after launching</small>
                 </button>
             </div>
 
@@ -319,6 +353,35 @@
                         <span class="muted">Keep this as a fallback or use it as your primary provider.</span>
                     </div>
                 </div>
+                <h3 style="margin-top: 20px;">Translation (LLM)</h3>
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="llm_provider">LLM provider</label>
+                        <select id="llm_provider">
+                            <option value="gemini">Gemini</option>
+                            <option value="anthropic">Anthropic</option>
+                        </select>
+                    </div>
+                    <div class="field" style="align-self: end;">
+                        <span class="muted">Used for translation and reformulation modes.</span>
+                    </div>
+                    <div class="field">
+                        <label for="gemini_api_key">Gemini API key</label>
+                        <div class="secret-row">
+                            <input id="gemini_api_key" type="password" placeholder="Paste a new Gemini API key">
+                            <span id="gemini_status" class="badge warn">Not set</span>
+                        </div>
+                        <span class="muted">Default provider — fast and cheap.</span>
+                    </div>
+                    <div class="field">
+                        <label for="anthropic_api_key">Anthropic API key</label>
+                        <div class="secret-row">
+                            <input id="anthropic_api_key" type="password" placeholder="Paste a new Anthropic API key">
+                            <span id="anthropic_status" class="badge warn">Not set</span>
+                        </div>
+                        <span class="muted">Alternative provider for translation.</span>
+                    </div>
+                </div>
                 <div id="speech-note" class="status-note"></div>
                 <div class="actions">
                     <button class="btn btn-primary" onclick="saveSetup('speech')">Save and validate</button>
@@ -364,32 +427,44 @@
                 <div id="hotkey-note" class="status-note"></div>
                 <div class="actions">
                     <button class="btn btn-primary" onclick="saveSetup('hotkey')">Save hotkey settings</button>
-                    <button class="btn btn-secondary" onclick="setStep('test')">Continue</button>
+                    <button class="btn btn-secondary" onclick="setStep('autostart')">Continue</button>
                 </div>
-            </div>
-
-            <div id="step-test" class="step-panel">
-                <h2>First Transcription Test</h2>
-                <div class="status-note">
-                    Say one short sentence. If Dicton returns text here, the setup is good enough to start.
-                </div>
-                <div class="actions">
-                    <button id="start-test-btn" class="btn btn-primary" onclick="startTest()">Start recording</button>
-                    <button id="stop-test-btn" class="btn btn-secondary" onclick="stopTest()" disabled>Stop and transcribe</button>
-                </div>
-                <div id="test-result" class="result-box">No test run yet.</div>
             </div>
 
             <div id="step-autostart" class="step-panel">
                 <h2>Start Dicton</h2>
                 <div id="autostart-note" class="status-note"></div>
                 <div class="actions">
-                    <button class="btn btn-primary" onclick="toggleAutostart(true)">Enable auto-start on login</button>
-                    <button class="btn btn-secondary" onclick="toggleAutostart(false)">Disable auto-start</button>
-                    <button class="btn btn-primary" onclick="launchDicton()">Start Dicton now</button>
+                    <button class="btn btn-primary" onclick="enableAutostartAndLaunch()">Enable auto-start and launch</button>
+                    <button class="btn btn-secondary" onclick="launchDictonOnly()">Just try it</button>
                 </div>
                 <div class="result-box" id="launch-result">
-                    Once Dicton reports that it started, you can close this browser tab.
+                    Once Dicton reports that it started, continue to the test step.
+                </div>
+            </div>
+
+            <div id="step-test" class="step-panel">
+                <h2>First Transcription Test</h2>
+                <div id="test-instructions" class="status-note">
+                    Click the text area below to focus it, then press your hotkey and say a short sentence.
+                    Dicton will type the transcription directly into the text area.
+                </div>
+                <textarea id="test-textarea" class="test-textarea" placeholder="Click here, press your hotkey, and speak..."></textarea>
+                <div id="test-congrats" class="test-congrats" style="display:none;">
+                    <div class="congrats-title">&#10003; Transcription detected!</div>
+                    <div id="test-congrats-text" class="congrats-text"></div>
+                </div>
+                <div id="test-troubleshoot" class="test-troubleshoot" style="display:none;">
+                    Nothing happened yet? A few things to check:<br>
+                    1. Make sure Dicton is running (check the terminal or tray icon).<br>
+                    2. Verify your hotkey is configured correctly in step 3.<br>
+                    3. Make sure your microphone is working and not muted.<br>
+                    4. Check the terminal where Dicton is running for error messages.<br>
+                    5. Try restarting Dicton from the Launch step.
+                </div>
+                <div class="actions">
+                    <button id="test-try-again" class="btn btn-secondary" style="display:none;" onclick="resetTestArea()">Try again</button>
+                    <button id="test-close" class="btn btn-primary" style="display:none;" onclick="window.close()">Close setup</button>
                 </div>
             </div>
         </section>
@@ -401,7 +476,9 @@
             config: null,
             setup: null,
             currentStep: 'welcome',
-            testRecording: false,
+            testDebounceTimer: null,
+            testInactivityTimer: null,
+            testConfirmed: false,
         };
 
         function setStep(step) {
@@ -410,6 +487,7 @@
             document.querySelectorAll('.step-button').forEach((button) => button.classList.remove('active'));
             document.getElementById(`step-${step}`).classList.add('active');
             document.querySelector(`[data-step="${step}"]`).classList.add('active');
+            if (step === 'test') initTestListeners();
         }
 
         function setMessage(message, type = 'info') {
@@ -421,12 +499,14 @@
         function renderSummary() {
             const list = document.getElementById('summary-list');
             const setup = state.setup;
+            const llm = setup.checks.llm || { ready: false, detail: 'No LLM key configured.' };
             const rows = [
                 ['Speech provider', setup.checks.stt.ready, setup.checks.stt.detail],
+                ['Translation (LLM)', llm.ready, llm.detail],
                 ['Hotkey backend', setup.checks.hotkey.ready, setup.checks.hotkey.detail],
                 ['Text insertion', setup.checks.text_output.ready, setup.checks.text_output.detail],
-                ['First test', setup.first_test_passed, setup.first_test_passed ? 'A transcription test already succeeded in this session.' : 'Run one short test before finishing setup.'],
                 ['Auto-start', setup.checks.autostart.enabled, setup.checks.autostart.supported ? (setup.checks.autostart.enabled ? 'Dicton will start when you log in.' : 'Optional but recommended for daily use.') : 'Not automated on this platform yet.'],
+                ['First test', setup.first_test_passed, setup.first_test_passed ? 'A transcription test already succeeded in this session.' : 'Launch Dicton, then test with your actual hotkey.'],
             ];
 
             list.innerHTML = rows.map(([label, ready, detail]) => `
@@ -439,7 +519,6 @@
                 </div>
             `).join('');
 
-            document.getElementById('next-step').textContent = nextStepMessage(setup.next_step);
             document.getElementById('environment-note').textContent = `${setup.launch_detail} Config file: ${setup.config_path}`;
             document.getElementById('speech-note').textContent = setup.checks.stt.detail;
             document.getElementById('hotkey-note').textContent = setup.checks.hotkey.detail;
@@ -447,32 +526,24 @@
                 ? `${setup.checks.autostart.enabled ? 'Autostart is enabled.' : 'Autostart is currently disabled.'} ${setup.checks.autostart.path || ''}`.trim()
                 : 'Autostart is not automated on this platform yet.';
 
-            if (setup.last_test_text) {
-                document.getElementById('test-result').textContent = `Latest successful test:\n\n${setup.last_test_text}`;
+            if (setup.first_test_passed && setup.last_test_text) {
+                showTestCongrats(setup.last_test_text);
             }
-        }
-
-        function nextStepMessage(step) {
-            const messages = {
-                speech: 'Next: save a working speech provider key.',
-                hotkey: 'Next: make sure Dicton can listen for your hotkey.',
-                test: 'Next: run a first transcription test.',
-                autostart: 'Next: enable auto-start and launch Dicton.',
-                done: 'Setup looks complete. Launch Dicton and close this tab.',
-            };
-            return messages[step] || 'Review the checks and continue.';
         }
 
         function populateConfig() {
             const config = state.config;
             document.getElementById('stt_provider').value = config.stt_provider || 'auto';
             document.getElementById('language').value = config.language || 'auto';
+            document.getElementById('llm_provider').value = config.llm_provider || 'gemini';
             document.getElementById('hotkey_base').value = config.hotkey_base || 'fn';
             document.getElementById('custom_hotkey_value').value = config.custom_hotkey_value || 'alt+g';
             document.getElementById('secondary_hotkey').value = config.secondary_hotkey || 'none';
             document.getElementById('secondary_hotkey_translation').value = config.secondary_hotkey_translation || 'none';
             updateSecretState('mistral', config.mistral_api_key_set, config.mistral_api_key_masked);
             updateSecretState('elevenlabs', config.elevenlabs_api_key_set, config.elevenlabs_api_key_masked);
+            updateSecretState('gemini', config.gemini_api_key_set, config.gemini_api_key_masked);
+            updateSecretState('anthropic', config.anthropic_api_key_set, config.anthropic_api_key_masked);
         }
 
         function updateSecretState(prefix, isSet, masked) {
@@ -487,6 +558,7 @@
             const payload = {
                 stt_provider: document.getElementById('stt_provider').value,
                 language: document.getElementById('language').value,
+                llm_provider: document.getElementById('llm_provider').value,
                 hotkey_base: document.getElementById('hotkey_base').value,
                 custom_hotkey_value: document.getElementById('custom_hotkey_value').value.trim(),
                 secondary_hotkey: document.getElementById('secondary_hotkey').value,
@@ -495,24 +567,40 @@
 
             const mistral = document.getElementById('mistral_api_key').value.trim();
             const elevenlabs = document.getElementById('elevenlabs_api_key').value.trim();
+            const gemini = document.getElementById('gemini_api_key').value.trim();
+            const anthropic = document.getElementById('anthropic_api_key').value.trim();
             if (mistral) payload.mistral_api_key = mistral;
             if (elevenlabs) payload.elevenlabs_api_key = elevenlabs;
+            if (gemini) payload.gemini_api_key = gemini;
+            if (anthropic) payload.anthropic_api_key = anthropic;
             return payload;
         }
 
         async function refreshSetup(preferredStep = null) {
-            const [configRes, setupRes] = await Promise.all([
-                fetch(`${API_BASE}/api/config`),
-                fetch(`${API_BASE}/api/setup/status`),
-            ]);
+            try {
+                const [configRes, setupRes] = await Promise.all([
+                    fetch(`${API_BASE}/api/config`),
+                    fetch(`${API_BASE}/api/setup/status`),
+                ]);
 
-            state.config = await configRes.json();
-            state.setup = await setupRes.json();
-            populateConfig();
-            renderSummary();
+                if (!configRes.ok || !setupRes.ok) {
+                    const status = !configRes.ok ? configRes.status : setupRes.status;
+                    setMessage(`Server returned ${status}. Is Dicton running?`, 'error');
+                    setStep(preferredStep || 'welcome');
+                    return;
+                }
 
-            const step = preferredStep || state.currentStep || state.setup.next_step || 'welcome';
-            setStep(step === 'done' ? 'autostart' : step);
+                state.config = await configRes.json();
+                state.setup = await setupRes.json();
+                populateConfig();
+                renderSummary();
+
+                const step = preferredStep || state.currentStep || state.setup.next_step || 'welcome';
+                setStep(step === 'done' ? 'test' : step);
+            } catch (err) {
+                setMessage(`Cannot reach Dicton server: ${err.message}`, 'error');
+                setStep(preferredStep || 'welcome');
+            }
         }
 
         async function saveSetup(stepAfterSave) {
@@ -531,57 +619,103 @@
             await refreshSetup(stepAfterSave);
         }
 
-        async function startTest() {
-            const res = await fetch(`${API_BASE}/api/test/start`, { method: 'POST' });
-            const data = await res.json();
-            if (!res.ok) {
-                setMessage(data.error || 'Could not start the test.', 'error');
-                return;
-            }
+        /* ---- Step 4: Launch ---- */
 
-            state.testRecording = true;
-            document.getElementById('start-test-btn').disabled = true;
-            document.getElementById('stop-test-btn').disabled = false;
-            document.getElementById('test-result').textContent = 'Recording... Speak now, then click “Stop and transcribe”.';
-        }
-
-        async function stopTest() {
-            const res = await fetch(`${API_BASE}/api/test/stop`, { method: 'POST' });
-            const data = await res.json();
-            state.testRecording = false;
-            document.getElementById('start-test-btn').disabled = false;
-            document.getElementById('stop-test-btn').disabled = true;
-
-            if (!res.ok || data.error) {
-                document.getElementById('test-result').textContent = data.error || 'The test did not complete.';
-                setMessage(data.error || 'The test did not complete.', 'error');
-                await refreshSetup('test');
-                return;
-            }
-
-            const totalLatency = Math.round(data.latency.total);
-            document.getElementById('test-result').textContent = `Transcribed text:\n\n${data.text}\n\nTotal latency: ${totalLatency} ms`;
-            setMessage('First transcription test passed.', 'success');
-            await refreshSetup('autostart');
-        }
-
-        async function toggleAutostart(enabled) {
-            const res = await fetch(`${API_BASE}/api/setup/autostart`, {
+        async function enableAutostartAndLaunch() {
+            const autostartRes = await fetch(`${API_BASE}/api/setup/autostart`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ enabled }),
+                body: JSON.stringify({ enabled: true }),
             });
-            const data = await res.json();
-            setMessage(data.message || (enabled ? 'Autostart enabled.' : 'Autostart disabled.'), res.ok ? 'success' : 'error');
-            await refreshSetup('autostart');
+            const autostartData = await autostartRes.json();
+
+            const launchRes = await fetch(`${API_BASE}/api/setup/launch`, { method: 'POST' });
+            const launchData = await launchRes.json();
+
+            document.getElementById('launch-result').textContent =
+                (autostartData.message || 'Autostart enabled.') + '\n' +
+                (launchData.message || 'Launch command sent.');
+            setMessage('Auto-start enabled and Dicton launched.', launchRes.ok ? 'success' : 'error');
+            await refreshSetup('test');
         }
 
-        async function launchDicton() {
+        async function launchDictonOnly() {
             const res = await fetch(`${API_BASE}/api/setup/launch`, { method: 'POST' });
             const data = await res.json();
             document.getElementById('launch-result').textContent = data.message || 'Launch command sent.';
             setMessage(data.message || 'Launch command sent.', res.ok ? 'success' : 'error');
-            await refreshSetup('autostart');
+            await refreshSetup('test');
+        }
+
+        /* ---- Step 5: Test ---- */
+
+        function initTestListeners() {
+            if (state.testConfirmed) return;
+
+            const textarea = document.getElementById('test-textarea');
+            clearTimeout(state.testInactivityTimer);
+
+            state.testInactivityTimer = setTimeout(() => {
+                if (!state.testConfirmed) {
+                    document.getElementById('test-troubleshoot').style.display = 'block';
+                }
+            }, 30000);
+
+            textarea._inputHandler = textarea._inputHandler || function () {
+                clearTimeout(state.testDebounceTimer);
+                state.testDebounceTimer = setTimeout(() => {
+                    const text = textarea.value.trim();
+                    if (text && !state.testConfirmed) onTestTextDetected(text);
+                }, 800);
+            };
+
+            textarea.removeEventListener('input', textarea._inputHandler);
+            textarea.addEventListener('input', textarea._inputHandler);
+        }
+
+        async function onTestTextDetected(text) {
+            state.testConfirmed = true;
+            clearTimeout(state.testInactivityTimer);
+            document.getElementById('test-troubleshoot').style.display = 'none';
+
+            const res = await fetch(`${API_BASE}/api/test/confirm`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text }),
+            });
+
+            if (res.ok) {
+                showTestCongrats(text);
+                setMessage('First transcription test passed.', 'success');
+                await refreshSetup('test');
+            } else {
+                setMessage('Could not confirm test.', 'error');
+                state.testConfirmed = false;
+            }
+        }
+
+        function showTestCongrats(text) {
+            document.getElementById('test-textarea').style.display = 'none';
+            document.getElementById('test-instructions').style.display = 'none';
+            document.getElementById('test-troubleshoot').style.display = 'none';
+            const congrats = document.getElementById('test-congrats');
+            congrats.style.display = 'block';
+            document.getElementById('test-congrats-text').textContent = text;
+            document.getElementById('test-try-again').style.display = 'inline-flex';
+            document.getElementById('test-close').style.display = 'inline-flex';
+        }
+
+        function resetTestArea() {
+            state.testConfirmed = false;
+            const textarea = document.getElementById('test-textarea');
+            textarea.value = '';
+            textarea.style.display = 'block';
+            document.getElementById('test-instructions').style.display = 'block';
+            document.getElementById('test-congrats').style.display = 'none';
+            document.getElementById('test-troubleshoot').style.display = 'none';
+            document.getElementById('test-try-again').style.display = 'none';
+            initTestListeners();
+            textarea.focus();
         }
 
         refreshSetup();

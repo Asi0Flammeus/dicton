@@ -278,8 +278,13 @@ def save_config(data: dict[str, Any]) -> None:
             if isinstance(value, bool):
                 value = "true" if value else "false"
             env_vars[env_var] = str(value)
+            os.environ[env_var] = str(value)
 
     write_env_file(env_vars)
+
+    from .stt_factory import clear_provider_cache
+
+    clear_provider_cache()
 
 
 def _get_env_string(env_vars: dict[str, str], key: str, default: str = "") -> str:
@@ -415,12 +420,32 @@ def _text_output_status() -> dict[str, Any]:
     return {"ready": False, "detail": "Unsupported platform."}
 
 
+def _llm_status(env_vars: dict[str, str]) -> dict[str, Any]:
+    """Check whether an LLM provider key is configured for translation."""
+    provider = env_vars.get("LLM_PROVIDER", config.LLM_PROVIDER).lower()
+    gemini_key = env_vars.get("GEMINI_API_KEY", "")
+    anthropic_key = env_vars.get("ANTHROPIC_API_KEY", "")
+
+    if provider == "gemini" and gemini_key:
+        return {"ready": True, "detail": "Gemini API key saved for translation."}
+    if provider == "anthropic" and anthropic_key:
+        return {"ready": True, "detail": "Anthropic API key saved for translation."}
+    if gemini_key or anthropic_key:
+        return {"ready": True, "detail": "LLM API key saved (translation available)."}
+
+    return {
+        "ready": False,
+        "detail": "Set a Gemini or Anthropic API key to enable translation.",
+    }
+
+
 def build_setup_status() -> dict[str, Any]:
     """Build the setup/readiness status for the onboarding UI."""
     env_vars = read_env_file()
     stt = _stt_status(env_vars)
     hotkey = _hotkey_status(env_vars)
     output = _text_output_status()
+    llm = _llm_status(env_vars)
     autostart = get_autostart_state()
     launch_ready = has_display_session()
 
@@ -428,10 +453,10 @@ def build_setup_status() -> dict[str, Any]:
         next_step = "speech"
     elif not hotkey["ready"]:
         next_step = "hotkey"
-    elif not _setup_state["first_test_passed"]:
-        next_step = "test"
     elif autostart["supported"] and not autostart["enabled"]:
         next_step = "autostart"
+    elif not _setup_state["first_test_passed"]:
+        next_step = "test"
     else:
         next_step = "done"
 
@@ -447,6 +472,7 @@ def build_setup_status() -> dict[str, Any]:
         ),
         "checks": {
             "stt": stt,
+            "llm": llm,
             "hotkey": hotkey,
             "text_output": output,
             "autostart": autostart,
@@ -499,62 +525,6 @@ def remove_similarity_word(word: str) -> None:
         save_dictionary(data)
 
 
-# Test recording state
-_test_state = {
-    "recording": False,
-    "audio_data": None,
-    "recognizer": None,
-    "record_thread": None,
-    "frames": [],
-    "stream": None,
-    "start_time": None,
-}
-
-
-def _background_record():
-    """Background thread function to record audio."""
-    import pyaudio
-
-    from .speech_recognition_engine import suppress_stderr
-
-    if _test_state["recognizer"] is None:
-        return
-
-    recognizer = _test_state["recognizer"]
-    _test_state["frames"] = []
-
-    try:
-        with suppress_stderr():
-            stream = recognizer.audio.open(
-                format=pyaudio.paInt16,
-                channels=1,
-                rate=config.SAMPLE_RATE,
-                input=True,
-                input_device_index=recognizer.input_device,
-                frames_per_buffer=config.CHUNK_SIZE,
-            )
-        _test_state["stream"] = stream
-
-        while _test_state["recording"]:
-            try:
-                data = stream.read(config.CHUNK_SIZE, exception_on_overflow=False)
-                _test_state["frames"].append(data)
-            except Exception:
-                break
-
-    except Exception as e:
-        print(f"❌ Background recording error: {e}")
-
-    finally:
-        if _test_state["stream"]:
-            try:
-                _test_state["stream"].stop_stream()
-                _test_state["stream"].close()
-            except Exception:
-                pass
-            _test_state["stream"] = None
-
-
 def create_app():
     """Create FastAPI application."""
     try:
@@ -585,8 +555,6 @@ def create_app():
             "add_similarity_word": add_similarity_word,
             "remove_similarity_word": remove_similarity_word,
             "setup_state": _setup_state,
-            "test_state": _test_state,
-            "background_record": _background_record,
         },
     )
 
