@@ -421,6 +421,20 @@ def is_available() -> bool:
     return False
 
 
+def cleanup() -> None:
+    """Close LLM SDK clients to release connections."""
+    global _genai_client, _anthropic_client
+
+    if _anthropic_client is not None:
+        try:
+            _anthropic_client.close()
+        except Exception:
+            pass
+        _anthropic_client = None
+
+    _genai_client = None
+
+
 def get_available_providers() -> list[str]:
     """Get list of available LLM providers."""
     providers = []
