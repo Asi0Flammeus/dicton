@@ -262,13 +262,13 @@
                     3. Hotkey
                     <small>Pick the trigger that will start dictation</small>
                 </button>
-                <button class="step-button" data-step="test" onclick="setStep('test')">
-                    4. First Test
-                    <small>Record a short sample and verify transcription</small>
-                </button>
                 <button class="step-button" data-step="autostart" onclick="setStep('autostart')">
-                    5. Launch
+                    4. Launch
                     <small>Start now and enable auto-start on login</small>
+                </button>
+                <button class="step-button" data-step="test" onclick="setStep('test')">
+                    5. First Test
+                    <small>Test with actual hotkey after launching</small>
                 </button>
             </div>
 
@@ -368,18 +368,6 @@
                 </div>
             </div>
 
-            <div id="step-test" class="step-panel">
-                <h2>First Transcription Test</h2>
-                <div class="status-note">
-                    Say one short sentence. If Dicton returns text here, the setup is good enough to start.
-                </div>
-                <div class="actions">
-                    <button id="start-test-btn" class="btn btn-primary" onclick="startTest()">Start recording</button>
-                    <button id="stop-test-btn" class="btn btn-secondary" onclick="stopTest()" disabled>Stop and transcribe</button>
-                </div>
-                <div id="test-result" class="result-box">No test run yet.</div>
-            </div>
-
             <div id="step-autostart" class="step-panel">
                 <h2>Start Dicton</h2>
                 <div id="autostart-note" class="status-note"></div>
@@ -392,6 +380,19 @@
                     Once Dicton reports that it started, you can close this browser tab.
                 </div>
             </div>
+
+            <div id="step-test" class="step-panel">
+                <h2>First Transcription Test</h2>
+                <div class="status-note">
+                    Dicton is running. Press your hotkey now and say a short sentence.
+                    If the transcribed text appears in your active window, click "It worked!"
+                </div>
+                <div class="actions">
+                    <button class="btn btn-primary" onclick="confirmTestPassed()">It worked!</button>
+                    <button class="btn btn-secondary" onclick="confirmTestFailed()">It didn't work</button>
+                </div>
+                <div id="test-result" class="result-box">Press your hotkey to start a real dictation test.</div>
+            </div>
         </section>
     </div>
 
@@ -401,7 +402,6 @@
             config: null,
             setup: null,
             currentStep: 'welcome',
-            testRecording: false,
         };
 
         function setStep(step) {
@@ -425,8 +425,8 @@
                 ['Speech provider', setup.checks.stt.ready, setup.checks.stt.detail],
                 ['Hotkey backend', setup.checks.hotkey.ready, setup.checks.hotkey.detail],
                 ['Text insertion', setup.checks.text_output.ready, setup.checks.text_output.detail],
-                ['First test', setup.first_test_passed, setup.first_test_passed ? 'A transcription test already succeeded in this session.' : 'Run one short test before finishing setup.'],
                 ['Auto-start', setup.checks.autostart.enabled, setup.checks.autostart.supported ? (setup.checks.autostart.enabled ? 'Dicton will start when you log in.' : 'Optional but recommended for daily use.') : 'Not automated on this platform yet.'],
+                ['First test', setup.first_test_passed, setup.first_test_passed ? 'A transcription test already succeeded in this session.' : 'Launch Dicton, then test with your actual hotkey.'],
             ];
 
             list.innerHTML = rows.map(([label, ready, detail]) => `
@@ -456,9 +456,9 @@
             const messages = {
                 speech: 'Next: save a working speech provider key.',
                 hotkey: 'Next: make sure Dicton can listen for your hotkey.',
-                test: 'Next: run a first transcription test.',
-                autostart: 'Next: enable auto-start and launch Dicton.',
-                done: 'Setup looks complete. Launch Dicton and close this tab.',
+                autostart: 'Next: launch Dicton and enable auto-start.',
+                test: 'Next: test dictation with your actual hotkey.',
+                done: 'Setup looks complete. You can close this tab.',
             };
             return messages[step] || 'Review the checks and continue.';
         }
@@ -531,38 +531,27 @@
             await refreshSetup(stepAfterSave);
         }
 
-        async function startTest() {
-            const res = await fetch(`${API_BASE}/api/test/start`, { method: 'POST' });
+        async function confirmTestPassed() {
+            const res = await fetch(`${API_BASE}/api/test/confirm`, { method: 'POST' });
             const data = await res.json();
-            if (!res.ok) {
-                setMessage(data.error || 'Could not start the test.', 'error');
-                return;
+            if (res.ok) {
+                document.getElementById('test-result').textContent = 'Test confirmed! Dicton is working correctly.';
+                setMessage('First transcription test passed.', 'success');
+            } else {
+                setMessage(data.error || 'Could not confirm test.', 'error');
             }
-
-            state.testRecording = true;
-            document.getElementById('start-test-btn').disabled = true;
-            document.getElementById('stop-test-btn').disabled = false;
-            document.getElementById('test-result').textContent = 'Recording... Speak now, then click “Stop and transcribe”.';
+            await refreshSetup('test');
         }
 
-        async function stopTest() {
-            const res = await fetch(`${API_BASE}/api/test/stop`, { method: 'POST' });
-            const data = await res.json();
-            state.testRecording = false;
-            document.getElementById('start-test-btn').disabled = false;
-            document.getElementById('stop-test-btn').disabled = true;
-
-            if (!res.ok || data.error) {
-                document.getElementById('test-result').textContent = data.error || 'The test did not complete.';
-                setMessage(data.error || 'The test did not complete.', 'error');
-                await refreshSetup('test');
-                return;
-            }
-
-            const totalLatency = Math.round(data.latency.total);
-            document.getElementById('test-result').textContent = `Transcribed text:\n\n${data.text}\n\nTotal latency: ${totalLatency} ms`;
-            setMessage('First transcription test passed.', 'success');
-            await refreshSetup('autostart');
+        function confirmTestFailed() {
+            document.getElementById('test-result').textContent =
+                'Troubleshooting tips:\n\n' +
+                '1. Check that Dicton is running (look for the process or tray icon).\n' +
+                '2. Verify your hotkey is configured correctly in step 3.\n' +
+                '3. Make sure your microphone is working and not muted.\n' +
+                '4. Check the terminal where Dicton is running for error messages.\n' +
+                '5. Try restarting Dicton from the Launch step.';
+            setMessage('Test did not work. See troubleshooting tips below.', 'error');
         }
 
         async function toggleAutostart(enabled) {
