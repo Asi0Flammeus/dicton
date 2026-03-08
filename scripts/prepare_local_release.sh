@@ -156,9 +156,10 @@ ok "Binary runs: ${bundle_version}"
 # ── 10. Validate .deb metadata ──────────────────────────
 step "Validating .deb package"
 dpkg-deb --info "$deb_path" >/dev/null
-dpkg-deb --contents "$deb_path" | grep -q "opt/dicton/dicton" \
+deb_contents="$(dpkg-deb --contents "$deb_path")"
+echo "$deb_contents" | grep -q "opt/dicton/dicton" \
     || fail ".deb missing /opt/dicton/dicton binary"
-dpkg-deb --contents "$deb_path" | grep -q "usr/bin/dicton" \
+echo "$deb_contents" | grep -q "usr/bin/dicton" \
     || fail ".deb missing /usr/bin/dicton wrapper"
 ok ".deb structure valid"
 
