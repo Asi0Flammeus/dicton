@@ -35,10 +35,12 @@ _TRANSITIONS = {
     },
     SessionState.PROCESSING: {
         SessionEvent.PROCESS_DONE: SessionState.OUTPUTTING,
+        SessionEvent.CANCEL: SessionState.IDLE,
         SessionEvent.ERROR: SessionState.ERROR,
     },
     SessionState.OUTPUTTING: {
         SessionEvent.OUTPUT_DONE: SessionState.IDLE,
+        SessionEvent.CANCEL: SessionState.IDLE,
         SessionEvent.ERROR: SessionState.ERROR,
     },
     SessionState.ERROR: {

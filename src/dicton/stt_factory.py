@@ -183,8 +183,13 @@ def get_available_stt_providers() -> list[str]:
 
 
 def clear_provider_cache():
-    """Clear the provider cache.
+    """Clear the provider cache, closing SDK clients first.
 
     Useful for testing or when configuration changes.
     """
+    for provider in _provider_cache.values():
+        try:
+            provider.cleanup()
+        except Exception:
+            pass
     _provider_cache.clear()

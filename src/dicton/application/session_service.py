@@ -48,6 +48,9 @@ class SessionService:
         if self._recording:
             return
 
+        if self._record_thread is not None and self._record_thread.is_alive():
+            return  # Previous session still processing
+
         if not is_mode_enabled(mode):
             mode = ProcessingMode.BASIC
 

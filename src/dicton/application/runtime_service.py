@@ -117,6 +117,15 @@ class RuntimeService:
 
         self._keyboard.stop()
         self._recognizer.cleanup()
+
+        from ..stt_factory import clear_provider_cache
+
+        clear_provider_cache()
+
+        from .. import llm_processor
+
+        llm_processor.cleanup()
+
         print("✓ Done")
 
     def request_shutdown(self) -> None:

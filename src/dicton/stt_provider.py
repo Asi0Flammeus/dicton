@@ -239,6 +239,13 @@ class STTProvider(ABC):
             return None
         return None
 
+    def cleanup(self) -> None:  # noqa: B027
+        """Release resources held by this provider.
+
+        Subclasses may override to close SDK clients or connections.
+        Default implementation is a no-op.
+        """
+
     def _convert_to_wav(self, audio_data: bytes) -> io.BytesIO | None:
         """Convert audio data to WAV format if needed.
 
