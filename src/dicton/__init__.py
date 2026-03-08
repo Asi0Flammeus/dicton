@@ -1,6 +1,6 @@
 """Dicton - cross-platform voice-to-text dictation."""
 
-__version__ = "1.3.1"
+__version__ = "1.4.0"
 __author__ = "asi0 flammeus"
 __description__ = "Voice-to-text dictation with direct transcription and translation"
 
