@@ -85,30 +85,8 @@ _elapsed() {
     fi
 }
 
-_progress_bar() {
-    # Returns the progress bar string (no newline)
-    local pct=$(( TOTAL_STEPS > 0 ? (CURRENT_STEP * 100) / TOTAL_STEPS : 0 ))
-    local width=20
-    local filled=$(( (pct * width) / 100 ))
-    local empty=$(( width - filled ))
-
-    local bar="${GRN}"
-    for ((i = 0; i < filled; i++)); do bar+="━"; done
-    bar+="${DIM}"
-    for ((i = 0; i < empty;  i++)); do bar+="─"; done
-    bar+="${RST}"
-
-    printf "%b ${DIM}%d/%d${RST}" "$bar" "$CURRENT_STEP" "$TOTAL_STEPS"
-}
-
-_print_progress() {
-    # Print progress bar as a standalone line (after step completion)
-    local total_el; total_el="$(_elapsed "$PIPELINE_START")"
-    printf "\r\033[2K  $(_progress_bar)  ${DIM}%s${RST}\n" "$total_el"
-}
-
 _header() {
-    echo -e "\n  ${BLU}${BOLD}$1${RST}"
+    echo -e "\n  ${BLU}${BOLD}$1${RST} ${DIM}[${CURRENT_STEP}/${TOTAL_STEPS}]${RST}"
 }
 
 _spinner() {
@@ -119,7 +97,7 @@ _spinner() {
     local start; start="$(date +%s)"
     while kill -0 "$pid" 2>/dev/null; do
         local elapsed; elapsed="$(_elapsed "$start")"
-        printf "\r\033[2K  ${CYN}${frames[$i]}${RST} %-40s ${DIM}%s${RST}  $(_progress_bar)" "$label" "$elapsed"
+        printf "\r\033[2K  ${CYN}${frames[$i]}${RST} %-40s ${DIM}%s${RST}" "$label" "$elapsed"
         i=$(( (i + 1) % ${#frames[@]} ))
         sleep 0.1
     done
@@ -286,8 +264,6 @@ deactivate 2>/dev/null || true
 deb_name="${deb_path##*/}"
 total_elapsed="$(_elapsed "$PIPELINE_START")"
 
-echo ""
-_print_progress
 echo ""
 echo -e "  ${GRN}${BOLD}Build complete${RST}  v${version}  ${DIM}${total_elapsed}${RST}"
 echo ""
