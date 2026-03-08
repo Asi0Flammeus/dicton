@@ -239,7 +239,7 @@ class STTProvider(ABC):
             return None
         return None
 
-    def cleanup(self) -> None:
+    def cleanup(self) -> None:  # noqa: B027
         """Release resources held by this provider.
 
         Subclasses may override to close SDK clients or connections.
