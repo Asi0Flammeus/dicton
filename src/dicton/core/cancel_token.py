@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+import threading
+
 
 class CancelToken:
     def __init__(self):
-        self._cancelled = False
+        self._event = threading.Event()
 
     @property
     def cancelled(self) -> bool:
-        return self._cancelled
+        return self._event.is_set()
 
     def cancel(self) -> None:
-        self._cancelled = True
+        self._event.set()
 
     def reset(self) -> None:
-        self._cancelled = False
+        self._event.clear()
