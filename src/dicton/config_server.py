@@ -420,12 +420,32 @@ def _text_output_status() -> dict[str, Any]:
     return {"ready": False, "detail": "Unsupported platform."}
 
 
+def _llm_status(env_vars: dict[str, str]) -> dict[str, Any]:
+    """Check whether an LLM provider key is configured for translation."""
+    provider = env_vars.get("LLM_PROVIDER", config.LLM_PROVIDER).lower()
+    gemini_key = env_vars.get("GEMINI_API_KEY", "")
+    anthropic_key = env_vars.get("ANTHROPIC_API_KEY", "")
+
+    if provider == "gemini" and gemini_key:
+        return {"ready": True, "detail": "Gemini API key saved for translation."}
+    if provider == "anthropic" and anthropic_key:
+        return {"ready": True, "detail": "Anthropic API key saved for translation."}
+    if gemini_key or anthropic_key:
+        return {"ready": True, "detail": "LLM API key saved (translation available)."}
+
+    return {
+        "ready": False,
+        "detail": "Set a Gemini or Anthropic API key to enable translation.",
+    }
+
+
 def build_setup_status() -> dict[str, Any]:
     """Build the setup/readiness status for the onboarding UI."""
     env_vars = read_env_file()
     stt = _stt_status(env_vars)
     hotkey = _hotkey_status(env_vars)
     output = _text_output_status()
+    llm = _llm_status(env_vars)
     autostart = get_autostart_state()
     launch_ready = has_display_session()
 
@@ -452,6 +472,7 @@ def build_setup_status() -> dict[str, Any]:
         ),
         "checks": {
             "stt": stt,
+            "llm": llm,
             "hotkey": hotkey,
             "text_output": output,
             "autostart": autostart,
