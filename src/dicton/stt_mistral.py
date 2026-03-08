@@ -62,6 +62,12 @@ class MistralSTTProvider(STTProvider):
 
             self._config.api_key = os.getenv("MISTRAL_API_KEY", "")
 
+        # Get timeout from config or environment
+        if self._config.timeout == 30.0:  # Default value
+            import os
+
+            self._config.timeout = float(os.getenv("STT_TIMEOUT", "120"))
+
     @property
     def name(self) -> str:
         return "Mistral Voxtral"
@@ -110,7 +116,10 @@ class MistralSTTProvider(STTProvider):
         try:
             from mistralai import Mistral
 
-            self._client = Mistral(api_key=self._config.api_key)
+            self._client = Mistral(
+                api_key=self._config.api_key,
+                timeout_ms=int(self._config.timeout * 1000),
+            )
             self._is_available = True
             return True
         except ImportError:

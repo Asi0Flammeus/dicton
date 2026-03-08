@@ -78,7 +78,7 @@ class TestMistralAvailability:
             assert provider.is_available() is False
 
     def test_available_with_api_key(self):
-        """Test provider is available with API key."""
+        """Test provider is available with API key and default timeout."""
         from dicton.stt_mistral import MistralSTTProvider
 
         mock_mistral_module = MagicMock()
@@ -88,7 +88,29 @@ class TestMistralAvailability:
         with patch.dict("sys.modules", {"mistralai": mock_mistral_module}):
             provider = MistralSTTProvider(STTProviderConfig(api_key="test_key"))
             assert provider.is_available() is True
-            mock_mistral_class.assert_called_once_with(api_key="test_key")
+            mock_mistral_class.assert_called_once_with(
+                api_key="test_key",
+                timeout_ms=120000,
+            )
+
+    def test_timeout_env_var_override(self):
+        """Test STT_TIMEOUT env var overrides default timeout."""
+        from dicton.stt_mistral import MistralSTTProvider
+
+        mock_mistral_module = MagicMock()
+        mock_mistral_class = MagicMock()
+        mock_mistral_module.Mistral = mock_mistral_class
+
+        with (
+            patch.dict("os.environ", {"STT_TIMEOUT": "60"}, clear=False),
+            patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
+        ):
+            provider = MistralSTTProvider(STTProviderConfig(api_key="test_key"))
+            assert provider.is_available() is True
+            mock_mistral_class.assert_called_once_with(
+                api_key="test_key",
+                timeout_ms=60000,
+            )
 
     def test_unavailable_when_sdk_missing(self):
         """Test provider is unavailable when SDK import fails."""
