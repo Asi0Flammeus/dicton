@@ -205,6 +205,13 @@ class Config:
     SAMPLE_RATE = 16000
     CHUNK_SIZE = 1024
 
+    # Chunked pipeline (long recordings)
+    CHUNK_ENABLED = os.getenv("CHUNK_ENABLED", "true").lower() == "true"
+    CHUNK_THRESHOLD_S = float(os.getenv("CHUNK_THRESHOLD_S", "20"))
+    CHUNK_SILENCE_THRESHOLD = float(os.getenv("CHUNK_SILENCE_THRESHOLD", "0.03"))
+    CHUNK_SILENCE_WINDOW_S = float(os.getenv("CHUNK_SILENCE_WINDOW_S", "0.3"))
+    CHUNK_LOOKBACK_S = float(os.getenv("CHUNK_LOOKBACK_S", "5"))
+
     # Audio control during recording (Linux only)
     # Mute playback while recording (pauses players, then mutes sink if needed)
     MUTE_PLAYBACK_ON_RECORDING = os.getenv("MUTE_PLAYBACK_ON_RECORDING", "true").lower() == "true"
