@@ -158,3 +158,64 @@ def test_controller_processing_failure():
     )
     assert success is False
     assert session == {"ok": True}
+
+
+def test_exception_resets_state():
+    """Exception during pipeline resets state machine to IDLE and re-raises."""
+    from dicton.core.state_machine import SessionState
+
+    class _BoomSTT(STTService):
+        def transcribe(self, audio):
+            raise RuntimeError("boom")
+
+    metrics = _Metrics()
+    controller = DictationController(
+        audio_capture=_AudioCapture(audio=b"audio"),
+        stt=_BoomSTT(),
+        text_processor=_TextProcessor(result="ok"),
+        text_output=_TextOutput(),
+        ui=_UI(),
+        metrics=metrics,
+    )
+
+    import pytest
+
+    with pytest.raises(RuntimeError, match="boom"):
+        controller.run_session(
+            mode="basic",
+            session=SessionContext(selected_text=None, context=None),
+            mode_names={"basic": "Recording"},
+        )
+
+    assert controller._state.state == SessionState.IDLE
+    assert metrics.ended is True
+
+
+def test_cancel_after_transcription():
+    """Cancel token set after STT returns should abort before text processing."""
+
+    class _CancelAfterSTT(STTService):
+        def __init__(self, controller_ref):
+            self._controller_ref = controller_ref
+
+        def transcribe(self, audio):
+            self._controller_ref[0]._cancel_token.cancel()
+            return "hello"
+
+    controller_ref = [None]
+    controller = DictationController(
+        audio_capture=_AudioCapture(audio=b"audio"),
+        stt=_CancelAfterSTT(controller_ref),
+        text_processor=_TextProcessor(result="ok"),
+        text_output=_TextOutput(),
+        ui=_UI(),
+        metrics=_Metrics(),
+    )
+    controller_ref[0] = controller
+
+    success, session = controller.run_session(
+        mode="basic",
+        session=SessionContext(selected_text=None, context=None),
+        mode_names={"basic": "Recording"},
+    )
+    assert success is False
