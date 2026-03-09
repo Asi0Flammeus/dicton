@@ -122,8 +122,11 @@ class ChunkManager:
         if frame_idx % 150 == 0:  # ~every 10s
             logger.debug(
                 "RMS diagnostic: current=%.4f, min_seen=%.4f, threshold=%.4f, silent_run=%d/%d",
-                rms, self._rms_min, self._config.silence_threshold,
-                self._silent_run, self._frames_per_window,
+                rms,
+                self._rms_min,
+                self._config.silence_threshold,
+                self._silent_run,
+                self._frames_per_window,
             )
 
         unchunked_frames = len(self._frames) - self._chunk_boundary
