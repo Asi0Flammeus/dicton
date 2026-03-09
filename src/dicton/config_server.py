@@ -288,6 +288,10 @@ def save_config(data: dict[str, Any]) -> None:
 
     clear_provider_cache()
 
+    from . import llm_processor
+
+    llm_processor.cleanup()
+
 
 def _get_env_string(env_vars: dict[str, str], key: str, default: str = "") -> str:
     return env_vars.get(key, default).strip()
