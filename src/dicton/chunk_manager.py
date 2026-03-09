@@ -98,6 +98,7 @@ class ChunkManager:
         self._futures = []
         self._cancelled = False
         self._silent_run = 0
+        self._rms_min = float("inf")
 
     # ------------------------------------------------------------------
     # Recording feed
@@ -112,6 +113,18 @@ class ChunkManager:
             self._silent_run += 1
         else:
             self._silent_run = 0
+
+        # Track min RMS for diagnostics
+        frame_idx = len(self._frames)
+        if not hasattr(self, "_rms_min"):
+            self._rms_min = rms
+        self._rms_min = min(self._rms_min, rms)
+        if frame_idx % 150 == 0:  # ~every 10s
+            logger.debug(
+                "RMS diagnostic: current=%.4f, min_seen=%.4f, threshold=%.4f, silent_run=%d/%d",
+                rms, self._rms_min, self._config.silence_threshold,
+                self._silent_run, self._frames_per_window,
+            )
 
         unchunked_frames = len(self._frames) - self._chunk_boundary
         duration_s = unchunked_frames * self._frame_duration
