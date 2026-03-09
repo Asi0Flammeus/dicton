@@ -282,6 +282,8 @@ def save_config(data: dict[str, Any]) -> None:
 
     write_env_file(env_vars)
 
+    Config.reload_config()
+
     from .stt_factory import clear_provider_cache
 
     clear_provider_cache()

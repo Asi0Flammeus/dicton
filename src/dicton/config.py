@@ -261,6 +261,66 @@ class Config:
     CONTEXT_DEBUG = os.getenv("CONTEXT_DEBUG", "false").lower() == "true"
 
     @classmethod
+    def reload_config(cls):
+        """Re-read all env-based class attributes from os.environ.
+
+        Must be called after os.environ is updated at runtime (e.g. by
+        save_config) so that the singleton ``config`` object reflects the
+        new values.  Path-derived and constant attributes are left
+        untouched.
+        """
+        cls.ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
+        cls.LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
+        cls.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+        cls.GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+        cls.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+        cls.ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+        cls.ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "scribe_v1")
+        cls.MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
+        cls.MISTRAL_STT_MODEL = os.getenv("MISTRAL_STT_MODEL", "voxtral-mini-latest")
+        cls.STT_PROVIDER = os.getenv("STT_PROVIDER", "auto")
+        cls.API_TIMEOUT = float(os.getenv("API_TIMEOUT", "30"))
+        cls.STT_TIMEOUT = float(os.getenv("STT_TIMEOUT", "120"))
+        cls.HOTKEY_MODIFIER = os.getenv("HOTKEY_MODIFIER", "alt")
+        cls.HOTKEY_KEY = os.getenv("HOTKEY_KEY", "g")
+        cls.HOTKEY_BASE = os.getenv("HOTKEY_BASE", "fn")
+        cls.CUSTOM_HOTKEY_VALUE = os.getenv("CUSTOM_HOTKEY_VALUE", "alt+g")
+        cls.HOTKEY_HOLD_THRESHOLD_MS = int(os.getenv("HOTKEY_HOLD_THRESHOLD_MS", "100"))
+        cls.HOTKEY_DOUBLE_TAP_WINDOW_MS = int(os.getenv("HOTKEY_DOUBLE_TAP_WINDOW_MS", "300"))
+        cls.HOTKEY_ACTIVATION_DELAY_MS = int(os.getenv("HOTKEY_ACTIVATION_DELAY_MS", "50"))
+        cls.SECONDARY_HOTKEY = os.getenv("SECONDARY_HOTKEY", "none").lower()
+        cls.SECONDARY_HOTKEY_TRANSLATION = os.getenv("SECONDARY_HOTKEY_TRANSLATION", "none").lower()
+        cls.SECONDARY_HOTKEY_ACT_ON_TEXT = os.getenv("SECONDARY_HOTKEY_ACT_ON_TEXT", "none").lower()
+        cls.ENABLE_ADVANCED_MODES = os.getenv("ENABLE_ADVANCED_MODES", "false").lower() == "true"
+        cls.THEME_COLOR = os.getenv("THEME_COLOR", "orange").lower()
+        cls.ANIMATION_POSITION = os.getenv("ANIMATION_POSITION", "top-right").lower()
+        cls.VISUALIZER_STYLE = os.getenv("VISUALIZER_STYLE", "toric").lower()
+        cls.VISUALIZER_BACKEND = os.getenv("VISUALIZER_BACKEND", "pygame").lower()
+        cls.VISUALIZER_OPACITY = float(os.getenv("VISUALIZER_OPACITY", "0.85"))
+        cls.CHUNK_ENABLED = os.getenv("CHUNK_ENABLED", "true").lower() == "true"
+        cls.CHUNK_MIN_S = float(os.getenv("CHUNK_MIN_S", "30"))
+        cls.CHUNK_MAX_S = float(os.getenv("CHUNK_MAX_S", "120"))
+        cls.CHUNK_OVERLAP_S = float(os.getenv("CHUNK_OVERLAP_S", "2.0"))
+        cls.CHUNK_SILENCE_THRESHOLD = float(os.getenv("CHUNK_SILENCE_THRESHOLD", "0.03"))
+        cls.CHUNK_SILENCE_WINDOW_S = float(os.getenv("CHUNK_SILENCE_WINDOW_S", "0.3"))
+        cls.MUTE_PLAYBACK_ON_RECORDING = (
+            os.getenv("MUTE_PLAYBACK_ON_RECORDING", "true").lower() == "true"
+        )
+        cls.MUTE_BACKEND = os.getenv("MUTE_BACKEND", "auto").lower()
+        cls.PLAYBACK_MUTE_STRATEGY = os.getenv("PLAYBACK_MUTE_STRATEGY", "auto").lower()
+        cls.MIC_DEVICE = os.getenv("MIC_DEVICE", "auto")
+        cls.LANGUAGE = os.getenv("LANGUAGE", "auto")
+        cls.FILTER_FILLERS = os.getenv("FILTER_FILLERS", "true").lower() == "true"
+        cls.ENABLE_REFORMULATION = os.getenv("ENABLE_REFORMULATION", "false").lower() == "true"
+        cls.PASTE_THRESHOLD_WORDS = int(os.getenv("PASTE_THRESHOLD_WORDS", "10"))
+        cls.CLIPBOARD_VERIFY_DELAY_MS = int(os.getenv("CLIPBOARD_VERIFY_DELAY_MS", "50"))
+        cls.CLIPBOARD_MAX_RETRIES = int(os.getenv("CLIPBOARD_MAX_RETRIES", "5"))
+        cls.DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+        cls.NOTIFICATIONS_ENABLED = os.getenv("NOTIFICATIONS_ENABLED", "false").lower() == "true"
+        cls.CONTEXT_ENABLED = os.getenv("CONTEXT_ENABLED", "true").lower() == "true"
+        cls.CONTEXT_DEBUG = os.getenv("CONTEXT_DEBUG", "false").lower() == "true"
+
+    @classmethod
     def create_dirs(cls):
         """Create required directories in user-writable locations."""
         cls.CONFIG_DIR.mkdir(parents=True, exist_ok=True)

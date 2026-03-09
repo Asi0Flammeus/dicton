@@ -140,6 +140,70 @@ class TestConfigFromEnv:
         assert config_module.Config.LANGUAGE == "fr"
 
 
+class TestReloadConfig:
+    """Test Config.reload_config() refreshes class attributes from os.environ."""
+
+    def test_reload_updates_llm_provider(self, clean_env, monkeypatch):
+        """Config.LLM_PROVIDER must reflect os.environ after reload."""
+        import importlib
+        import os
+
+        import dicton.config as config_module
+
+        importlib.reload(config_module)
+        assert config_module.Config.LLM_PROVIDER == "gemini"  # default
+
+        os.environ["LLM_PROVIDER"] = "anthropic"
+        # Without reload, the class attribute is still "gemini"
+        assert config_module.Config.LLM_PROVIDER == "gemini"
+
+        config_module.Config.reload_config()
+        assert config_module.Config.LLM_PROVIDER == "anthropic"
+
+    def test_reload_updates_string_attrs(self, clean_env, monkeypatch):
+        """String attributes like GEMINI_MODEL are refreshed."""
+        import importlib
+        import os
+
+        import dicton.config as config_module
+
+        importlib.reload(config_module)
+
+        os.environ["GEMINI_MODEL"] = "gemini-2.0-flash"
+        os.environ["LANGUAGE"] = "fr"
+        config_module.Config.reload_config()
+
+        assert config_module.Config.GEMINI_MODEL == "gemini-2.0-flash"
+        assert config_module.Config.LANGUAGE == "fr"
+
+    def test_reload_updates_bool_attrs(self, clean_env, monkeypatch):
+        """Boolean attributes like DEBUG are refreshed."""
+        import importlib
+        import os
+
+        import dicton.config as config_module
+
+        importlib.reload(config_module)
+        assert config_module.Config.DEBUG is False
+
+        os.environ["DEBUG"] = "true"
+        config_module.Config.reload_config()
+        assert config_module.Config.DEBUG is True
+
+    def test_reload_updates_numeric_attrs(self, clean_env, monkeypatch):
+        """Numeric attributes like API_TIMEOUT are refreshed."""
+        import importlib
+        import os
+
+        import dicton.config as config_module
+
+        importlib.reload(config_module)
+
+        os.environ["API_TIMEOUT"] = "60"
+        config_module.Config.reload_config()
+        assert config_module.Config.API_TIMEOUT == 60.0
+
+
 class TestFlexokiColors:
     """Test Flexoki color palette."""
 
