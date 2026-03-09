@@ -11,6 +11,7 @@ Key constraints:
 
 import hashlib
 import logging
+import time
 import wave
 from collections.abc import Callable, Iterator
 
@@ -144,11 +145,25 @@ class MistralSTTProvider(STTProvider):
         # Reinitialize via is_available() which handles key change detection
         return self.is_available()
 
-    def transcribe(self, audio_data: bytes) -> TranscriptionResult | None:
+    _MAX_RETRIES = 3
+    _RETRY_BASE_DELAY = 2.0  # seconds, doubles each attempt
+
+    @staticmethod
+    def _is_retryable(exc: Exception) -> bool:
+        """Check if an API error is transient and worth retrying."""
+        msg = str(exc)
+        return "429" in msg or "capacity_exceeded" in msg or "rate_limit" in msg
+
+    def transcribe(
+        self, audio_data: bytes, *, _raise_on_retryable: bool = False
+    ) -> TranscriptionResult | None:
         """Transcribe audio data using Mistral Voxtral.
 
         Args:
             audio_data: Audio data as bytes (WAV or raw PCM int16).
+            _raise_on_retryable: If True, raise retryable errors instead of
+                retrying internally.  Used by ChunkManager so its own retry
+                loop can handle backoff.
 
         Returns:
             TranscriptionResult on success, None on failure.
@@ -168,68 +183,86 @@ class MistralSTTProvider(STTProvider):
         if wav_buffer is None:
             return None
 
-        try:
-            # Debug output for verification
-            from .config import config as app_config
+        wav_content = wav_buffer.read()
 
-            if app_config.DEBUG:
-                wav_buffer.seek(0, 2)  # Seek to end
-                audio_size = wav_buffer.tell()
-                wav_buffer.seek(0)  # Reset
-                print(
-                    f"[Mistral] 🔄 Calling API: model={self._config.model}, audio={audio_size} bytes"
-                )
+        from .config import config as app_config
 
-            # Call Mistral API
-            # Note: Cannot use language + timestamp_granularities together
-            result = self._client.audio.transcriptions.complete(
-                model=self._config.model,
-                file={"content": wav_buffer.read(), "file_name": "audio.wav"},
+        if app_config.DEBUG:
+            print(
+                f"[Mistral] Calling API: model={self._config.model}, audio={len(wav_content)} bytes"
             )
 
-            if app_config.DEBUG:
-                print(
-                    f"[Mistral] ✓ Response received: {len(result.text) if result and hasattr(result, 'text') else 0} chars"
-                )
+        last_exc: Exception | None = None
+        max_attempts = 1 if _raise_on_retryable else self._MAX_RETRIES
 
-            if not result or not hasattr(result, "text"):
-                logger.warning("Mistral returned no text")
-                return None
-
-            # Build result
-            transcription = TranscriptionResult(
-                text=result.text or "",
-                language=getattr(result, "language", "") or "",
-                is_final=True,
-            )
-
-            # Extract word timestamps if available
-            if hasattr(result, "words") and result.words:
-                transcription.words = [
-                    WordInfo(
-                        word=w.word,
-                        start=w.start,
-                        end=w.end,
-                        confidence=getattr(w, "confidence", 1.0),
-                    )
-                    for w in result.words
-                ]
-
-            # Calculate duration from audio
-            wav_buffer.seek(0)
+        for attempt in range(1, max_attempts + 1):
             try:
-                with wave.open(wav_buffer, "rb") as wav:
-                    frames = wav.getnframes()
-                    rate = wav.getframerate()
-                    transcription.duration = frames / rate
+                # Call Mistral API
+                # Note: Cannot use language + timestamp_granularities together
+                result = self._client.audio.transcriptions.complete(
+                    model=self._config.model,
+                    file={"content": wav_content, "file_name": "audio.wav"},
+                )
+
+                if app_config.DEBUG:
+                    chars = len(result.text) if result and hasattr(result, "text") else 0
+                    print(f"[Mistral] Response received: {chars} chars")
+
+                if not result or not hasattr(result, "text"):
+                    logger.warning("Mistral returned no text")
+                    return None
+
+                # Build result
+                transcription = TranscriptionResult(
+                    text=result.text or "",
+                    language=getattr(result, "language", "") or "",
+                    is_final=True,
+                )
+
+                # Extract word timestamps if available
+                if hasattr(result, "words") and result.words:
+                    transcription.words = [
+                        WordInfo(
+                            word=w.word,
+                            start=w.start,
+                            end=w.end,
+                            confidence=getattr(w, "confidence", 1.0),
+                        )
+                        for w in result.words
+                    ]
+
+                # Calculate duration from audio
+                wav_buffer.seek(0)
+                try:
+                    with wave.open(wav_buffer, "rb") as wav:
+                        frames = wav.getnframes()
+                        rate = wav.getframerate()
+                        transcription.duration = frames / rate
+                except Exception as e:
+                    logger.debug(f"Could not calculate audio duration: {e}")
+
+                return transcription
+
             except Exception as e:
-                logger.debug(f"Could not calculate audio duration: {e}")
+                last_exc = e
+                if self._is_retryable(e):
+                    if _raise_on_retryable:
+                        raise
+                    if attempt < max_attempts:
+                        delay = self._RETRY_BASE_DELAY * (2 ** (attempt - 1))
+                        logger.warning(
+                            "Mistral 429 — retrying in %.0fs (attempt %d/%d)",
+                            delay,
+                            attempt,
+                            max_attempts,
+                        )
+                        time.sleep(delay)
+                        continue
+                # Non-retryable or exhausted retries
+                break
 
-            return transcription
-
-        except Exception as e:
-            logger.error(f"Mistral transcription failed: {e}")
-            return None
+        logger.error("Mistral transcription failed: %s", last_exc)
+        return None
 
     def stream_transcribe(
         self,

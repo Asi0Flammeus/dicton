@@ -33,7 +33,7 @@ class STTAdapter:
         self._chunk_manager = chunk_manager
 
     def transcribe(self, audio):
-        if self._chunk_manager and self._chunk_manager.has_chunks:
+        if self._chunk_manager:
             result = self._chunk_manager.finalize()
             if result.is_partial:
                 logger.warning(

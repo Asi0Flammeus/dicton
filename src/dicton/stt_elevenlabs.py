@@ -134,7 +134,7 @@ class ElevenLabsSTTProvider(STTProvider):
         # Reinitialize via is_available() which handles key change detection
         return self.is_available()
 
-    def transcribe(self, audio_data: bytes) -> TranscriptionResult | None:
+    def transcribe(self, audio_data: bytes, **kwargs) -> TranscriptionResult | None:
         """Transcribe audio data using ElevenLabs Scribe.
 
         Args:
