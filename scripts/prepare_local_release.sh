@@ -220,7 +220,7 @@ _header "Python distribution"
 # Read version once from source of truth
 version="$(python3 -c "
 import re; from pathlib import Path
-m = re.search(r'__version__\s*=\"([^\"]+)\"', Path('src/dicton/__init__.py').read_text())
+m = re.search(r'__version__\s*=\s*\"([^\"]+)\"', Path('src/dicton/__init__.py').read_text())
 print(m.group(1))
 ")"
 
