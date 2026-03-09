@@ -242,7 +242,7 @@ class Visualizer:
             self._ready.set()
 
     def _set_x11_window_type(self, pygame):
-        """Set X11 window type to NOTIFICATION so tiling WMs float it."""
+        """Set X11 window type to UTILITY so tiling WMs (i3) auto-float it."""
         try:
             from Xlib import display
 
@@ -254,14 +254,14 @@ class Visualizer:
             d = display.Display()
             window = d.create_resource_object("window", window_id)
 
-            # Set _NET_WM_WINDOW_TYPE to _NET_WM_WINDOW_TYPE_NOTIFICATION
+            # UTILITY is in i3's auto-float list (NOTIFICATION is not)
             wm_type = d.intern_atom("_NET_WM_WINDOW_TYPE")
-            wm_type_notification = d.intern_atom("_NET_WM_WINDOW_TYPE_NOTIFICATION")
-            window.change_property(wm_type, d.intern_atom("ATOM"), 32, [wm_type_notification])
+            wm_utility = d.intern_atom("_NET_WM_WINDOW_TYPE_UTILITY")
+            window.change_property(wm_type, d.intern_atom("ATOM"), 32, [wm_utility])
             d.sync()
 
             if config.DEBUG:
-                print("✓ X11 window type set to NOTIFICATION (floating in tiling WMs)")
+                print("✓ X11 window type set to UTILITY (floating in tiling WMs)")
         except ImportError:
             pass
         except Exception as e:

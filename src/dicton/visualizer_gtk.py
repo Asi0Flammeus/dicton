@@ -49,10 +49,12 @@ class TransparentVisualizerWindow(Gtk.Window):
 
         # Window setup
         self.set_size_request(SIZE, SIZE)
+        self.set_resizable(False)  # Fixed size — also triggers i3 auto-float (min==max)
         self.set_decorated(False)  # No window decorations
         self.set_keep_above(True)  # Always on top
         self.set_skip_taskbar_hint(True)  # Don't show in taskbar
         self.set_skip_pager_hint(True)  # Don't show in pager
+        self.set_type_hint(Gdk.WindowTypeHint.UTILITY)  # Float in tiling WMs
         # Enable ARGB visual for true transparency
         screen = self.get_screen()
         visual = screen.get_rgba_visual()
@@ -504,11 +506,13 @@ class Visualizer:
                 self.set_colors(self._pending_color)
 
             self.window.move(pos_x, pos_y)
-            self.window.show_all()
 
-            # Set X11 window type directly for tiling WM compatibility (i3, sway).
-            # GTK type hints don't always translate to the X11 property.
+            # realize() creates the underlying X11 window without mapping it,
+            # so we can set _NET_WM_WINDOW_TYPE BEFORE i3 sees the MapRequest.
+            self.window.realize()
             self._set_x11_window_type()
+
+            self.window.show_all()
 
             self.window.start_animation()
         except Exception as e:
@@ -522,7 +526,12 @@ class Visualizer:
         return False  # run once
 
     def _set_x11_window_type(self):
-        """Set _NET_WM_WINDOW_TYPE via Xlib so tiling WMs float this window."""
+        """Set _NET_WM_WINDOW_TYPE via Xlib so tiling WMs float this window.
+
+        Must be called after realize() but before show_all() so i3 sees the
+        property on the initial MapRequest. Uses UTILITY which i3 auto-floats
+        (NOTIFICATION is not in i3's float list).
+        """
         try:
             from Xlib import display as xdisplay
 
@@ -534,8 +543,8 @@ class Visualizer:
             d = xdisplay.Display()
             window = d.create_resource_object("window", xid)
             wm_type = d.intern_atom("_NET_WM_WINDOW_TYPE")
-            wm_notification = d.intern_atom("_NET_WM_WINDOW_TYPE_NOTIFICATION")
-            window.change_property(wm_type, d.intern_atom("ATOM"), 32, [wm_notification])
+            wm_utility = d.intern_atom("_NET_WM_WINDOW_TYPE_UTILITY")
+            window.change_property(wm_type, d.intern_atom("ATOM"), 32, [wm_utility])
             d.sync()
         except ImportError:
             pass
