@@ -14,12 +14,15 @@ from ..platform_utils import IS_LINUX, IS_WINDOWS
 class RuntimeService:
     """Own application startup, runtime wait loop, and shutdown."""
 
-    def __init__(self, session_service, keyboard, recognizer, app_config, log_path=None):
+    def __init__(
+        self, session_service, keyboard, recognizer, app_config, log_path=None, chunk_manager=None
+    ):
         self._session_service = session_service
         self._keyboard = keyboard
         self._recognizer = recognizer
         self._app_config = app_config
         self._log_path: Path | None = log_path
+        self._chunk_manager = chunk_manager
         self._shutdown_event = threading.Event()
         self._fn_handler = None
         self._tray = None
@@ -122,7 +125,7 @@ class RuntimeService:
                 on_toggle_debug=self._toggle_debug,
                 log_path=self._log_path,
             )
-            self._session_service._controller._state.add_observer(self._tray.on_state_change)
+            self._session_service.add_state_observer(self._tray.on_state_change)
             self._tray.start()
         except ImportError:
             pass
@@ -139,6 +142,9 @@ class RuntimeService:
     def shutdown(self) -> None:
         print("\nShutting down...")
         self._shutdown_event.set()
+
+        if self._chunk_manager is not None:
+            self._chunk_manager.close()
 
         if self._tray:
             self._tray.stop()

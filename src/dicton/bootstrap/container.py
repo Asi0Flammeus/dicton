@@ -60,4 +60,5 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
         recognizer=recognizer,
         app_config=app_config,
         log_path=log_path,
+        chunk_manager=chunk_manager,
     )

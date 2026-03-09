@@ -70,6 +70,9 @@ class ChunkManager:
         self._frames: list[bytes] = []
         self._chunk_boundary: int = 0
         self._futures: list[Future] = []
+        # Not formally thread-safe (read by workers, written by main thread),
+        # but bool assignment is atomic under CPython's GIL. Acceptable as-is
+        # unless migrating to free-threaded Python — use threading.Event then.
         self._cancelled: bool = False
         self._silent_run: int = 0
 
@@ -79,6 +82,14 @@ class ChunkManager:
 
     def start_session(self) -> None:
         """Reset all session state for a new recording."""
+        # Cancel and drain any in-flight futures from a previous session
+        for f in self._futures:
+            f.cancel()
+        for f in self._futures:
+            try:
+                f.result(timeout=0.1)
+            except Exception:
+                pass
         self._frames = []
         self._chunk_boundary = 0
         self._futures = []
@@ -198,6 +209,10 @@ class ChunkManager:
         self._cancelled = True
         for f in self._futures:
             f.cancel()
+
+    def close(self) -> None:
+        """Shut down the thread pool without waiting for in-flight tasks."""
+        self._executor.shutdown(wait=False, cancel_futures=True)
 
     # ------------------------------------------------------------------
     # Finalise

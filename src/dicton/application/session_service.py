@@ -32,6 +32,10 @@ class SessionService:
         """Attach the session pipeline controller after service construction."""
         self._controller = controller
 
+    def add_state_observer(self, callback) -> None:
+        """Register an observer on the session pipeline state machine."""
+        self._controller._state.add_observer(callback)
+
     @property
     def recording(self) -> bool:
         return self._recording
