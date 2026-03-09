@@ -107,11 +107,10 @@ class SessionService:
     def _update_visualizer_color(self, mode: ProcessingMode) -> None:
         try:
             if self._visualizer is None:
-                from ..visualizer import get_visualizer
+                self._visualizer = self._load_visualizer()
 
-                self._visualizer = get_visualizer()
-
-            self._visualizer.set_colors(get_mode_color(mode))
+            if self._visualizer:
+                self._visualizer.set_colors(get_mode_color(mode))
         except Exception:
             pass
 
@@ -126,7 +125,9 @@ class SessionService:
             ProcessingMode.TRANSLATE_REFORMAT: "Translate+Reformat",
             ProcessingMode.RAW: "Raw Mode",
         }
-        viz = self._load_visualizer()
+        if self._visualizer is None:
+            self._visualizer = self._load_visualizer()
+        viz = self._visualizer
 
         try:
             selected_text = None
@@ -142,10 +143,8 @@ class SessionService:
             )
 
             def _pre_output() -> None:
-                nonlocal viz
                 if viz:
                     viz.stop()
-                    viz = None
 
             success, session = self._controller.run_session(
                 mode=mode,

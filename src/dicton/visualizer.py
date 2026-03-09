@@ -212,6 +212,10 @@ class Visualizer:
             screen = pygame.display.set_mode((SIZE, SIZE), pygame.NOFRAME)
             pygame.display.set_caption("Dicton")
 
+            # Set window type hint for tiling WMs (i3, sway, etc.)
+            if IS_LINUX and IS_X11:
+                self._set_x11_window_type(pygame)
+
             # Enable transparency based on platform
             if IS_WINDOWS and self.transparent:
                 self._setup_windows_transparency(pygame)
@@ -236,6 +240,33 @@ class Visualizer:
         except Exception as e:
             print(f"Visualizer error: {e}")
             self._ready.set()
+
+    def _set_x11_window_type(self, pygame):
+        """Set X11 window type to NOTIFICATION so tiling WMs float it."""
+        try:
+            from Xlib import display
+
+            wm_info = pygame.display.get_wm_info()
+            window_id = wm_info.get("window")
+            if not window_id:
+                return
+
+            d = display.Display()
+            window = d.create_resource_object("window", window_id)
+
+            # Set _NET_WM_WINDOW_TYPE to _NET_WM_WINDOW_TYPE_NOTIFICATION
+            wm_type = d.intern_atom("_NET_WM_WINDOW_TYPE")
+            wm_type_notification = d.intern_atom("_NET_WM_WINDOW_TYPE_NOTIFICATION")
+            window.change_property(wm_type, d.intern_atom("ATOM"), 32, [wm_type_notification])
+            d.sync()
+
+            if config.DEBUG:
+                print("✓ X11 window type set to NOTIFICATION (floating in tiling WMs)")
+        except ImportError:
+            pass
+        except Exception as e:
+            if config.DEBUG:
+                print(f"⚠ Could not set X11 window type: {e}")
 
     def _setup_windows_transparency(self, pygame):
         """Set up transparent window on Windows using layered window API"""

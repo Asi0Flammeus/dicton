@@ -20,7 +20,7 @@ from .ports import (
     TextProcessor,
     UIFeedback,
 )
-from .state_machine import SessionEvent, SessionStateMachine
+from .state_machine import SessionEvent, SessionState, SessionStateMachine
 
 if TYPE_CHECKING:
     from ..context_detector import ContextInfo
@@ -111,7 +111,11 @@ class DictationController:
                 self._state.transition(SessionEvent.CANCEL)
                 return False, tracker.end_session()
 
-            self._state.transition(SessionEvent.STOP)
+            # Transition to PROCESSING if not already done by stop().
+            # stop() calls transition(STOP) when triggered externally (PTT release),
+            # but for other flows the state may still be RECORDING.
+            if self._state.state == SessionState.RECORDING:
+                self._state.transition(SessionEvent.STOP)
 
             if audio is None or len(audio) == 0:
                 print("No audio captured")
