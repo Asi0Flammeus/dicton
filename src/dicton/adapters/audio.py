@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class AudioCaptureAdapter:
     def __init__(self, recognizer, chunk_manager=None):
@@ -30,6 +34,13 @@ class STTAdapter:
 
     def transcribe(self, audio):
         if self._chunk_manager and self._chunk_manager.has_chunks:
-            result = self._chunk_manager.finalize(audio)
-            return self._recognizer.filter_text(result) if result else None
+            result = self._chunk_manager.finalize()
+            if result.is_partial:
+                logger.warning(
+                    "Partial transcription: %d/%d chunks failed",
+                    result.failed_chunks,
+                    result.total_chunks,
+                )
+            text = result.text
+            return self._recognizer.filter_text(text) if text else None
         return self._recognizer.transcribe(audio)

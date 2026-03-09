@@ -6,6 +6,7 @@ them concurrently to the STT provider. Results are concatenated in order.
 
 import io
 import logging
+import time
 import wave
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
@@ -20,10 +21,11 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class ChunkConfig:
     enabled: bool
-    threshold_s: float
+    min_chunk_s: float
+    max_chunk_s: float
+    overlap_s: float
     silence_threshold: float
     silence_window_s: float
-    lookback_s: float
     chunk_size: int
     sample_rate: int
     stt_timeout: float
@@ -32,14 +34,23 @@ class ChunkConfig:
     def from_app_config(cls, cfg) -> "ChunkConfig":
         return cls(
             enabled=cfg.CHUNK_ENABLED,
-            threshold_s=cfg.CHUNK_THRESHOLD_S,
+            min_chunk_s=cfg.CHUNK_MIN_S,
+            max_chunk_s=cfg.CHUNK_MAX_S,
+            overlap_s=cfg.CHUNK_OVERLAP_S,
             silence_threshold=cfg.CHUNK_SILENCE_THRESHOLD,
             silence_window_s=cfg.CHUNK_SILENCE_WINDOW_S,
-            lookback_s=cfg.CHUNK_LOOKBACK_S,
             chunk_size=cfg.CHUNK_SIZE,
             sample_rate=cfg.SAMPLE_RATE,
             stt_timeout=cfg.STT_TIMEOUT,
         )
+
+
+@dataclass
+class FinalizeResult:
+    text: str | None
+    total_chunks: int
+    failed_chunks: int
+    is_partial: bool  # failed_chunks > 0 and text is not None
 
 
 class ChunkManager:
@@ -49,10 +60,18 @@ class ChunkManager:
         self._stt = stt_provider
         self._config = config
         self._executor = ThreadPoolExecutor(max_workers=3)
+
+        # Precompute frame-related constants
+        self._frame_duration = config.chunk_size / config.sample_rate
+        self._frames_per_window = max(1, int(config.silence_window_s / self._frame_duration))
+        self._overlap_frames = int(config.overlap_s / self._frame_duration)
+
+        # Session state
         self._frames: list[bytes] = []
         self._chunk_boundary: int = 0
         self._futures: list[Future] = []
         self._cancelled: bool = False
+        self._silent_run: int = 0
 
     # ------------------------------------------------------------------
     # Session lifecycle
@@ -64,58 +83,50 @@ class ChunkManager:
         self._chunk_boundary = 0
         self._futures = []
         self._cancelled = False
+        self._silent_run = 0
 
     # ------------------------------------------------------------------
     # Recording feed
     # ------------------------------------------------------------------
 
     def feed_chunk(self, raw_audio: bytes) -> None:
-        """Append a raw audio frame and dispatch a chunk if threshold reached."""
+        """Append a raw audio frame and dispatch a chunk on silence or hard cut."""
         self._frames.append(raw_audio)
+
+        rms = self._compute_rms(raw_audio)
+        if rms < self._config.silence_threshold:
+            self._silent_run += 1
+        else:
+            self._silent_run = 0
+
         unchunked_frames = len(self._frames) - self._chunk_boundary
-        duration_s = unchunked_frames * self._config.chunk_size / self._config.sample_rate
-        if duration_s >= self._config.threshold_s:
-            self._dispatch_chunk()
+        duration_s = unchunked_frames * self._frame_duration
+
+        if self._silent_run >= self._frames_per_window and duration_s >= self._config.min_chunk_s:
+            # Cut at the start of the silence run
+            cut_point = len(self._frames) - self._silent_run
+            self._dispatch_chunk(cut_point, "silence")
+        elif duration_s >= self._config.max_chunk_s:
+            self._dispatch_chunk(len(self._frames), "hard")
 
     # ------------------------------------------------------------------
     # Internal chunk dispatch
     # ------------------------------------------------------------------
 
-    def _dispatch_chunk(self) -> None:
-        """Find a silence cut point and submit a transcription future."""
-        start_idx = self._chunk_boundary
-        end_idx = len(self._frames)
-        cut_point = self._find_silence_point(start_idx, end_idx)
-        if cut_point is None:
-            frames_per_threshold = int(
-                self._config.threshold_s * self._config.sample_rate / self._config.chunk_size
-            )
-            cut_point = start_idx + frames_per_threshold
+    def _dispatch_chunk(self, cut_point: int, cut_type: str) -> None:
+        """Extract frames up to cut_point and submit a transcription future."""
+        frames_slice = self._frames[self._chunk_boundary : cut_point]
+        chunk_idx = len(self._futures)
+        duration_s = len(frames_slice) * self._frame_duration
 
-        frames_slice = self._frames[start_idx:cut_point]
-        future = self._executor.submit(self._transcribe_chunk, frames_slice)
+        future = self._executor.submit(self._transcribe_chunk, frames_slice, chunk_idx)
         self._futures.append(future)
-        self._chunk_boundary = cut_point
 
-    def _find_silence_point(self, start_idx: int, end_idx: int) -> int | None:
-        """Scan backwards from end_idx for N consecutive silent frames."""
-        cfg = self._config
-        frames_per_window = int(cfg.silence_window_s / (cfg.chunk_size / cfg.sample_rate))
-        if frames_per_window < 1:
-            frames_per_window = 1
+        # Overlap: rewind boundary so next chunk re-includes trailing context
+        self._chunk_boundary = max(cut_point - self._overlap_frames, self._chunk_boundary)
+        self._silent_run = 0
 
-        # Scan backwards; need `frames_per_window` consecutive silent frames
-        silent_run = 0
-        for idx in range(end_idx - 1, start_idx - 1, -1):
-            rms = self._compute_rms(self._frames[idx])
-            if rms < cfg.silence_threshold:
-                silent_run += 1
-                if silent_run >= frames_per_window:
-                    # Return the frame index where silence begins
-                    return idx
-            else:
-                silent_run = 0
-        return None
+        logger.info("Dispatched chunk %d: %.1fs, cut=%s", chunk_idx, duration_s, cut_type)
 
     # ------------------------------------------------------------------
     # Audio helpers
@@ -126,19 +137,42 @@ class ChunkManager:
         data = np.frombuffer(raw_audio, dtype=np.int16).astype(np.float32)
         return float(np.sqrt(np.mean(data**2)) / 8000)
 
-    def _transcribe_chunk(self, frames: list[bytes]) -> str | None:
-        """Join frames, convert to WAV, transcribe, return text or None."""
+    def _transcribe_chunk(self, frames: list[bytes], chunk_idx: int) -> str | None:
+        """Join frames, convert to WAV, transcribe with retry, return text or None."""
         if self._cancelled:
             return None
         raw = b"".join(frames)
         audio = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
         wav_bytes = self._audio_to_wav(audio)
-        try:
-            result = self._stt.transcribe(wav_bytes)
-            return result.text if result else None
-        except Exception:
-            logger.exception("Chunk transcription failed")
-            return None
+
+        max_attempts = 2
+        for attempt in range(1, max_attempts + 1):
+            t0 = time.monotonic()
+            try:
+                result = self._stt.transcribe(wav_bytes)
+                latency = time.monotonic() - t0
+                text = result.text if result else None
+                logger.info(
+                    "Chunk %d transcribed: %.2fs latency, %d chars",
+                    chunk_idx,
+                    latency,
+                    len(text) if text else 0,
+                )
+                return text
+            except Exception:
+                latency = time.monotonic() - t0
+                logger.warning(
+                    "Chunk %d attempt %d/%d failed (%.2fs)",
+                    chunk_idx,
+                    attempt,
+                    max_attempts,
+                    latency,
+                )
+                if attempt < max_attempts:
+                    time.sleep(1)
+
+        logger.error("Chunk %d: all %d attempts exhausted", chunk_idx, max_attempts)
+        return None
 
     def _audio_to_wav(self, audio: np.ndarray) -> bytes:
         """Convert float32 audio array to 16-bit mono WAV bytes."""
@@ -169,37 +203,67 @@ class ChunkManager:
     # Finalise
     # ------------------------------------------------------------------
 
-    def finalize(self, full_audio: np.ndarray) -> str | None:  # noqa: ARG002
-        """Transcribe remaining audio, wait for all futures, return joined text."""
+    def finalize(self) -> FinalizeResult:
+        """Transcribe remaining audio, wait for all futures, return FinalizeResult."""
         if self._cancelled:
-            return None
+            return FinalizeResult(
+                text=None,
+                total_chunks=len(self._futures),
+                failed_chunks=0,
+                is_partial=False,
+            )
 
         remaining_frames = self._frames[self._chunk_boundary :]
-        remaining_duration = (
-            len(remaining_frames) * self._config.chunk_size / self._config.sample_rate
-        )
+        remaining_duration = len(remaining_frames) * self._frame_duration
 
         final_future: Future | None = None
         if remaining_frames and remaining_duration > 0.5:
-            final_future = self._executor.submit(self._transcribe_chunk, remaining_frames)
+            chunk_idx = len(self._futures)
+            final_future = self._executor.submit(
+                self._transcribe_chunk, remaining_frames, chunk_idx
+            )
 
         results: list[str] = []
+        failed_chunks = 0
+
         for f in self._futures:
             try:
                 text = f.result(timeout=self._config.stt_timeout)
                 if text:
                     results.append(text)
+                else:
+                    failed_chunks += 1
             except Exception:
                 logger.exception("Error retrieving chunk result")
+                failed_chunks += 1
 
         if final_future is not None:
             try:
                 text = final_future.result(timeout=self._config.stt_timeout)
                 if text:
                     results.append(text)
+                else:
+                    failed_chunks += 1
             except Exception:
                 logger.exception("Error retrieving final chunk result")
+                failed_chunks += 1
 
-        if not results:
-            return None
-        return " ".join(results)
+        total_chunks = len(self._futures) + (1 if final_future is not None else 0)
+        total_duration = len(self._frames) * self._frame_duration
+        joined = " ".join(results) if results else None
+
+        logger.info(
+            "Session summary: %.1fs total, %d chunks dispatched, %d ok, %d failed, %d chars",
+            total_duration,
+            total_chunks,
+            total_chunks - failed_chunks,
+            failed_chunks,
+            len(joined) if joined else 0,
+        )
+
+        return FinalizeResult(
+            text=joined,
+            total_chunks=total_chunks,
+            failed_chunks=failed_chunks,
+            is_partial=failed_chunks > 0 and joined is not None,
+        )
