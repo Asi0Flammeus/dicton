@@ -52,7 +52,7 @@ Section: utils
 Priority: optional
 Architecture: amd64
 Maintainer: asi0 flammeus <asi0@crqpt.com>
-Depends: libportaudio2, xdotool, libnotify-bin
+Depends: libportaudio2, xdotool, libnotify-bin, gir1.2-ayatanaappindicator3-0.1
 Recommends: xclip | wl-clipboard
 Description: Voice-to-text dictation with direct transcription and translation
  Dicton is a desktop dictation tool focused on direct transcription and

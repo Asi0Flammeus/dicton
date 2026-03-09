@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from ..adapters.audio import AudioCaptureAdapter, STTAdapter
 from ..adapters.audio_session_control import AudioSessionControlAdapter
 from ..adapters.config_env import load_app_config
@@ -18,7 +20,7 @@ from ..latency_tracker import get_latency_tracker
 from ..speech_recognition_engine import SpeechRecognizer
 
 
-def build_runtime_service() -> RuntimeService:
+def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
     """Build the runtime service with the current production adapters."""
     config.create_dirs()
     recognizer = SpeechRecognizer()
@@ -57,4 +59,5 @@ def build_runtime_service() -> RuntimeService:
         keyboard=keyboard,
         recognizer=recognizer,
         app_config=app_config,
+        log_path=log_path,
     )
