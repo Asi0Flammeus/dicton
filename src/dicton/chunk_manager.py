@@ -163,8 +163,9 @@ class ChunkManager:
     # ------------------------------------------------------------------
 
     def _compute_rms(self, raw_audio: bytes) -> float:
-        """Compute normalised RMS identical to the visualizer formula."""
+        """Compute normalised AC-coupled RMS (DC offset removed)."""
         data = np.frombuffer(raw_audio, dtype=np.int16).astype(np.float32)
+        data = data - np.mean(data)  # Remove DC offset
         return float(np.sqrt(np.mean(data**2)) / config.RMS_NORMALIZATION)
 
     _CHUNK_MAX_ATTEMPTS = 3
