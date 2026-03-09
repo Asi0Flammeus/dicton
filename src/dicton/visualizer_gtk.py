@@ -53,8 +53,6 @@ class TransparentVisualizerWindow(Gtk.Window):
         self.set_keep_above(True)  # Always on top
         self.set_skip_taskbar_hint(True)  # Don't show in taskbar
         self.set_skip_pager_hint(True)  # Don't show in pager
-        self.set_type_hint(Gdk.WindowTypeHint.NOTIFICATION)  # Float in tiling WMs
-
         # Enable ARGB visual for true transparency
         screen = self.get_screen()
         visual = screen.get_rgba_visual()
@@ -373,6 +371,7 @@ class Visualizer:
         self.window = None
         self.processing = False  # Processing mode (pulsing loader animation)
         self._owns_gtk_loop = False
+        self._pending_color: str | None = None  # Color to apply when window is created
 
     def set_colors(self, color_name: str):
         """Dynamically switch ring color by Flexoki color name."""
@@ -381,6 +380,9 @@ class Visualizer:
         color_name = color_name.lower()
         if color_name not in FLEXOKI_COLORS:
             color_name = "orange"
+
+        # Store for later if window doesn't exist yet
+        self._pending_color = color_name
 
         colors = FLEXOKI_COLORS[color_name]
         if self.window:
@@ -496,8 +498,18 @@ class Visualizer:
             pos_x, pos_y = config.get_animation_position(screen_w, screen_h, SIZE)
 
             self.window = TransparentVisualizerWindow()
+
+            # Apply pending color if set_colors() was called before window creation
+            if self._pending_color:
+                self.set_colors(self._pending_color)
+
             self.window.move(pos_x, pos_y)
             self.window.show_all()
+
+            # Set X11 window type directly for tiling WM compatibility (i3, sway).
+            # GTK type hints don't always translate to the X11 property.
+            self._set_x11_window_type()
+
             self.window.start_animation()
         except Exception as e:
             print(f"GTK Visualizer window creation error: {e}")
@@ -508,6 +520,28 @@ class Visualizer:
         finally:
             self._ready.set()
         return False  # run once
+
+    def _set_x11_window_type(self):
+        """Set _NET_WM_WINDOW_TYPE via Xlib so tiling WMs float this window."""
+        try:
+            from Xlib import display as xdisplay
+
+            gdk_window = self.window.get_window()
+            if gdk_window is None:
+                return
+            xid = gdk_window.get_xid()
+
+            d = xdisplay.Display()
+            window = d.create_resource_object("window", xid)
+            wm_type = d.intern_atom("_NET_WM_WINDOW_TYPE")
+            wm_notification = d.intern_atom("_NET_WM_WINDOW_TYPE_NOTIFICATION")
+            window.change_property(wm_type, d.intern_atom("ATOM"), 32, [wm_notification])
+            d.sync()
+        except ImportError:
+            pass
+        except Exception as e:
+            if config.DEBUG:
+                print(f"⚠ Could not set X11 window type: {e}")
 
 
 # Singleton instance

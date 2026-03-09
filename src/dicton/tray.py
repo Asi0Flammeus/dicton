@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 # Flexoki-derived icon colors per state
 _STATE_COLORS: dict[str, str] = {
-    "IDLE": "#878787",
+    "IDLE": "#100F0F",
     "RECORDING": "#BC5215",
     "PROCESSING": "#205EA6",
     "OUTPUTTING": "#205EA6",
