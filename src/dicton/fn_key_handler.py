@@ -485,12 +485,6 @@ class FnKeyHandler:
                         if event.type != ecodes.EV_KEY:
                             continue
 
-                        # Debug: log key events
-                        if config.DEBUG:
-                            print(
-                                f"Key event from {device.name}: code={event.code} value={event.value}"
-                            )
-
                         # Track modifier key states
                         self._update_modifier_state(event.code, event.value)
 

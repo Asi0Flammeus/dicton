@@ -127,10 +127,10 @@ def test_overlap_boundary(mock_stt, chunk_config):
 
 @patch("dicton.chunk_manager.time.sleep")
 def test_retry_on_failure(mock_sleep, mock_stt, chunk_config):
-    """_transcribe_chunk retries once; recovered text present in result."""
+    """_transcribe_chunk retries on transient error; recovered text present in result."""
     call_count = [0]
 
-    def side_effect(_audio):
+    def side_effect(_audio, **kwargs):
         call_count[0] += 1
         if call_count[0] == 1:
             raise RuntimeError("temporary failure")
@@ -148,7 +148,7 @@ def test_retry_on_failure(mock_sleep, mock_stt, chunk_config):
     assert "recovered" in result.text
     # 2 calls: first raised, second succeeded
     assert mock_stt.transcribe.call_count == 2
-    mock_sleep.assert_called_once_with(1)
+    mock_sleep.assert_called_once_with(2.0)
 
 
 def test_finalize_returns_result(mock_stt, chunk_config):
@@ -212,18 +212,18 @@ def test_start_session_resets_state(mock_stt, chunk_config):
 
 @patch("dicton.chunk_manager.time.sleep")
 def test_provider_error_partial_results(_mock_sleep, mock_stt, chunk_config):
-    """One chunk fails both retries -> is_partial=True, failed_chunks=1."""
+    """One chunk fails all retries -> is_partial=True, failed_chunks=1."""
     call_count = [0]
     lock = threading.Lock()
 
-    def side_effect(_audio):
+    def side_effect(_audio, **kwargs):
         with lock:
             n = call_count[0]
             call_count[0] += 1
         # Chunk 0 (dispatch 1): call 0 -> succeed
-        # Chunk 1 (dispatch 2): calls 1,2 -> both fail (retry exhausted)
-        # Chunk 2 (finalize):   call 3 -> succeed
-        if n in (1, 2):
+        # Chunk 1 (dispatch 2): calls 1,2,3 -> all fail (3 retries exhausted)
+        # Chunk 2 (finalize):   call 4 -> succeed
+        if n in (1, 2, 3):
             raise RuntimeError("STT provider failure")
         return TranscriptionResult(text=f"text{n}")
 

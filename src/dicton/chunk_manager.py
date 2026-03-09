@@ -60,7 +60,9 @@ class ChunkManager:
     def __init__(self, stt_provider: STTProvider, config: ChunkConfig) -> None:
         self._stt = stt_provider
         self._config = config
-        self._executor = ThreadPoolExecutor(max_workers=3)
+        # Sequential dispatch (max_workers=1) to stay within Mistral's
+        # per-second rate limit on lower tiers (free tier = 1 RPS).
+        self._executor = ThreadPoolExecutor(max_workers=1)
 
         # Precompute frame-related constants
         self._frame_duration = config.chunk_size / config.sample_rate
@@ -149,19 +151,28 @@ class ChunkManager:
         data = np.frombuffer(raw_audio, dtype=np.int16).astype(np.float32)
         return float(np.sqrt(np.mean(data**2)) / config.RMS_NORMALIZATION)
 
+    _CHUNK_MAX_ATTEMPTS = 3
+    _CHUNK_RETRY_BASE_DELAY = 2.0  # doubles each attempt
+
     def _transcribe_chunk(self, frames: list[bytes], chunk_idx: int) -> str | None:
-        """Join frames, convert to WAV, transcribe with retry, return text or None."""
+        """Join frames, convert to WAV, transcribe with retry, return text or None.
+
+        Uses _raise_on_retryable=True so the STT provider propagates 429 /
+        capacity errors instead of swallowing them, letting us retry here with
+        exponential backoff.
+        """
         if self._cancelled:
             return None
         raw = b"".join(frames)
         audio = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
         wav_bytes = self._audio_to_wav(audio)
 
-        max_attempts = 2
-        for attempt in range(1, max_attempts + 1):
+        for attempt in range(1, self._CHUNK_MAX_ATTEMPTS + 1):
+            if self._cancelled:
+                return None
             t0 = time.monotonic()
             try:
-                result = self._stt.transcribe(wav_bytes)
+                result = self._stt.transcribe(wav_bytes, _raise_on_retryable=True)
                 latency = time.monotonic() - t0
                 text = result.text if result else None
                 logger.info(
@@ -177,13 +188,14 @@ class ChunkManager:
                     "Chunk %d attempt %d/%d failed (%.2fs)",
                     chunk_idx,
                     attempt,
-                    max_attempts,
+                    self._CHUNK_MAX_ATTEMPTS,
                     latency,
                 )
-                if attempt < max_attempts:
-                    time.sleep(1)
+                if attempt < self._CHUNK_MAX_ATTEMPTS:
+                    delay = self._CHUNK_RETRY_BASE_DELAY * (2 ** (attempt - 1))
+                    time.sleep(delay)
 
-        logger.error("Chunk %d: all %d attempts exhausted", chunk_idx, max_attempts)
+        logger.error("Chunk %d: all %d attempts exhausted", chunk_idx, self._CHUNK_MAX_ATTEMPTS)
         return None
 
     def _audio_to_wav(self, audio: np.ndarray) -> bytes:

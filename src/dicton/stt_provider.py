@@ -184,11 +184,12 @@ class STTProvider(ABC):
         return True
 
     @abstractmethod
-    def transcribe(self, audio_data: bytes) -> TranscriptionResult | None:
+    def transcribe(self, audio_data: bytes, **kwargs) -> TranscriptionResult | None:
         """Transcribe audio data (batch mode).
 
         Args:
             audio_data: Audio data as bytes (typically WAV format).
+            **kwargs: Provider-specific options (e.g. _raise_on_retryable).
 
         Returns:
             TranscriptionResult on success, None on failure.
@@ -296,7 +297,7 @@ class NullSTTProvider(STTProvider):
     def is_available(self) -> bool:
         return True  # Always "available" as a fallback
 
-    def transcribe(self, audio_data: bytes) -> TranscriptionResult | None:
+    def transcribe(self, audio_data: bytes, **kwargs) -> TranscriptionResult | None:
         return None
 
     def stream_transcribe(
