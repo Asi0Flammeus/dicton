@@ -21,6 +21,8 @@ class SessionService:
         self._keyboard = keyboard
         self._metrics = metrics
         self._app_config = app_config
+        self._session_lock = threading.Lock()
+        self._starting = False
         self._recording = False
         self._record_thread: threading.Thread | None = None
         self._current_mode = ProcessingMode.BASIC
@@ -38,7 +40,8 @@ class SessionService:
 
     @property
     def recording(self) -> bool:
-        return self._recording
+        with self._session_lock:
+            return self._recording
 
     def toggle_basic_recording(self) -> None:
         """Legacy toggle used by the modifier+key keyboard listener."""
@@ -49,64 +52,81 @@ class SessionService:
 
     def start_recording(self, mode: ProcessingMode) -> None:
         """Start recording for the requested processing mode."""
-        if self._recording:
-            return
-
-        if self._record_thread is not None and self._record_thread.is_alive():
-            return  # Previous session still processing
+        with self._session_lock:
+            if self._starting or self._recording:
+                return
+            if self._record_thread is not None and self._record_thread.is_alive():
+                return  # Previous session still processing
+            self._starting = True
 
         if not is_mode_enabled(mode):
             mode = ProcessingMode.BASIC
 
-        self._current_mode = mode
-        self._selected_text = None
-        self._current_context = None
+        selected_text = None
+        current_context = None
 
-        if self._app_config.context_enabled:
-            try:
-                from ..context_detector import get_context_detector
+        try:
+            if self._app_config.context_enabled:
+                try:
+                    from ..context_detector import get_context_detector
 
-                detector = get_context_detector()
-                if detector:
-                    self._current_context = detector.get_context()
-            except Exception as exc:
-                if self._app_config.context_debug:
-                    print(f"[Context] Detection failed: {exc}")
+                    detector = get_context_detector()
+                    if detector:
+                        current_context = detector.get_context()
+                except Exception as exc:
+                    if self._app_config.context_debug:
+                        print(f"[Context] Detection failed: {exc}")
 
-        if mode == ProcessingMode.ACT_ON_TEXT:
-            selected = self._capture_selection_for_act_on_text()
-            if not selected:
-                return
-            self._selected_text = selected
-            print(
-                f"📋 Selected: {selected[:50]}..."
-                if len(selected) > 50
-                else f"📋 Selected: {selected}"
+            if mode == ProcessingMode.ACT_ON_TEXT:
+                selected = self._capture_selection_for_act_on_text()
+                if not selected:
+                    return
+                selected_text = selected
+                print(
+                    f"📋 Selected: {selected[:50]}..."
+                    if len(selected) > 50
+                    else f"📋 Selected: {selected}"
+                )
+
+            self._update_visualizer_color(mode)
+
+            record_thread = threading.Thread(
+                target=self._record_and_transcribe,
+                args=(mode, selected_text, current_context),
+                daemon=True,
             )
-
-        self._recording = True
-        self._update_visualizer_color(mode)
-        self._record_thread = threading.Thread(target=self._record_and_transcribe, daemon=True)
-        self._record_thread.start()
+            with self._session_lock:
+                self._current_mode = mode
+                self._selected_text = selected_text
+                self._current_context = current_context
+                self._recording = True
+                self._record_thread = record_thread
+                self._starting = False
+            record_thread.start()
+        finally:
+            with self._session_lock:
+                self._starting = False
 
     def stop_recording(self) -> None:
         """Stop recording and continue to processing."""
-        if not self._recording:
-            return
+        with self._session_lock:
+            if not self._recording:
+                return
+            self._recording = False
 
         print("⏹ Stopping...")
         self._controller.stop()
-        self._recording = False
 
     def cancel_recording(self) -> None:
         """Cancel recording and discard captured audio."""
-        if not self._recording:
-            return
+        with self._session_lock:
+            if not self._recording:
+                return
+            self._recording = False
 
         if self._app_config.debug:
             print("⏹ Cancelled (tap)")
         self._controller.cancel()
-        self._recording = False
 
     def _update_visualizer_color(self, mode: ProcessingMode) -> None:
         try:
@@ -118,8 +138,12 @@ class SessionService:
         except Exception:
             pass
 
-    def _record_and_transcribe(self) -> None:
-        mode = self._current_mode
+    def _record_and_transcribe(
+        self,
+        mode: ProcessingMode,
+        selected_text: str | None,
+        current_context: ContextInfo | None,
+    ) -> None:
         tracker = self._metrics
         mode_names = {
             ProcessingMode.BASIC: "Recording",
@@ -134,16 +158,14 @@ class SessionService:
         viz = self._visualizer
 
         try:
-            selected_text = None
             if mode == ProcessingMode.ACT_ON_TEXT:
-                selected_text = self._selected_text
                 if not selected_text:
                     print("⚠ No selection captured")
                     return
 
             session_ctx = SessionContext(
                 selected_text=selected_text,
-                context=self._current_context,
+                context=current_context,
             )
 
             def _pre_output() -> None:
@@ -173,7 +195,10 @@ class SessionService:
             except Exception:
                 pass
         finally:
-            self._recording = False
+            with self._session_lock:
+                self._recording = False
+                if self._record_thread is threading.current_thread():
+                    self._record_thread = None
             if viz:
                 viz.stop()
 
