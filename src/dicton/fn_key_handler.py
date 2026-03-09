@@ -10,6 +10,7 @@ Delayed Start Mode:
 """
 
 import os
+import queue
 import threading
 import time
 from collections.abc import Callable
@@ -95,6 +96,11 @@ class FnKeyHandler:
         self._timer_thread: threading.Thread | None = None
         self._activation_timer: threading.Timer | None = None
         self._running = False
+
+        # Deliver start/stop/cancel callbacks in-order on a dedicated worker.
+        self._callback_queue: queue.Queue[tuple[str, ProcessingMode | None] | None] = queue.Queue()
+        self._callback_thread: threading.Thread | None = None
+        self._start_callback_worker()
 
         # evdev devices
         self._device = None  # Primary device (laptop keyboard for FN key)
@@ -279,6 +285,41 @@ class FnKeyHandler:
             self._device_monitor_thread.join(timeout=1.0)
         if self._listener_thread:
             self._listener_thread.join(timeout=1.0)
+        if self._callback_thread and self._callback_thread.is_alive():
+            self._callback_queue.put(None)
+            self._callback_thread.join(timeout=1.0)
+            self._callback_thread = None
+
+    def _start_callback_worker(self):
+        """Run hotkey callbacks sequentially so state transitions stay ordered."""
+        if self._callback_thread and self._callback_thread.is_alive():
+            return
+
+        def run_callbacks():
+            while True:
+                item = self._callback_queue.get()
+                if item is None:
+                    return
+
+                action, mode = item
+                try:
+                    if action == "start" and self.on_start_recording:
+                        self.on_start_recording(mode)
+                    elif action == "stop" and self.on_stop_recording:
+                        self.on_stop_recording()
+                    elif action == "cancel" and self.on_cancel_recording:
+                        self.on_cancel_recording()
+                except Exception as exc:
+                    if config.DEBUG:
+                        print(f"Hotkey callback '{action}' failed: {exc}")
+
+        self._callback_thread = threading.Thread(target=run_callbacks, daemon=True)
+        self._callback_thread.start()
+
+    def _enqueue_callback(self, action: str, mode: ProcessingMode | None = None):
+        """Queue a hotkey callback for ordered delivery."""
+        self._start_callback_worker()
+        self._callback_queue.put((action, mode))
 
     def _close_wake_pipe(self):
         """Close the self-pipe used to wake select()"""
@@ -725,19 +766,17 @@ class FnKeyHandler:
     def _trigger_start_recording(self):
         """Trigger recording start callback with current mode"""
         if self.on_start_recording:
-            mode = self._current_mode
-            # Run callback in separate thread to not block event handling
-            threading.Thread(target=lambda: self.on_start_recording(mode), daemon=True).start()
+            self._enqueue_callback("start", self._current_mode)
 
     def _trigger_stop_recording(self):
         """Trigger recording stop callback (will process audio)"""
         if self.on_stop_recording:
-            threading.Thread(target=self.on_stop_recording, daemon=True).start()
+            self._enqueue_callback("stop")
 
     def _trigger_cancel_recording(self):
         """Trigger recording cancel callback (discard audio, tap detected)"""
         if self.on_cancel_recording:
-            threading.Thread(target=self.on_cancel_recording, daemon=True).start()
+            self._enqueue_callback("cancel")
 
     @property
     def state(self) -> HotkeyState:
