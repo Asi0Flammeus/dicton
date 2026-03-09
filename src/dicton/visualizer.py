@@ -130,7 +130,7 @@ class Visualizer:
                 return
 
             # Calculate raw RMS (before gain)
-            raw_rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / 8000
+            raw_rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / config.RMS_NORMALIZATION
 
             # Adaptive gain adjustment based on peak levels
             with self.lock:

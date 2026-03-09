@@ -642,7 +642,7 @@ class VisPyVisualizerCanvas(app.Canvas):
                 return
 
             # Calculate RMS for global level
-            rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / 8000
+            rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / config.RMS_NORMALIZATION
             rms = min(1.0, rms * 1.8)
 
             # FFT analysis

@@ -313,7 +313,7 @@ class TransparentVisualizerWindow(Gtk.Window):
                 return
 
             # Calculate raw RMS
-            raw_rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / 8000
+            raw_rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / config.RMS_NORMALIZATION
 
             with self.lock:
                 # Adaptive gain control

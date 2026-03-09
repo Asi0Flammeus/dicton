@@ -13,6 +13,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .config import config
 from .stt_provider import STTProvider
 
 logger = logging.getLogger(__name__)
@@ -146,7 +147,7 @@ class ChunkManager:
     def _compute_rms(self, raw_audio: bytes) -> float:
         """Compute normalised RMS identical to the visualizer formula."""
         data = np.frombuffer(raw_audio, dtype=np.int16).astype(np.float32)
-        return float(np.sqrt(np.mean(data**2)) / 8000)
+        return float(np.sqrt(np.mean(data**2)) / config.RMS_NORMALIZATION)
 
     def _transcribe_chunk(self, frames: list[bytes], chunk_idx: int) -> str | None:
         """Join frames, convert to WAV, transcribe with retry, return text or None."""

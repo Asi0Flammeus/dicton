@@ -204,6 +204,9 @@ class Config:
     # Audio settings
     SAMPLE_RATE = 16000
     CHUNK_SIZE = 1024
+    # Normalisation divisor for RMS → 0-1 range (≈ int16 max / 4).
+    # Shared by the visualizer and chunk-manager silence detector.
+    RMS_NORMALIZATION = 8000
 
     # Chunked pipeline (long recordings)
     CHUNK_ENABLED = os.getenv("CHUNK_ENABLED", "true").lower() == "true"
