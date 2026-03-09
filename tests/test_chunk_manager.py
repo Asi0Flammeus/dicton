@@ -170,16 +170,23 @@ def test_finalize_returns_result(mock_stt, chunk_config):
 
 
 def test_rms_computation(mock_stt, chunk_config):
-    """_compute_rms returns expected values for silence and known amplitudes."""
+    """_compute_rms returns expected values for silence and known amplitudes.
+
+    RMS is AC-coupled (DC offset removed), so constant signals yield 0
+    and only the varying component is measured.
+    """
     manager = ChunkManager(mock_stt, chunk_config)
     # Silence: all zeros → RMS = 0
     assert manager._compute_rms(SILENCE_FRAME) == 0.0
-    # Max int16 amplitude (32767) → RMS = 32767 / 8000
+    # Constant value (pure DC) → RMS = 0 after DC removal
     max_val = np.full(CHUNK_SIZE, 32767, dtype=np.int16).tobytes()
-    assert abs(manager._compute_rms(max_val) - 32767.0 / 8000.0) < 1e-4
-    # Min int16 amplitude (-32768) → RMS = 32768 / 8000
-    min_val = np.full(CHUNK_SIZE, -32768, dtype=np.int16).tobytes()
-    assert abs(manager._compute_rms(min_val) - 32768.0 / 8000.0) < 1e-4
+    assert manager._compute_rms(max_val) == 0.0
+    # Alternating +/- signal (zero mean, pure AC) → RMS = amplitude / 8000
+    alt = np.array([10000, -10000] * (CHUNK_SIZE // 2), dtype=np.int16).tobytes()
+    assert abs(manager._compute_rms(alt) - 10000.0 / 8000.0) < 1e-4
+    # DC offset + AC signal: only AC component measured
+    biased = np.array([20000, 0] * (CHUNK_SIZE // 2), dtype=np.int16).tobytes()
+    assert abs(manager._compute_rms(biased) - 10000.0 / 8000.0) < 1e-4
 
 
 def test_cancel_discards_all(mock_stt, chunk_config):
