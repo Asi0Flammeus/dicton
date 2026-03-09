@@ -70,5 +70,9 @@ def get_latency_log_path() -> Path:
     return get_user_data_dir() / "latency.log"
 
 
+def get_log_path() -> Path:
+    return get_user_data_dir() / "dicton.log"
+
+
 def get_update_cache_path() -> Path:
     return get_user_cache_dir() / "update_cache.json"

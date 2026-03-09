@@ -130,7 +130,7 @@ class Visualizer:
                 return
 
             # Calculate raw RMS (before gain)
-            raw_rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / 8000
+            raw_rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / config.RMS_NORMALIZATION
 
             # Adaptive gain adjustment based on peak levels
             with self.lock:
@@ -212,6 +212,10 @@ class Visualizer:
             screen = pygame.display.set_mode((SIZE, SIZE), pygame.NOFRAME)
             pygame.display.set_caption("Dicton")
 
+            # Set window type hint for tiling WMs (i3, sway, etc.)
+            if IS_LINUX and IS_X11:
+                self._set_x11_window_type(pygame)
+
             # Enable transparency based on platform
             if IS_WINDOWS and self.transparent:
                 self._setup_windows_transparency(pygame)
@@ -236,6 +240,33 @@ class Visualizer:
         except Exception as e:
             print(f"Visualizer error: {e}")
             self._ready.set()
+
+    def _set_x11_window_type(self, pygame):
+        """Set X11 window type to UTILITY so tiling WMs (i3) auto-float it."""
+        try:
+            from Xlib import display
+
+            wm_info = pygame.display.get_wm_info()
+            window_id = wm_info.get("window")
+            if not window_id:
+                return
+
+            d = display.Display()
+            window = d.create_resource_object("window", window_id)
+
+            # UTILITY is in i3's auto-float list (NOTIFICATION is not)
+            wm_type = d.intern_atom("_NET_WM_WINDOW_TYPE")
+            wm_utility = d.intern_atom("_NET_WM_WINDOW_TYPE_UTILITY")
+            window.change_property(wm_type, d.intern_atom("ATOM"), 32, [wm_utility])
+            d.sync()
+
+            if config.DEBUG:
+                print("✓ X11 window type set to UTILITY (floating in tiling WMs)")
+        except ImportError:
+            pass
+        except Exception as e:
+            if config.DEBUG:
+                print(f"⚠ Could not set X11 window type: {e}")
 
     def _setup_windows_transparency(self, pygame):
         """Set up transparent window on Windows using layered window API"""

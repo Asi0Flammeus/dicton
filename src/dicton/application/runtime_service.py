@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 import signal
 import threading
+from pathlib import Path
 
 from ..config import config
 from ..platform_utils import IS_LINUX, IS_WINDOWS
@@ -12,13 +14,18 @@ from ..platform_utils import IS_LINUX, IS_WINDOWS
 class RuntimeService:
     """Own application startup, runtime wait loop, and shutdown."""
 
-    def __init__(self, session_service, keyboard, recognizer, app_config):
+    def __init__(
+        self, session_service, keyboard, recognizer, app_config, log_path=None, chunk_manager=None
+    ):
         self._session_service = session_service
         self._keyboard = keyboard
         self._recognizer = recognizer
         self._app_config = app_config
+        self._log_path: Path | None = log_path
+        self._chunk_manager = chunk_manager
         self._shutdown_event = threading.Event()
         self._fn_handler = None
+        self._tray = None
         self._use_fn_key = False
 
         if not self._recognizer._provider_available:
@@ -66,6 +73,7 @@ class RuntimeService:
             pass
 
         self._use_fn_key = self._init_fn_handler()
+        self._init_tray()
 
         if self._use_fn_key:
             print("Hotkey: FN key (hold=PTT, double-tap=toggle)")
@@ -108,9 +116,38 @@ class RuntimeService:
 
         self.shutdown()
 
+    def _init_tray(self) -> None:
+        try:
+            from ..tray import DictonTray
+
+            self._tray = DictonTray(
+                on_quit=self.request_shutdown,
+                on_toggle_debug=self._toggle_debug,
+                log_path=self._log_path,
+            )
+            self._session_service.add_state_observer(self._tray.on_state_change)
+            self._tray.start()
+        except ImportError:
+            pass
+        except Exception:
+            logging.getLogger(__name__).debug("Tray init failed", exc_info=True)
+
+    def _toggle_debug(self) -> bool:
+        config.DEBUG = not config.DEBUG
+        level = logging.DEBUG if config.DEBUG else logging.WARNING
+        logging.getLogger().setLevel(level)
+        print(f"Debug mode: {'ON' if config.DEBUG else 'OFF'}")
+        return config.DEBUG
+
     def shutdown(self) -> None:
         print("\nShutting down...")
         self._shutdown_event.set()
+
+        if self._chunk_manager is not None:
+            self._chunk_manager.close()
+
+        if self._tray:
+            self._tray.stop()
 
         if self._fn_handler:
             self._fn_handler.stop()

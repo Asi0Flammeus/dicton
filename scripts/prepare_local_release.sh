@@ -216,6 +216,17 @@ fi
 # ── 6. Python dist ─────────────────────────────────────
 CURRENT_STEP=$((CURRENT_STEP + 1))
 _header "Python distribution"
+
+# Read version once from source of truth
+version="$(python3 -c "
+import re; from pathlib import Path
+m = re.search(r'__version__\s*=\s*\"([^\"]+)\"', Path('src/dicton/__init__.py').read_text())
+print(m.group(1))
+")"
+
+# Clean stale artifacts so glob/ls can't pick up old versions
+rm -f "${PROJECT_DIR}"/dist/dicton_*_amd64.deb "${PROJECT_DIR}/dist/dicton-linux-x64.tar.gz"
+
 _run "sdist + wheel" uv build
 
 # ── 7. Linux package ───────────────────────────────────
@@ -224,12 +235,10 @@ _header "Linux packaging"
 _run "PyInstaller bundle + .deb" ./scripts/build-linux-package.sh
 
 tar_path="${PROJECT_DIR}/dist/dicton-linux-x64.tar.gz"
-deb_path="$(ls "${PROJECT_DIR}"/dist/dicton_*_amd64.deb 2>/dev/null | head -1)"
+deb_path="${PROJECT_DIR}/dist/dicton_${version}_amd64.deb"
 
 [[ -f "$tar_path" ]] || { echo -e "  ${RED}✘${RST} Tarball not found"; exit 1; }
-[[ -n "$deb_path" && -f "$deb_path" ]] || { echo -e "  ${RED}✘${RST} .deb not found in dist/"; exit 1; }
-
-version="$(dpkg-deb --field "$deb_path" Version)"
+[[ -f "$deb_path" ]] || { echo -e "  ${RED}✘${RST} .deb not found: ${deb_path##*/}"; exit 1; }
 
 # ── 8. Validation ──────────────────────────────────────
 CURRENT_STEP=$((CURRENT_STEP + 1))

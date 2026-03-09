@@ -49,11 +49,12 @@ class TransparentVisualizerWindow(Gtk.Window):
 
         # Window setup
         self.set_size_request(SIZE, SIZE)
+        self.set_resizable(False)  # Fixed size — also triggers i3 auto-float (min==max)
         self.set_decorated(False)  # No window decorations
         self.set_keep_above(True)  # Always on top
         self.set_skip_taskbar_hint(True)  # Don't show in taskbar
         self.set_skip_pager_hint(True)  # Don't show in pager
-
+        self.set_type_hint(Gdk.WindowTypeHint.UTILITY)  # Float in tiling WMs
         # Enable ARGB visual for true transparency
         screen = self.get_screen()
         visual = screen.get_rgba_visual()
@@ -312,7 +313,7 @@ class TransparentVisualizerWindow(Gtk.Window):
                 return
 
             # Calculate raw RMS
-            raw_rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / 8000
+            raw_rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / config.RMS_NORMALIZATION
 
             with self.lock:
                 # Adaptive gain control
@@ -371,6 +372,27 @@ class Visualizer:
         self._ready = threading.Event()
         self.window = None
         self.processing = False  # Processing mode (pulsing loader animation)
+        self._owns_gtk_loop = False
+        self._pending_color: str | None = None  # Color to apply when window is created
+
+    def set_colors(self, color_name: str):
+        """Dynamically switch ring color by Flexoki color name."""
+        from .config import FLEXOKI_COLORS
+
+        color_name = color_name.lower()
+        if color_name not in FLEXOKI_COLORS:
+            color_name = "orange"
+
+        # Store for later if window doesn't exist yet
+        self._pending_color = color_name
+
+        colors = FLEXOKI_COLORS[color_name]
+        if self.window:
+            with self.window.lock:
+                self.window.color_main = tuple(c / 255.0 for c in colors["main"])
+                self.window.color_mid = tuple(c / 255.0 for c in colors["mid"])
+                self.window.color_dim = tuple(c / 255.0 for c in colors["dim"])
+                self.window.color_glow = tuple(c / 255.0 for c in colors["glow"])
 
     def start(self):
         """Start the visualizer in a separate thread."""
@@ -404,11 +426,12 @@ class Visualizer:
         """
         self.processing = True
         if self.window:
-            self.window.processing = True
-            # Reset audio levels for clean pulsing animation
-            self.window.levels = [0.0] * WAVE_POINTS
-            self.window.smooth_levels = [0.0] * WAVE_POINTS
-            self.window.global_level = 0.0
+            with self.window.lock:
+                self.window.processing = True
+                # Reset audio levels for clean pulsing animation (must stay numpy arrays)
+                self.window.levels = np.zeros(WAVE_POINTS)
+                self.window.smooth_levels = np.zeros(WAVE_POINTS)
+                self.window.global_level = 0.0
 
     def _destroy_window(self):
         """Destroy window from GTK thread."""
@@ -416,7 +439,8 @@ class Visualizer:
             self.window.stop_animation()
             self.window.destroy()
             self.window = None
-        Gtk.main_quit()
+        if self._owns_gtk_loop:
+            Gtk.main_quit()
         return False
 
     def update(self, audio_chunk: bytes):
@@ -426,31 +450,35 @@ class Visualizer:
             GLib.idle_add(self.window.update_audio, audio_chunk)
 
     def _run(self):
-        """Run the GTK main loop."""
+        """Run the GTK visualizer.
+
+        If a GTK main loop is already running (e.g. from the system tray),
+        we schedule window creation on that loop via GLib.idle_add().
+        Otherwise we start our own loop.
+        """
         try:
-            # Initialize GTK (thread-safe)
-            GLib.threads_init()
-            Gdk.threads_init()
+            # Schedule window creation on the GTK main context
+            GLib.idle_add(self._create_window)
 
-            # Get screen dimensions for positioning
-            display = Gdk.Display.get_default()
-            monitor = display.get_primary_monitor()
-            geometry = monitor.get_geometry()
-            screen_w, screen_h = geometry.width, geometry.height
+            # Check if a GTK main loop is already running (e.g. from the tray).
+            # Gtk.main_level() is per-thread, so we probe the default context:
+            # if we can acquire it, nobody else is running a loop.
+            ctx = GLib.MainContext.default()
+            owns = ctx.acquire()
+            if owns:
+                ctx.release()
+                # No existing loop — start our own
+                self._owns_gtk_loop = True
+                Gtk.main()
+            else:
+                # Another thread (tray) is running Gtk.main(); piggyback on it.
+                self._owns_gtk_loop = False
+                self._ready.wait(timeout=3.0)  # wait for idle_add to fire
+                # Keep thread alive until stop() is called
+                while self.running:
+                    import time
 
-            # Calculate position
-            pos_x, pos_y = config.get_animation_position(screen_w, screen_h, SIZE)
-
-            # Create window
-            self.window = TransparentVisualizerWindow()
-            self.window.move(pos_x, pos_y)
-            self.window.show_all()
-            self.window.start_animation()
-
-            self._ready.set()
-
-            # Run GTK main loop
-            Gtk.main()
+                    time.sleep(0.1)
 
         except Exception as e:
             print(f"GTK Visualizer error: {e}")
@@ -460,6 +488,69 @@ class Visualizer:
                 traceback.print_exc()
         finally:
             self._ready.set()
+
+    def _create_window(self):
+        """Create the visualizer window (called on GTK thread via idle_add)."""
+        try:
+            display = Gdk.Display.get_default()
+            monitor = display.get_primary_monitor()
+            geometry = monitor.get_geometry()
+            screen_w, screen_h = geometry.width, geometry.height
+
+            pos_x, pos_y = config.get_animation_position(screen_w, screen_h, SIZE)
+
+            self.window = TransparentVisualizerWindow()
+
+            # Apply pending color if set_colors() was called before window creation
+            if self._pending_color:
+                self.set_colors(self._pending_color)
+
+            self.window.move(pos_x, pos_y)
+
+            # realize() creates the underlying X11 window without mapping it,
+            # so we can set _NET_WM_WINDOW_TYPE BEFORE i3 sees the MapRequest.
+            self.window.realize()
+            self._set_x11_window_type()
+
+            self.window.show_all()
+
+            self.window.start_animation()
+        except Exception as e:
+            print(f"GTK Visualizer window creation error: {e}")
+            if config.DEBUG:
+                import traceback
+
+                traceback.print_exc()
+        finally:
+            self._ready.set()
+        return False  # run once
+
+    def _set_x11_window_type(self):
+        """Set _NET_WM_WINDOW_TYPE via Xlib so tiling WMs float this window.
+
+        Must be called after realize() but before show_all() so i3 sees the
+        property on the initial MapRequest. Uses UTILITY which i3 auto-floats
+        (NOTIFICATION is not in i3's float list).
+        """
+        try:
+            from Xlib import display as xdisplay
+
+            gdk_window = self.window.get_window()
+            if gdk_window is None:
+                return
+            xid = gdk_window.get_xid()
+
+            d = xdisplay.Display()
+            window = d.create_resource_object("window", xid)
+            wm_type = d.intern_atom("_NET_WM_WINDOW_TYPE")
+            wm_utility = d.intern_atom("_NET_WM_WINDOW_TYPE_UTILITY")
+            window.change_property(wm_type, d.intern_atom("ATOM"), 32, [wm_utility])
+            d.sync()
+        except ImportError:
+            pass
+        except Exception as e:
+            if config.DEBUG:
+                print(f"⚠ Could not set X11 window type: {e}")
 
 
 # Singleton instance

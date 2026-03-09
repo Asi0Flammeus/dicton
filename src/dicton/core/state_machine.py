@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from enum import Enum, auto
 
 
@@ -52,6 +53,11 @@ _TRANSITIONS = {
 class SessionStateMachine:
     def __init__(self):
         self.state = SessionState.IDLE
+        self._observers: list[Callable[[SessionState], None]] = []
+
+    def add_observer(self, callback: Callable[[SessionState], None]) -> None:
+        """Register a callable to be notified on every state transition."""
+        self._observers.append(callback)
 
     def transition(self, event: SessionEvent) -> SessionState:
         next_state = _TRANSITIONS.get(self.state, {}).get(event, self.state)
@@ -60,4 +66,9 @@ class SessionStateMachine:
                 "Invalid state transition: %s --%s--> %s", self.state, event, next_state
             )
         self.state = next_state
+        for cb in self._observers:
+            try:
+                cb(self.state)
+            except Exception:
+                logging.getLogger(__name__).exception("State observer error")
         return self.state

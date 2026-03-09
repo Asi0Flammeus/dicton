@@ -147,7 +147,11 @@ def main() -> None:
         print("⚠ Dicton is already running. Exiting.")
         return
 
-    app = build_runtime_service()
+    from .log_setup import setup_logging
+
+    log_path = setup_logging()
+
+    app = build_runtime_service(log_path=log_path)
 
     def signal_handler(sig, frame):
         app.request_shutdown()

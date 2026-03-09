@@ -86,6 +86,11 @@ class SpeechRecognizer:
         """Check if any STT provider is available (legacy compatibility)."""
         return self._provider_available
 
+    @property
+    def stt_provider(self) -> STTProvider:
+        """Expose underlying STT provider for direct use (e.g., chunked pipeline)."""
+        return self._stt_provider
+
     def _find_input_device(self):
         """Find the best available input device - cross-platform."""
         self.device_sample_rate = config.SAMPLE_RATE
@@ -170,7 +175,7 @@ class SpeechRecognizer:
 
         return selected
 
-    def record(self) -> np.ndarray | None:
+    def record(self, on_chunk=None) -> np.ndarray | None:
         """Record audio until stopped, with visualizer feedback.
 
         Note: After recording stops, the visualizer switches to processing mode
@@ -206,6 +211,8 @@ class SpeechRecognizer:
                     data = stream.read(config.CHUNK_SIZE, exception_on_overflow=False)
                     frames.append(data)
                     viz.update(data)
+                    if on_chunk:
+                        on_chunk(data)
                 except Exception as e:
                     if config.DEBUG:
                         print(f"⚠ Read error: {e}")
@@ -389,6 +396,10 @@ class SpeechRecognizer:
         text = processor.process(text)
 
         return text
+
+    def filter_text(self, text: str) -> str | None:
+        """Apply noise filtering and dictionary to externally-provided text."""
+        return self._filter(text)
 
     def cleanup(self):
         """Cleanup resources."""

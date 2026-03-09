@@ -204,6 +204,17 @@ class Config:
     # Audio settings
     SAMPLE_RATE = 16000
     CHUNK_SIZE = 1024
+    # Normalisation divisor for RMS → 0-1 range (≈ int16 max / 4).
+    # Shared by the visualizer and chunk-manager silence detector.
+    RMS_NORMALIZATION = 8000
+
+    # Chunked pipeline (long recordings)
+    CHUNK_ENABLED = os.getenv("CHUNK_ENABLED", "true").lower() == "true"
+    CHUNK_MIN_S = float(os.getenv("CHUNK_MIN_S", "30"))
+    CHUNK_MAX_S = float(os.getenv("CHUNK_MAX_S", "120"))
+    CHUNK_OVERLAP_S = float(os.getenv("CHUNK_OVERLAP_S", "2.0"))
+    CHUNK_SILENCE_THRESHOLD = float(os.getenv("CHUNK_SILENCE_THRESHOLD", "0.03"))
+    CHUNK_SILENCE_WINDOW_S = float(os.getenv("CHUNK_SILENCE_WINDOW_S", "0.3"))
 
     # Audio control during recording (Linux only)
     # Mute playback while recording (pauses players, then mutes sink if needed)
