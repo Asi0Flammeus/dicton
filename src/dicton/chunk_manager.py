@@ -60,7 +60,9 @@ class ChunkManager:
     def __init__(self, stt_provider: STTProvider, config: ChunkConfig) -> None:
         self._stt = stt_provider
         self._config = config
-        self._executor = ThreadPoolExecutor(max_workers=3)
+        # Sequential dispatch (max_workers=1) to stay within Mistral's
+        # per-second rate limit on lower tiers (free tier = 1 RPS).
+        self._executor = ThreadPoolExecutor(max_workers=1)
 
         # Precompute frame-related constants
         self._frame_duration = config.chunk_size / config.sample_rate
