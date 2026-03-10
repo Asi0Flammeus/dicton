@@ -183,14 +183,15 @@ class ChunkManager:
                     len(text) if text else 0,
                 )
                 return text
-            except Exception:
+            except Exception as exc:
                 latency = time.monotonic() - t0
                 logger.warning(
-                    "Chunk %d attempt %d/%d failed (%.2fs)",
+                    "Chunk %d attempt %d/%d failed (%.2fs): %s",
                     chunk_idx,
                     attempt,
                     self._CHUNK_MAX_ATTEMPTS,
                     latency,
+                    exc,
                 )
                 if attempt < self._CHUNK_MAX_ATTEMPTS:
                     delay = self._CHUNK_RETRY_BASE_DELAY * (2 ** (attempt - 1))
