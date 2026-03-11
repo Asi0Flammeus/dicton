@@ -282,9 +282,15 @@ def save_config(data: dict[str, Any]) -> None:
 
     write_env_file(env_vars)
 
+    Config.reload_config()
+
     from .stt_factory import clear_provider_cache
 
     clear_provider_cache()
+
+    from . import llm_processor
+
+    llm_processor.cleanup()
 
 
 def _get_env_string(env_vars: dict[str, str], key: str, default: str = "") -> str:
