@@ -295,7 +295,7 @@ class NullSTTProvider(STTProvider):
         return set()
 
     def is_available(self) -> bool:
-        return True  # Always "available" as a fallback
+        return False  # Null provider is never a real provider
 
     def transcribe(self, audio_data: bytes, **kwargs) -> TranscriptionResult | None:
         return None

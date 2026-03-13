@@ -128,7 +128,7 @@ def get_stt_provider_with_fallback(
 
     # Check for user-specified provider first
     user_provider = os.getenv("STT_PROVIDER", "").lower()
-    if user_provider:
+    if user_provider and user_provider != "auto":
         provider = get_stt_provider(user_provider, config)
         if provider.is_available():
             if verbose:
