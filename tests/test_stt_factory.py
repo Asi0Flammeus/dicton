@@ -153,6 +153,26 @@ class TestSTTFactoryFallback:
             provider = get_stt_provider_with_fallback()
             assert provider.name == "Mistral Voxtral"
 
+    def test_auto_provider_uses_fallback_chain(self):
+        """Test STT_PROVIDER=auto triggers fallback chain, not literal lookup."""
+        mock_mistral_module = MagicMock()
+        mock_mistral_class = MagicMock()
+        mock_mistral_module.Mistral = mock_mistral_class
+
+        with (
+            patch.dict(
+                "os.environ",
+                {"STT_PROVIDER": "auto", "MISTRAL_API_KEY": "test_key"},
+                clear=False,
+            ),
+            patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
+        ):
+            from dicton.stt_factory import get_stt_provider_with_fallback
+
+            provider = get_stt_provider_with_fallback()
+            # "auto" should use fallback chain and find mistral, not return NullSTTProvider
+            assert provider.name == "Mistral Voxtral"
+
 
 class TestSTTFactoryAvailable:
     """Test getting list of available providers."""
