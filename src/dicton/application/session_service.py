@@ -255,9 +255,9 @@ class SessionService:
             return text
 
         try:
-            from .. import llm_processor
+            from .. import llm
 
-            if not llm_processor.is_available():
+            if not llm.is_available():
                 print("⚠ LLM not available (set GEMINI_API_KEY or ANTHROPIC_API_KEY)")
                 from ..ui_feedback import notify
 
@@ -265,17 +265,17 @@ class SessionService:
                 return text
 
             if mode == ProcessingMode.ACT_ON_TEXT and selected_text:
-                return llm_processor.act_on_text(selected_text, text)
+                return llm.act_on_text(selected_text, text)
             if mode == ProcessingMode.REFORMULATION:
                 if config.ENABLE_REFORMULATION:
-                    return llm_processor.reformulate(text)
+                    return llm.reformulate(text)
                 return self._filter_fillers_local(text)
             if mode == ProcessingMode.TRANSLATION:
-                return llm_processor.translate(text, "English")
+                return llm.translate(text, "English")
             if mode == ProcessingMode.TRANSLATE_REFORMAT:
-                translated = llm_processor.translate(text, "English")
+                translated = llm.translate(text, "English")
                 if translated:
-                    return llm_processor.reformulate(translated)
+                    return llm.reformulate(translated)
                 return None
         except ImportError:
             print("⚠ LLM processor not available")

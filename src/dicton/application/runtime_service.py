@@ -159,9 +159,9 @@ class RuntimeService:
 
         clear_provider_cache()
 
-        from .. import llm_processor
+        from ..llm import cleanup as llm_cleanup
 
-        llm_processor.cleanup()
+        llm_cleanup()
 
         print("✓ Done")
 

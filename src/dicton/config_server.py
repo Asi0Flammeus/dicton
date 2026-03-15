@@ -277,9 +277,9 @@ def save_config(data: dict[str, Any]) -> None:
 
     clear_provider_cache()
 
-    from . import llm_processor
+    from .llm import cleanup as llm_cleanup
 
-    llm_processor.cleanup()
+    llm_cleanup()
 
 
 def _get_env_string(env_vars: dict[str, str], key: str, default: str = "") -> str:
