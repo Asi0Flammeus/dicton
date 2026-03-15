@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 import dicton
-from dicton.update_checker import GITHUB_API_URL
+from dicton.shared.update_checker import GITHUB_API_URL
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -52,21 +52,14 @@ def test_cli_config_ui_works_without_full_app_startup(monkeypatch):
 
     cli = importlib.import_module("dicton.__main__")
     calls: list[int] = []
-    real_import = __import__
 
     def fake_run_config_server(*, port: int) -> None:
         calls.append(port)
 
+    # Replace the cached module in sys.modules so the lazy import in _run_config_ui
+    # gets our stub instead of the real FastAPI server.
     fake_module = types.SimpleNamespace(run_config_server=fake_run_config_server)
-
-    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name in {"dicton.config_server", "config_server"}:
-            return fake_module
-        if name in {"dicton.main", "main"}:
-            raise AssertionError("config-ui should not import dicton.main")
-        return real_import(name, globals, locals, fromlist, level)
-
-    monkeypatch.setattr("builtins.__import__", guarded_import)
+    monkeypatch.setitem(sys.modules, "dicton.interfaces.config_server", fake_module)
     monkeypatch.setattr(sys, "argv", ["dicton", "--config-ui", "--config-port", "9999"])
 
     cli.main()
@@ -75,21 +68,16 @@ def test_cli_config_ui_works_without_full_app_startup(monkeypatch):
 
 
 def test_cli_config_alias_works_without_full_app_startup(monkeypatch):
+    import types
+
     cli = importlib.import_module("dicton.__main__")
     calls: list[int] = []
-    real_import = __import__
 
     def fake_run_config_server(*, port: int) -> None:
         calls.append(port)
 
-    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name in {"dicton.config_server", "config_server"}:
-            return type("ConfigServerStub", (), {"run_config_server": fake_run_config_server})
-        if name in {"dicton.main", "main"}:
-            raise AssertionError("config should not import dicton.main")
-        return real_import(name, globals, locals, fromlist, level)
-
-    monkeypatch.setattr("builtins.__import__", guarded_import)
+    fake_module = types.SimpleNamespace(run_config_server=fake_run_config_server)
+    monkeypatch.setitem(sys.modules, "dicton.interfaces.config_server", fake_module)
     monkeypatch.setattr(sys, "argv", ["dicton", "--config", "--config-port", "8877"])
 
     cli.main()
@@ -110,9 +98,9 @@ def test_input_and_output_module_import_does_not_require_pynput(monkeypatch):
         if "dicton.input" in mod or "dicton.output" in mod:
             sys.modules.pop(mod, None)
 
-    hl_module = importlib.import_module("dicton.input.hotkey_listener")
-    base_module = importlib.import_module("dicton.output.base")
-    factory_module = importlib.import_module("dicton.output.factory")
+    hl_module = importlib.import_module("dicton.adapters.input.hotkey_listener")
+    base_module = importlib.import_module("dicton.adapters.output.base")
+    factory_module = importlib.import_module("dicton.adapters.output.factory")
 
     assert hasattr(hl_module, "HotkeyListener")
     assert hasattr(base_module, "TextOutput")
@@ -163,7 +151,11 @@ def test_check_script_covers_ci_targets():
 
 
 def test_config_server_field_maps_cover_saved_configuration():
-    from dicton.config_server import CONFIG_BOOL_FIELDS, CONFIG_FIELD_MAP, CONFIG_STRING_FIELDS
+    from dicton.interfaces.config_server import (
+        CONFIG_BOOL_FIELDS,
+        CONFIG_FIELD_MAP,
+        CONFIG_STRING_FIELDS,
+    )
 
     assert CONFIG_STRING_FIELDS | CONFIG_BOOL_FIELDS == set(CONFIG_FIELD_MAP)
     assert "mistral_api_key" in CONFIG_FIELD_MAP
@@ -266,7 +258,7 @@ def test_config_ui_embedded_script_has_valid_javascript():
 def test_setup_status_endpoint_defaults_to_speech_step(monkeypatch, tmp_path):
     TestClient = pytest.importorskip("fastapi.testclient").TestClient
 
-    import dicton.config_server as config_server
+    import dicton.interfaces.config_server as config_server
 
     monkeypatch.setattr(config_server.Config, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(
@@ -301,7 +293,7 @@ def test_setup_status_endpoint_defaults_to_speech_step(monkeypatch, tmp_path):
 def test_setup_save_persists_speech_provider_fields(monkeypatch, tmp_path):
     TestClient = pytest.importorskip("fastapi.testclient").TestClient
 
-    import dicton.config_server as config_server
+    import dicton.interfaces.config_server as config_server
 
     monkeypatch.setattr(config_server.Config, "CONFIG_DIR", tmp_path)
     monkeypatch.setattr(

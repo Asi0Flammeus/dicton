@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from dicton.stt_provider import STTCapability, STTProviderConfig
+from dicton.adapters.stt.provider import STTCapability, STTProviderConfig
 
 # =============================================================================
 # Provider Initialization Tests
@@ -28,14 +28,14 @@ class TestElevenLabsProviderInit:
     def test_init_without_config(self):
         """Test initialization without explicit config uses environment."""
         with patch.dict("os.environ", {"ELEVENLABS_API_KEY": "test_key"}, clear=False):
-            from dicton.stt_elevenlabs import ElevenLabsSTTProvider
+            from dicton.adapters.stt.elevenlabs import ElevenLabsSTTProvider
 
             provider = ElevenLabsSTTProvider()
             assert provider._config.api_key == "test_key"
 
     def test_init_with_config(self):
         """Test initialization with explicit config."""
-        from dicton.stt_elevenlabs import ElevenLabsSTTProvider
+        from dicton.adapters.stt.elevenlabs import ElevenLabsSTTProvider
 
         config = STTProviderConfig(api_key="explicit_key", model="scribe_v2")
         provider = ElevenLabsSTTProvider(config)
@@ -44,14 +44,14 @@ class TestElevenLabsProviderInit:
 
     def test_name_property(self):
         """Test provider name."""
-        from dicton.stt_elevenlabs import ElevenLabsSTTProvider
+        from dicton.adapters.stt.elevenlabs import ElevenLabsSTTProvider
 
         provider = ElevenLabsSTTProvider()
         assert provider.name == "ElevenLabs Scribe"
 
     def test_capabilities(self):
         """Test provider capabilities."""
-        from dicton.stt_elevenlabs import ElevenLabsSTTProvider
+        from dicton.adapters.stt.elevenlabs import ElevenLabsSTTProvider
 
         provider = ElevenLabsSTTProvider()
         caps = provider.capabilities
@@ -72,14 +72,14 @@ class TestElevenLabsAvailability:
     def test_unavailable_without_api_key(self):
         """Test provider is unavailable without API key."""
         with patch.dict("os.environ", {"ELEVENLABS_API_KEY": ""}, clear=False):
-            from dicton.stt_elevenlabs import ElevenLabsSTTProvider
+            from dicton.adapters.stt.elevenlabs import ElevenLabsSTTProvider
 
             provider = ElevenLabsSTTProvider(STTProviderConfig(api_key=""))
             assert provider.is_available() is False
 
     def test_available_with_api_key(self):
         """Test provider is available with API key."""
-        from dicton.stt_elevenlabs import ElevenLabsSTTProvider
+        from dicton.adapters.stt.elevenlabs import ElevenLabsSTTProvider
 
         with patch("elevenlabs.client.ElevenLabs") as mock_elevenlabs:
             mock_client = MagicMock()
@@ -91,7 +91,7 @@ class TestElevenLabsAvailability:
 
     def test_unavailable_when_sdk_missing(self):
         """Test provider is unavailable when SDK import fails."""
-        from dicton.stt_elevenlabs import ElevenLabsSTTProvider
+        from dicton.adapters.stt.elevenlabs import ElevenLabsSTTProvider
 
         # Simulate import error by patching the import inside is_available
         with patch.dict("sys.modules", {"elevenlabs": None, "elevenlabs.client": None}):
@@ -113,7 +113,7 @@ class TestElevenLabsTranscription:
     @pytest.fixture
     def mock_provider(self):
         """Create provider with mocked client."""
-        from dicton.stt_elevenlabs import ElevenLabsSTTProvider
+        from dicton.adapters.stt.elevenlabs import ElevenLabsSTTProvider
 
         mock_client = MagicMock()
         provider = ElevenLabsSTTProvider(STTProviderConfig(api_key="test_key"))
@@ -220,7 +220,7 @@ class TestElevenLabsStreaming:
 
     def test_stream_transcribe_uses_batch(self):
         """Test stream_transcribe falls back to batch mode."""
-        from dicton.stt_elevenlabs import ElevenLabsSTTProvider
+        from dicton.adapters.stt.elevenlabs import ElevenLabsSTTProvider
 
         mock_client = MagicMock()
         mock_response = MagicMock()
@@ -254,7 +254,7 @@ class TestElevenLabsTranslation:
 
     def test_translate_returns_none(self):
         """Test translate returns None (not supported)."""
-        from dicton.stt_elevenlabs import ElevenLabsSTTProvider
+        from dicton.adapters.stt.elevenlabs import ElevenLabsSTTProvider
 
         provider = ElevenLabsSTTProvider()
         assert provider.translate(b"audio", "en") is None

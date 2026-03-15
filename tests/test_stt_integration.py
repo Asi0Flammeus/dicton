@@ -36,7 +36,7 @@ def api_key():
 def speech_recognizer(api_key):
     """Create SpeechRecognizer with real API credentials."""
     # Mock audio devices to avoid hardware requirements
-    with patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio:
+    with patch("dicton.adapters.audio.recognizer.pyaudio") as mock_pyaudio:
         mock_audio = MagicMock()
         mock_pyaudio.PyAudio.return_value = mock_audio
         mock_audio.get_device_count.return_value = 1
@@ -53,7 +53,7 @@ def speech_recognizer(api_key):
             "defaultSampleRate": 16000,
         }
 
-        from dicton.speech_recognition_engine import SpeechRecognizer
+        from dicton.adapters.audio.recognizer import SpeechRecognizer
 
         recognizer = SpeechRecognizer()
 
@@ -206,7 +206,7 @@ class TestErrorHandling:
 
     def test_transcribe_handles_api_timeout(self, api_key):
         """Test graceful handling of API timeout."""
-        with patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio:
+        with patch("dicton.adapters.audio.recognizer.pyaudio") as mock_pyaudio:
             mock_audio = MagicMock()
             mock_pyaudio.PyAudio.return_value = mock_audio
             mock_audio.get_device_count.return_value = 1
@@ -224,7 +224,7 @@ class TestErrorHandling:
             }
 
             # Patch config to have very short timeout
-            with patch("dicton.speech_recognition_engine.config") as mock_config:
+            with patch("dicton.adapters.audio.recognizer.config") as mock_config:
                 mock_config.ELEVENLABS_API_KEY = api_key
                 mock_config.ELEVENLABS_MODEL = "scribe_v1"
                 mock_config.STT_TIMEOUT = 0.001  # Very short timeout
@@ -233,7 +233,7 @@ class TestErrorHandling:
                 mock_config.DEBUG = False
                 mock_config.VISUALIZER_BACKEND = "pygame"
 
-                from dicton.speech_recognition_engine import SpeechRecognizer
+                from dicton.adapters.audio.recognizer import SpeechRecognizer
 
                 # Reinitialize with short timeout
                 recognizer = SpeechRecognizer()
@@ -265,9 +265,9 @@ class TestProviderAvailability:
         mock_provider.name = "Test Provider"
 
         with (
-            patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio,
+            patch("dicton.adapters.audio.recognizer.pyaudio") as mock_pyaudio,
             patch(
-                "dicton.speech_recognition_engine.get_stt_provider_with_fallback"
+                "dicton.adapters.audio.recognizer.get_stt_provider_with_fallback"
             ) as mock_factory,
         ):
             mock_factory.return_value = mock_provider
@@ -287,7 +287,7 @@ class TestProviderAvailability:
                 "defaultSampleRate": 16000,
             }
 
-            from dicton.speech_recognition_engine import SpeechRecognizer
+            from dicton.adapters.audio.recognizer import SpeechRecognizer
 
             recognizer = SpeechRecognizer()
             assert recognizer.use_elevenlabs is True
@@ -295,12 +295,12 @@ class TestProviderAvailability:
 
     def test_provider_unavailable_without_api_keys(self):
         """Test STT provider is unavailable when no API keys are set."""
-        from dicton.stt_provider import NullSTTProvider
+        from dicton.adapters.stt.provider import NullSTTProvider
 
         with (
-            patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio,
+            patch("dicton.adapters.audio.recognizer.pyaudio") as mock_pyaudio,
             patch(
-                "dicton.speech_recognition_engine.get_stt_provider_with_fallback"
+                "dicton.adapters.audio.recognizer.get_stt_provider_with_fallback"
             ) as mock_factory,
         ):
             # Factory returns NullSTTProvider when no providers available
@@ -322,7 +322,7 @@ class TestProviderAvailability:
                 "defaultSampleRate": 16000,
             }
 
-            from dicton.speech_recognition_engine import SpeechRecognizer
+            from dicton.adapters.audio.recognizer import SpeechRecognizer
 
             recognizer = SpeechRecognizer()
             # use_elevenlabs is now a property for backwards compatibility

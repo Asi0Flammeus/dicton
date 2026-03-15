@@ -10,7 +10,7 @@ def test_linux_paths_default(monkeypatch):
     monkeypatch.delenv("DICTON_CACHE_DIR", raising=False)
     monkeypatch.setattr("sys.platform", "linux")
 
-    import dicton.app_paths as app_paths
+    import dicton.shared.app_paths as app_paths
 
     importlib.reload(app_paths)
 
@@ -28,7 +28,7 @@ def test_windows_paths_use_appdata(monkeypatch):
     monkeypatch.setenv("APPDATA", r"C:\Users\Test\AppData\Roaming")
     monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\Test\AppData\Local")
 
-    import dicton.app_paths as app_paths
+    import dicton.shared.app_paths as app_paths
 
     importlib.reload(app_paths)
 
@@ -48,7 +48,7 @@ def test_path_overrides_take_precedence(monkeypatch):
     monkeypatch.setenv("DICTON_DATA_DIR", "/tmp/dicton-data")
     monkeypatch.setenv("DICTON_CACHE_DIR", "/tmp/dicton-cache")
 
-    import dicton.app_paths as app_paths
+    import dicton.shared.app_paths as app_paths
 
     importlib.reload(app_paths)
 

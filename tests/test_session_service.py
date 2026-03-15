@@ -5,8 +5,8 @@ from __future__ import annotations
 import threading
 import time
 
-from dicton.application.session_service import SessionService
-from dicton.processing_mode import ProcessingMode
+from dicton.orchestration.session_service import SessionService
+from dicton.shared.processing_mode import ProcessingMode
 
 
 class _DummyController:
