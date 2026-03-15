@@ -10,22 +10,38 @@ from ...shared.config import config
 from ...shared.platform_utils import IS_LINUX
 
 
+class NullAudioSessionControl:
+    """No-op audio session control for non-Linux platforms."""
+
+    def start_recording(self) -> None:
+        pass
+
+    def stop_recording(self) -> None:
+        pass
+
+    def cancel_recording(self) -> None:
+        pass
+
+
+def get_audio_session_control():
+    """Return the appropriate audio session control for this platform."""
+    if IS_LINUX:
+        return AudioSessionControlAdapter()
+    return NullAudioSessionControl()
+
+
 class AudioSessionControlAdapter:
     def __init__(self):
         self._active = False
         self._paused_players: list[str] = []
         self._sink_muted_before: bool | None = None
         self._mute_backend_used: str | None = None
-        if IS_LINUX:
-            atexit.register(self._force_restore)
+        atexit.register(self._force_restore)
 
     def start_recording(self) -> None:
         if self._active:
             return
         self._active = True
-
-        if not IS_LINUX:
-            return
 
         if config.MUTE_PLAYBACK_ON_RECORDING:
             self._apply_playback_control()
@@ -34,9 +50,8 @@ class AudioSessionControlAdapter:
         if not self._active:
             return
 
-        if IS_LINUX:
-            if config.MUTE_PLAYBACK_ON_RECORDING:
-                self._restore_playback_control()
+        if config.MUTE_PLAYBACK_ON_RECORDING:
+            self._restore_playback_control()
 
         self._active = False
 
@@ -66,8 +81,6 @@ class AudioSessionControlAdapter:
         self._unmute_sink()
 
     def _force_restore(self) -> None:
-        if not IS_LINUX:
-            return
         self._resume_players()
         self._unmute_sink()
         self._active = False

@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import logging
-import signal
 import threading
 from pathlib import Path
 
 from ..shared.config import config
-from ..shared.platform_utils import IS_LINUX, IS_WINDOWS
+
+
+class _NullNotifications:
+    def notify(self, title: str, message: str, timeout: int = 2) -> None:
+        pass
 
 
 class RuntimeService:
@@ -34,19 +37,14 @@ class RuntimeService:
         self._fn_handler = None
         self._tray = None
         self._use_fn_key = False
-        if notification_service is None:
-            from ..adapters.ui.notifications_null import NullNotificationService
-
-            notification_service = NullNotificationService()
-        self._notifications = notification_service
+        self._notifications = (
+            notification_service if notification_service is not None else _NullNotifications()
+        )
 
         if not self._recognizer._provider_available:
             print("❌ No STT provider configured - dictation will not work!")
 
     def _init_fn_handler(self) -> bool:
-        if not IS_LINUX:
-            return False
-
         hotkey_base = config.HOTKEY_BASE.lower()
         if hotkey_base not in ("fn", "custom"):
             return False
@@ -97,13 +95,7 @@ class RuntimeService:
             try:
                 self._keyboard.start()
             except ImportError as exc:
-                print("❌ No usable hotkey backend is available.")
-                if IS_LINUX:
-                    print(
-                        "Configure a Linux hotkey in `dicton --config-ui` and ensure evdev access, or run under an X session for the legacy listener."
-                    )
-                else:
-                    print(str(exc))
+                print(f"❌ No usable hotkey backend is available.\n{exc}")
                 return
 
         print(f"STT: {self._recognizer.provider_name}")
@@ -117,10 +109,7 @@ class RuntimeService:
         self._notifications.notify("Dicton Ready", f"Press {hotkey_display}")
 
         try:
-            if IS_WINDOWS:
-                self._shutdown_event.wait()
-            else:
-                signal.pause()
+            self._shutdown_event.wait()
         except KeyboardInterrupt:
             pass
 
@@ -177,9 +166,6 @@ class RuntimeService:
         self._shutdown_event.set()
 
     def _check_vpn_active(self) -> bool:
-        if IS_WINDOWS:
-            return False
-
         try:
             import subprocess
 
