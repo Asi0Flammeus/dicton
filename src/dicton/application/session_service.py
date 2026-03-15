@@ -12,9 +12,9 @@ from ..processing_mode import ProcessingMode, get_mode_color, is_mode_enabled
 class SessionService:
     """Coordinate dictation session policy around the core controller."""
 
-    def __init__(self, controller, keyboard, metrics, app_config):
+    def __init__(self, controller, text_output, metrics, app_config):
         self._controller = controller
-        self._keyboard = keyboard
+        self._text_output = text_output
         self._metrics = metrics
         self._app_config = app_config
         self._session_lock = threading.Lock()
@@ -290,7 +290,7 @@ class SessionService:
         replace_selection: bool,
     ) -> None:
         """Emit processed text to the active application."""
-        self._keyboard.insert_text(text, typing_delay_ms=50)
+        self._text_output.insert_text(text, typing_delay_ms=50)
 
         if mode == ProcessingMode.ACT_ON_TEXT:
             print(f"✓ Replaced: {text[:50]}..." if len(text) > 50 else f"✓ {text}")

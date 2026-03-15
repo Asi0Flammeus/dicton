@@ -97,7 +97,7 @@ def test_cli_config_alias_works_without_full_app_startup(monkeypatch):
     assert calls == [8877]
 
 
-def test_keyboard_handler_module_import_does_not_require_pynput(monkeypatch):
+def test_input_and_output_module_import_does_not_require_pynput(monkeypatch):
     real_import = __import__
 
     def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
@@ -106,11 +106,14 @@ def test_keyboard_handler_module_import_does_not_require_pynput(monkeypatch):
         return real_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr("builtins.__import__", guarded_import)
-    sys.modules.pop("dicton.keyboard_handler", None)
+    sys.modules.pop("dicton.input.hotkey_listener", None)
+    sys.modules.pop("dicton.output.text_output", None)
 
-    module = importlib.import_module("dicton.keyboard_handler")
+    hl_module = importlib.import_module("dicton.input.hotkey_listener")
+    to_module = importlib.import_module("dicton.output.text_output")
 
-    assert hasattr(module, "KeyboardHandler")
+    assert hasattr(hl_module, "HotkeyListener")
+    assert hasattr(to_module, "TextOutputService")
 
 
 @pytest.mark.parametrize(

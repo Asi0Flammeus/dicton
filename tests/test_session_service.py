@@ -47,7 +47,7 @@ def test_concurrent_starts_only_launch_one_session(monkeypatch):
     controller = _DummyController()
     service = SessionService(
         controller=controller,
-        keyboard=None,
+        text_output=None,
         metrics=_DummyMetrics(),
         app_config=_AppConfig(),
     )

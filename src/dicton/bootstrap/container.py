@@ -15,8 +15,9 @@ from ..application.session_service import SessionService
 from ..chunk_manager import ChunkConfig, ChunkManager
 from ..config import config
 from ..core.controller import DictationController
-from ..keyboard_handler import KeyboardHandler
+from ..input.hotkey_listener import HotkeyListener
 from ..latency_tracker import get_latency_tracker
+from ..output.text_output import TextOutputService
 from ..speech_recognition_engine import SpeechRecognizer
 
 
@@ -31,13 +32,14 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
             stt_provider=recognizer.stt_provider,
             config=chunk_config,
         )
-    keyboard = KeyboardHandler(None)
+    hotkey_listener = HotkeyListener(None)
+    text_output = TextOutputService()
     app_config = load_app_config()
     metrics = get_latency_tracker()
 
     session_service = SessionService(
         controller=None,
-        keyboard=keyboard,
+        text_output=text_output,
         metrics=metrics,
         app_config=app_config,
     )
@@ -52,11 +54,11 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
             metrics=MetricsAdapter(metrics),
         )
     )
-    keyboard.on_toggle = session_service.toggle_basic_recording
+    hotkey_listener.on_toggle = session_service.toggle_basic_recording
 
     return RuntimeService(
         session_service=session_service,
-        keyboard=keyboard,
+        keyboard=hotkey_listener,
         recognizer=recognizer,
         app_config=app_config,
         log_path=log_path,

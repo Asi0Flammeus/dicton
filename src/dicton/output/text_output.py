@@ -1,20 +1,16 @@
-"""Keyboard handler for Dicton - Cross-platform"""
+"""Text output service for Dicton - cross-platform text insertion."""
 
 import subprocess
 import time
 
-from .config import config
-from .platform_utils import IS_LINUX, IS_MACOS, IS_WINDOWS
+from ..config import config
+from ..platform_utils import IS_LINUX, IS_MACOS, IS_WINDOWS
 
 
-class KeyboardHandler:
-    """Handle hotkey toggle and text insertion"""
+class TextOutputService:
+    """Insert and replace text at cursor - cross-platform."""
 
-    def __init__(self, on_toggle_callback):
-        self.on_toggle = on_toggle_callback
-        self.listener = None
-        self.pressed_keys = set()
-        self.hotkey_active = False
+    def __init__(self):
         self._keyboard_controller = None
 
     def _get_pynput_components(self):
@@ -66,90 +62,6 @@ class KeyboardHandler:
 
         return False
 
-    def start(self):
-        """Start keyboard listener"""
-        pynput_keyboard, _, _ = self._get_pynput_components()
-        self.listener = pynput_keyboard.Listener(
-            on_press=self._on_press, on_release=self._on_release
-        )
-        self.listener.start()
-
-    def stop(self):
-        """Stop keyboard listener"""
-        if self.listener:
-            self.listener.stop()
-
-    def _on_press(self, key):
-        """Track key presses and detect hotkey"""
-        try:
-            # Track the key
-            if hasattr(key, "char") and key.char:
-                self.pressed_keys.add(key.char.lower())
-            else:
-                self.pressed_keys.add(key)
-
-            # Check hotkey and trigger once per press
-            if self._is_hotkey_pressed() and not self.hotkey_active:
-                self.hotkey_active = True
-                # Release the hotkey character to prevent it from being typed
-                # This "cancels" the pending keypress before apps receive it
-                hotkey_char = config.HOTKEY_KEY.lower()
-                try:
-                    self._get_keyboard_controller().release(hotkey_char)
-                except Exception:
-                    pass
-                if self.on_toggle:
-                    self.on_toggle()
-        except Exception:
-            pass
-
-    def _on_release(self, key):
-        """Track key releases"""
-        try:
-            _, _, key_cls = self._get_pynput_components()
-
-            if hasattr(key, "char") and key.char:
-                self.pressed_keys.discard(key.char.lower())
-            else:
-                self.pressed_keys.discard(key)
-
-            # Reset hotkey state when modifier released
-            if key in (
-                key_cls.alt,
-                key_cls.alt_l,
-                key_cls.alt_r,
-                key_cls.ctrl,
-                key_cls.ctrl_l,
-                key_cls.ctrl_r,
-            ):
-                self.hotkey_active = False
-        except Exception:
-            pass
-
-    def _is_hotkey_pressed(self) -> bool:
-        """Check if configured hotkey is pressed"""
-        _, _, key_cls = self._get_pynput_components()
-        mod = config.HOTKEY_MODIFIER.lower()
-        key = config.HOTKEY_KEY.lower()
-
-        # Check modifier
-        if mod in ("alt", "alt_l", "alt_r"):
-            if not (
-                key_cls.alt in self.pressed_keys
-                or key_cls.alt_l in self.pressed_keys
-                or key_cls.alt_r in self.pressed_keys
-            ):
-                return False
-        elif mod in ("ctrl", "ctrl_l", "ctrl_r"):
-            if not (
-                key_cls.ctrl in self.pressed_keys
-                or key_cls.ctrl_l in self.pressed_keys
-                or key_cls.ctrl_r in self.pressed_keys
-            ):
-                return False
-
-        return key in self.pressed_keys
-
     def insert_text(self, text: str, typing_delay_ms: int = 50):
         """Insert text at cursor - cross-platform implementation.
 
@@ -180,11 +92,9 @@ class KeyboardHandler:
             text: The text to insert.
             typing_delay_ms: Delay between keystrokes in milliseconds.
         """
-        # Count words to determine method
         word_count = len(text.split())
         threshold = config.PASTE_THRESHOLD_WORDS
 
-        # Use paste for long texts (threshold > 0 and exceeded) or always (-1)
         use_paste = threshold == -1 or (threshold > 0 and word_count > threshold)
 
         if use_paste:
@@ -192,19 +102,15 @@ class KeyboardHandler:
                 print(f"📋 Using paste for {word_count} words (threshold: {threshold})")
             if self._paste_text_linux(text):
                 return
-            # Fallback to streaming if paste failed
             if config.DEBUG:
                 print("⚠ Paste failed, falling back to streaming")
 
-        # Use streaming (xdotool type) for short texts or as fallback
         try:
-            # Use configured delay (default 50ms prevents React Error #185)
             subprocess.run(
                 ["xdotool", "type", "--delay", str(typing_delay_ms), "--", text],
                 timeout=60,
             )
         except FileNotFoundError:
-            # xdotool not installed, fallback to pynput
             print("⚠ xdotool not found, using fallback method")
             self._insert_text_pynput(text, typing_delay_ms)
         except Exception as e:
@@ -221,7 +127,7 @@ class KeyboardHandler:
         The transcription stays in the clipboard after paste so the user
         can re-paste manually if the initial paste missed the target.
         """
-        from .selection_handler import get_clipboard, set_clipboard
+        from ..selection_handler import get_clipboard, set_clipboard
 
         try:
             if not set_clipboard(text):
@@ -255,15 +161,11 @@ class KeyboardHandler:
             typing_delay_ms: Delay between keystrokes in milliseconds.
         """
         try:
-            # Try pyautogui first (better Unicode support)
             import pyautogui
 
-            # Disable fail-safe for text insertion
             pyautogui.FAILSAFE = False
-            # Convert ms to seconds for pyautogui
             pyautogui.write(text, interval=typing_delay_ms / 1000.0)
         except ImportError:
-            # Fallback to pynput
             self._insert_text_pynput(text, typing_delay_ms)
         except Exception as e:
             print(f"⚠ pyautogui error: {e}, using fallback")
@@ -276,7 +178,6 @@ class KeyboardHandler:
             text: The text to insert.
             typing_delay_ms: Delay between keystrokes in milliseconds.
         """
-        # pynput works well on macOS
         self._insert_text_pynput(text, typing_delay_ms)
 
     def _insert_text_pynput(self, text: str, typing_delay_ms: int = 50):
@@ -287,7 +188,6 @@ class KeyboardHandler:
             typing_delay_ms: Delay between keystrokes in milliseconds.
         """
         try:
-            # Convert ms to seconds for sleep
             delay_seconds = typing_delay_ms / 1000.0
             keyboard_controller = self._get_keyboard_controller()
             for char in text:
@@ -324,7 +224,7 @@ class KeyboardHandler:
         The transcription stays in the clipboard after paste so the user
         can re-paste manually if needed.
         """
-        from .selection_handler import get_clipboard, set_clipboard
+        from ..selection_handler import get_clipboard, set_clipboard
 
         try:
             if not set_clipboard(text):
