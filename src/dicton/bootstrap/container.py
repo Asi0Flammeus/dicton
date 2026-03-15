@@ -17,7 +17,8 @@ from ..config import config
 from ..core.controller import DictationController
 from ..input.hotkey_listener import HotkeyListener
 from ..latency_tracker import get_latency_tracker
-from ..output.text_output import TextOutputService
+from ..output.factory import get_text_output
+from ..output.selection_factory import get_selection_reader
 from ..speech_recognition_engine import SpeechRecognizer
 
 
@@ -33,7 +34,8 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
             config=chunk_config,
         )
     hotkey_listener = HotkeyListener(None)
-    text_output = TextOutputService()
+    selection_reader = get_selection_reader()
+    text_output = get_text_output(selection_reader)
     app_config = load_app_config()
     metrics = get_latency_tracker()
 
@@ -42,6 +44,7 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
         text_output=text_output,
         metrics=metrics,
         app_config=app_config,
+        selection_reader=selection_reader,
     )
     session_service.bind_controller(
         DictationController(

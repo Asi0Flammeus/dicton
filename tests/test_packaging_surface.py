@@ -106,14 +106,17 @@ def test_input_and_output_module_import_does_not_require_pynput(monkeypatch):
         return real_import(name, globals, locals, fromlist, level)
 
     monkeypatch.setattr("builtins.__import__", guarded_import)
-    sys.modules.pop("dicton.input.hotkey_listener", None)
-    sys.modules.pop("dicton.output.text_output", None)
+    for mod in list(sys.modules):
+        if "dicton.input" in mod or "dicton.output" in mod:
+            sys.modules.pop(mod, None)
 
     hl_module = importlib.import_module("dicton.input.hotkey_listener")
-    to_module = importlib.import_module("dicton.output.text_output")
+    base_module = importlib.import_module("dicton.output.base")
+    factory_module = importlib.import_module("dicton.output.factory")
 
     assert hasattr(hl_module, "HotkeyListener")
-    assert hasattr(to_module, "TextOutputService")
+    assert hasattr(base_module, "TextOutput")
+    assert hasattr(factory_module, "get_text_output")
 
 
 @pytest.mark.parametrize(
