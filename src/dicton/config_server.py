@@ -36,8 +36,6 @@ CONFIG_FIELD_MAP = {
     "secondary_hotkey": "SECONDARY_HOTKEY",
     "secondary_hotkey_translation": "SECONDARY_HOTKEY_TRANSLATION",
     "secondary_hotkey_act_on_text": "SECONDARY_HOTKEY_ACT_ON_TEXT",
-    "context_enabled": "CONTEXT_ENABLED",
-    "context_debug": "CONTEXT_DEBUG",
     "mute_playback_on_recording": "MUTE_PLAYBACK_ON_RECORDING",
     "playback_mute_strategy": "PLAYBACK_MUTE_STRATEGY",
     "mute_backend": "MUTE_BACKEND",
@@ -71,8 +69,6 @@ CONFIG_BOOL_FIELDS = {
     "filter_fillers",
     "enable_reformulation",
     "debug",
-    "context_enabled",
-    "context_debug",
     "mute_playback_on_recording",
 }
 
@@ -123,8 +119,6 @@ CONFIG_FIELD_MAP = {
     "secondary_hotkey": "SECONDARY_HOTKEY",
     "secondary_hotkey_translation": "SECONDARY_HOTKEY_TRANSLATION",
     "secondary_hotkey_act_on_text": "SECONDARY_HOTKEY_ACT_ON_TEXT",
-    "context_enabled": "CONTEXT_ENABLED",
-    "context_debug": "CONTEXT_DEBUG",
     "mute_playback_on_recording": "MUTE_PLAYBACK_ON_RECORDING",
     "playback_mute_strategy": "PLAYBACK_MUTE_STRATEGY",
     "mute_backend": "MUTE_BACKEND",
@@ -135,8 +129,6 @@ CONFIG_BOOL_FIELDS = {
     "filter_fillers",
     "enable_reformulation",
     "debug",
-    "context_enabled",
-    "context_debug",
     "mute_playback_on_recording",
 }
 CONFIG_STRING_FIELDS = set(CONFIG_FIELD_MAP) - CONFIG_BOOL_FIELDS
@@ -255,9 +247,6 @@ def get_current_config() -> dict[str, Any]:
         "secondary_hotkey": env_vars.get("SECONDARY_HOTKEY", "none"),
         "secondary_hotkey_translation": env_vars.get("SECONDARY_HOTKEY_TRANSLATION", "none"),
         "secondary_hotkey_act_on_text": env_vars.get("SECONDARY_HOTKEY_ACT_ON_TEXT", "none"),
-        # Context detection settings
-        "context_enabled": env_vars.get("CONTEXT_ENABLED", "true").lower() == "true",
-        "context_debug": env_vars.get("CONTEXT_DEBUG", "false").lower() == "true",
         "mute_playback_on_recording": (
             env_vars.get("MUTE_PLAYBACK_ON_RECORDING", "true").lower() == "true"
         ),

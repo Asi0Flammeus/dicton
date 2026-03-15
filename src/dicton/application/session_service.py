@@ -3,14 +3,10 @@
 from __future__ import annotations
 
 import threading
-from typing import TYPE_CHECKING
 
 from ..config import config
 from ..core.controller import SessionContext
 from ..processing_mode import ProcessingMode, get_mode_color, is_mode_enabled
-
-if TYPE_CHECKING:
-    from ..context_detector import ContextInfo
 
 
 class SessionService:
@@ -28,7 +24,6 @@ class SessionService:
         self._current_mode = ProcessingMode.BASIC
         self._visualizer = None
         self._selected_text: str | None = None
-        self._current_context: ContextInfo | None = None
 
     def bind_controller(self, controller) -> None:
         """Attach the session pipeline controller after service construction."""
@@ -63,20 +58,8 @@ class SessionService:
             mode = ProcessingMode.BASIC
 
         selected_text = None
-        current_context = None
 
         try:
-            if self._app_config.context_enabled:
-                try:
-                    from ..context_detector import get_context_detector
-
-                    detector = get_context_detector()
-                    if detector:
-                        current_context = detector.get_context()
-                except Exception as exc:
-                    if self._app_config.context_debug:
-                        print(f"[Context] Detection failed: {exc}")
-
             if mode == ProcessingMode.ACT_ON_TEXT:
                 selected = self._capture_selection_for_act_on_text()
                 if not selected:
@@ -92,13 +75,12 @@ class SessionService:
 
             record_thread = threading.Thread(
                 target=self._record_and_transcribe,
-                args=(mode, selected_text, current_context),
+                args=(mode, selected_text),
                 daemon=True,
             )
             with self._session_lock:
                 self._current_mode = mode
                 self._selected_text = selected_text
-                self._current_context = current_context
                 self._recording = True
                 self._record_thread = record_thread
                 self._starting = False
@@ -142,7 +124,6 @@ class SessionService:
         self,
         mode: ProcessingMode,
         selected_text: str | None,
-        current_context: ContextInfo | None,
     ) -> None:
         tracker = self._metrics
         mode_names = {
@@ -165,7 +146,6 @@ class SessionService:
 
             session_ctx = SessionContext(
                 selected_text=selected_text,
-                context=current_context,
             )
 
             def _pre_output() -> None:
@@ -266,7 +246,6 @@ class SessionService:
         text: str,
         mode: ProcessingMode,
         selected_text: str | None = None,
-        context: ContextInfo | None = None,
     ) -> str | None:
         """Process transcribed text based on the current mode."""
         if not is_mode_enabled(mode):
@@ -286,17 +265,17 @@ class SessionService:
                 return text
 
             if mode == ProcessingMode.ACT_ON_TEXT and selected_text:
-                return llm_processor.act_on_text(selected_text, text, context=context)
+                return llm_processor.act_on_text(selected_text, text)
             if mode == ProcessingMode.REFORMULATION:
                 if config.ENABLE_REFORMULATION:
-                    return llm_processor.reformulate(text, context=context)
+                    return llm_processor.reformulate(text)
                 return self._filter_fillers_local(text)
             if mode == ProcessingMode.TRANSLATION:
-                return llm_processor.translate(text, "English", context=context)
+                return llm_processor.translate(text, "English")
             if mode == ProcessingMode.TRANSLATE_REFORMAT:
-                translated = llm_processor.translate(text, "English", context=context)
+                translated = llm_processor.translate(text, "English")
                 if translated:
-                    return llm_processor.reformulate(translated, context=context)
+                    return llm_processor.reformulate(translated)
                 return None
         except ImportError:
             print("⚠ LLM processor not available")
@@ -309,22 +288,9 @@ class SessionService:
         text: str,
         mode: ProcessingMode,
         replace_selection: bool,
-        context: ContextInfo | None = None,
     ) -> None:
         """Emit processed text to the active application."""
-        typing_delay_ms = 50
-
-        if context:
-            from ..context_profiles import get_profile_manager
-
-            manager = get_profile_manager()
-            profile = manager.match_context(context)
-            if profile:
-                typing_delay_ms = int(manager.get_typing_delay(profile) * 1000)
-                if self._app_config.context_debug:
-                    print(f"[Context] Typing delay: {typing_delay_ms}ms ({profile.typing_speed})")
-
-        self._keyboard.insert_text(text, typing_delay_ms=typing_delay_ms)
+        self._keyboard.insert_text(text, typing_delay_ms=50)
 
         if mode == ProcessingMode.ACT_ON_TEXT:
             print(f"✓ Replaced: {text[:50]}..." if len(text) > 50 else f"✓ {text}")

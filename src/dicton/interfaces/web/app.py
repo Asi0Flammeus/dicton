@@ -14,7 +14,6 @@ def create_web_app(
     from fastapi import FastAPI
 
     from .routes_config import register_config_routes
-    from .routes_context import register_context_routes
     from .routes_pages import register_page_routes
     from .routes_test import register_test_routes
 
@@ -26,6 +25,5 @@ def create_web_app(
         autostart_model=autostart_model,
         dependencies=dependencies,
     )
-    register_context_routes(app)
     register_test_routes(app, dependencies=dependencies)
     return app

@@ -9,5 +9,3 @@ from dataclasses import dataclass
 class AppConfig:
     debug: bool
     notifications_enabled: bool
-    context_enabled: bool
-    context_debug: bool

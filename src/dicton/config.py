@@ -254,12 +254,6 @@ class Config:
     # Disabled by default since the visualizer provides sufficient feedback
     NOTIFICATIONS_ENABLED = os.getenv("NOTIFICATIONS_ENABLED", "false").lower() == "true"
 
-    # Context detection - adapts LLM prompts and typing speed based on active app
-    CONTEXT_ENABLED = os.getenv("CONTEXT_ENABLED", "true").lower() == "true"
-
-    # Context detection debug mode - logs detected context and matched profiles
-    CONTEXT_DEBUG = os.getenv("CONTEXT_DEBUG", "false").lower() == "true"
-
     @classmethod
     def reload_config(cls):
         """Re-read all env-based class attributes from os.environ.
@@ -317,8 +311,6 @@ class Config:
         cls.CLIPBOARD_MAX_RETRIES = int(os.getenv("CLIPBOARD_MAX_RETRIES", "5"))
         cls.DEBUG = os.getenv("DEBUG", "false").lower() == "true"
         cls.NOTIFICATIONS_ENABLED = os.getenv("NOTIFICATIONS_ENABLED", "false").lower() == "true"
-        cls.CONTEXT_ENABLED = os.getenv("CONTEXT_ENABLED", "true").lower() == "true"
-        cls.CONTEXT_DEBUG = os.getenv("CONTEXT_DEBUG", "false").lower() == "true"
 
     @classmethod
     def create_dirs(cls):

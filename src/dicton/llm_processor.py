@@ -10,12 +10,7 @@ Supports both Gemini and Anthropic (Haiku) with automatic fallback.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from .config import config
-
-if TYPE_CHECKING:
-    from .context_detector import ContextInfo
 
 # Lazy imports to avoid loading libraries unless needed
 _genai_client = None
@@ -162,49 +157,6 @@ def _call_llm_with_fallback(prompt: str) -> str | None:
 
 
 # =============================================================================
-# Context-Aware Prompts
-# =============================================================================
-
-
-def _build_context_preamble(context: ContextInfo | None) -> str:
-    """Build a context-aware preamble for LLM prompts.
-
-    Retrieves the matching profile's llm_preamble and formats it for injection
-    at the start of prompts.
-
-    Args:
-        context: The detected context information, or None.
-
-    Returns:
-        A formatted preamble string, or empty string if no context.
-    """
-    if context is None:
-        return ""
-
-    # Import here to avoid circular imports
-    from .context_profiles import get_profile_manager
-
-    manager = get_profile_manager()
-    profile = manager.match_context(context)
-
-    if config.CONTEXT_DEBUG:
-        print(
-            f"[Context] App: {context.app_name}, Profile: {profile.name if profile else 'default'}"
-        )
-        if context.window:
-            print(f"[Context] Window: {context.window.title} ({context.window.wm_class})")
-        if context.widget:
-            print(f"[Context] Widget: {context.widget.role} - {context.widget.name}")
-
-    if profile and profile.llm_preamble:
-        if config.CONTEXT_DEBUG:
-            print(f"[Context] Preamble: {profile.llm_preamble[:50]}...")
-        return f"CONTEXT: {profile.llm_preamble}\n\n"
-
-    return ""
-
-
-# =============================================================================
 # Public API
 # =============================================================================
 
@@ -212,14 +164,12 @@ def _build_context_preamble(context: ContextInfo | None) -> str:
 def act_on_text(
     selected_text: str,
     instruction: str,
-    context: ContextInfo | None = None,
 ) -> str | None:
     """Apply a voice instruction to selected text using LLM.
 
     Args:
         selected_text: The text the user has selected.
         instruction: The voice instruction (e.g., "make this more formal").
-        context: Optional context information for context-aware processing.
 
     Returns:
         The modified text, or None on error.
@@ -227,9 +177,7 @@ def act_on_text(
     if not selected_text or not instruction:
         return None
 
-    context_preamble = _build_context_preamble(context)
-
-    prompt = f"""{context_preamble}You are a text manipulation assistant. Apply the user's instruction to the provided text.
+    prompt = f"""You are a text manipulation assistant. Apply the user's instruction to the provided text.
 
 IMPORTANT RULES:
 1. Return ONLY the modified text, no explanations or commentary
@@ -251,14 +199,12 @@ MODIFIED TEXT:"""
 def reformulate(
     text: str,
     language: str | None = None,
-    context: ContextInfo | None = None,
 ) -> str | None:
     """Lightly reformulate text to clean up grammar and filler words.
 
     Args:
         text: The transcribed text to reformulate.
         language: Optional language code (e.g., 'en', 'fr') to ensure output matches.
-        context: Optional context information for context-aware processing.
 
     Returns:
         The reformulated text, or None on error.
@@ -270,9 +216,7 @@ def reformulate(
     if language:
         language_instruction = f"The text is in {language}. Keep your output in the same language."
 
-    context_preamble = _build_context_preamble(context)
-
-    prompt = f"""{context_preamble}You are a text cleanup assistant. Lightly reformulate the following transcribed speech.
+    prompt = f"""You are a text cleanup assistant. Lightly reformulate the following transcribed speech.
 
 IMPORTANT RULES:
 1. FIRST: Detect the language of the input text
@@ -317,7 +261,6 @@ CLEANED TEXT (same language as input):"""
 def translate(
     text: str,
     target_language: str = "English",
-    context: ContextInfo | None = None,
 ) -> str | None:
     """Translate text to target language.
 
@@ -328,7 +271,6 @@ def translate(
     Args:
         text: The text to translate.
         target_language: The language to translate to (default: English).
-        context: Optional context information for context-aware processing.
 
     Returns:
         The translated text, or None on error.
@@ -336,9 +278,7 @@ def translate(
     if not text:
         return None
 
-    context_preamble = _build_context_preamble(context)
-
-    prompt = f"""{context_preamble}You are a translator. Your task has TWO MANDATORY STEPS.
+    prompt = f"""You are a translator. Your task has TWO MANDATORY STEPS.
 
 ═══════════════════════════════════════════════════════════════════════════════
 STEP 1 - CLEAN (MANDATORY): Remove ALL filler words before translating
