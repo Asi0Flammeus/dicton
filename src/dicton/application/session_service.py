@@ -12,11 +12,24 @@ from ..processing_mode import ProcessingMode, get_mode_color, is_mode_enabled
 class SessionService:
     """Coordinate dictation session policy around the core controller."""
 
-    def __init__(self, controller, text_output, metrics, app_config, selection_reader=None):
+    def __init__(
+        self,
+        controller,
+        text_output,
+        metrics,
+        app_config,
+        selection_reader=None,
+        notification_service=None,
+    ):
         self._controller = controller
         self._text_output = text_output
         self._metrics = metrics
         self._selection = selection_reader
+        if notification_service is None:
+            from ..ui.notifications_null import NullNotificationService
+
+            notification_service = NullNotificationService()
+        self._notifications = notification_service
         self._app_config = app_config
         self._session_lock = threading.Lock()
         self._starting = False
@@ -168,9 +181,7 @@ class SessionService:
 
         except Exception as exc:
             print(f"Error: {exc}")
-            from ..ui_feedback import notify
-
-            notify("❌ Error", str(exc)[:50])
+            self._notifications.notify("❌ Error", str(exc)[:50])
             try:
                 tracker.end_session()
             except Exception:
@@ -215,24 +226,20 @@ class SessionService:
     def _capture_selection_for_act_on_text(self) -> str | None:
         if self._selection is None:
             print("⚠ Selection reader not configured")
-            from ..ui_feedback import notify
-
-            notify("⚠ Not Available", "Install xclip or wl-clipboard")
+            self._notifications.notify("⚠ Not Available", "Install xclip or wl-clipboard")
             return None
 
         if not self._selection.has_selection():
             print("⚠ No text selected")
-            from ..ui_feedback import notify
-
-            notify("⚠ No Selection", "Highlight text first, then press FN+Shift")
+            self._notifications.notify(
+                "⚠ No Selection", "Highlight text first, then press FN+Shift"
+            )
             return None
 
         selected = self._selection.get_selection()
         if not selected:
             print("⚠ Could not read selection")
-            from ..ui_feedback import notify
-
-            notify("⚠ Selection Error", "Install xclip or wl-clipboard")
+            self._notifications.notify("⚠ Selection Error", "Install xclip or wl-clipboard")
             return None
 
         return selected
@@ -255,9 +262,7 @@ class SessionService:
 
             if not llm.is_available():
                 print("⚠ LLM not available (set GEMINI_API_KEY or ANTHROPIC_API_KEY)")
-                from ..ui_feedback import notify
-
-                notify("⚠ LLM Not Available", "Configure LLM_PROVIDER")
+                self._notifications.notify("⚠ LLM Not Available", "Configure LLM_PROVIDER")
                 return text
 
             if mode == ProcessingMode.ACT_ON_TEXT and selected_text:
@@ -290,14 +295,10 @@ class SessionService:
 
         if mode == ProcessingMode.ACT_ON_TEXT:
             print(f"✓ Replaced: {text[:50]}..." if len(text) > 50 else f"✓ {text}")
-            from ..ui_feedback import notify
-
-            notify("✓ Text Replaced", text[:100])
+            self._notifications.notify("✓ Text Replaced", text[:100])
         else:
             print(f"✓ {text[:50]}..." if len(text) > 50 else f"✓ {text}")
-            from ..ui_feedback import notify
-
-            notify("✓ Done", text[:100])
+            self._notifications.notify("✓ Done", text[:100])
 
     def _filter_fillers_local(self, text: str) -> str:
         try:

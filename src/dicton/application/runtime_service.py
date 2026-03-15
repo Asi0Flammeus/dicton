@@ -15,7 +15,14 @@ class RuntimeService:
     """Own application startup, runtime wait loop, and shutdown."""
 
     def __init__(
-        self, session_service, keyboard, recognizer, app_config, log_path=None, chunk_manager=None
+        self,
+        session_service,
+        keyboard,
+        recognizer,
+        app_config,
+        log_path=None,
+        chunk_manager=None,
+        notification_service=None,
     ):
         self._session_service = session_service
         self._keyboard = keyboard
@@ -27,6 +34,11 @@ class RuntimeService:
         self._fn_handler = None
         self._tray = None
         self._use_fn_key = False
+        if notification_service is None:
+            from ..ui.notifications_null import NullNotificationService
+
+            notification_service = NullNotificationService()
+        self._notifications = notification_service
 
         if not self._recognizer._provider_available:
             print("❌ No STT provider configured - dictation will not work!")
@@ -102,9 +114,7 @@ class RuntimeService:
         hotkey_display = (
             "FN" if self._use_fn_key else f"{config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}"
         )
-        from ..ui_feedback import notify
-
-        notify("Dicton Ready", f"Press {hotkey_display}")
+        self._notifications.notify("Dicton Ready", f"Press {hotkey_display}")
 
         try:
             if IS_WINDOWS:
@@ -118,17 +128,15 @@ class RuntimeService:
 
     def _init_tray(self) -> None:
         try:
-            from ..tray import DictonTray
+            from ..ui.tray_factory import get_system_tray
 
-            self._tray = DictonTray(
+            self._tray = get_system_tray(
                 on_quit=self.request_shutdown,
                 on_toggle_debug=self._toggle_debug,
                 log_path=self._log_path,
             )
             self._session_service.add_state_observer(self._tray.on_state_change)
             self._tray.start()
-        except ImportError:
-            pass
         except Exception:
             logging.getLogger(__name__).debug("Tray init failed", exc_info=True)
 

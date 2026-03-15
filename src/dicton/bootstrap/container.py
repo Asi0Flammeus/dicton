@@ -9,7 +9,6 @@ from ..adapters.audio_session_control import AudioSessionControlAdapter
 from ..adapters.config_env import load_app_config
 from ..adapters.metrics import MetricsAdapter
 from ..adapters.text_processing import TextOutputAdapter, TextProcessorAdapter
-from ..adapters.ui_feedback import UIFeedbackAdapter
 from ..application.runtime_service import RuntimeService
 from ..application.session_service import SessionService
 from ..chunk_manager import ChunkConfig, ChunkManager
@@ -20,6 +19,7 @@ from ..latency_tracker import get_latency_tracker
 from ..output.factory import get_text_output
 from ..output.selection_factory import get_selection_reader
 from ..speech_recognition_engine import SpeechRecognizer
+from ..ui.notifications_factory import get_notification_service
 
 
 def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
@@ -36,6 +36,7 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
     hotkey_listener = HotkeyListener(None)
     selection_reader = get_selection_reader()
     text_output = get_text_output(selection_reader)
+    notification_service = get_notification_service()
     app_config = load_app_config()
     metrics = get_latency_tracker()
 
@@ -45,6 +46,7 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
         metrics=metrics,
         app_config=app_config,
         selection_reader=selection_reader,
+        notification_service=notification_service,
     )
     session_service.bind_controller(
         DictationController(
@@ -53,7 +55,7 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
             stt=STTAdapter(recognizer, chunk_manager=chunk_manager),
             text_processor=TextProcessorAdapter(session_service.process_text),
             text_output=TextOutputAdapter(session_service.output_result),
-            ui=UIFeedbackAdapter(),
+            ui=notification_service,
             metrics=MetricsAdapter(metrics),
         )
     )
@@ -66,4 +68,5 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
         app_config=app_config,
         log_path=log_path,
         chunk_manager=chunk_manager,
+        notification_service=notification_service,
     )
