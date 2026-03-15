@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-import sys
 import threading
 import time
-import types
 
-from dicton.application.session_service import SessionService
-from dicton.processing_mode import ProcessingMode
+from dicton.orchestration.session_service import SessionService
+from dicton.shared.processing_mode import ProcessingMode
 
 
 class _DummyController:
     def __init__(self):
-        self.sessions: list[tuple[ProcessingMode, object | None]] = []
+        self.sessions: list[ProcessingMode] = []
         self.stop_calls = 0
         self.cancel_calls = 0
 
@@ -30,7 +28,7 @@ class _DummyController:
         self.cancel_calls += 1
 
     def run_session(self, mode, session, mode_names, pre_output=None):
-        self.sessions.append((mode, session.context))
+        self.sessions.append(mode)
         time.sleep(0.05)
         return True, None
 
@@ -41,31 +39,19 @@ class _DummyMetrics:
 
 
 class _AppConfig:
-    def __init__(self, context_enabled: bool):
-        self.context_enabled = context_enabled
-        self.context_debug = False
+    def __init__(self):
         self.debug = True
 
 
-def test_concurrent_starts_only_launch_one_session(monkeypatch):
-    context_module = types.ModuleType("dicton.context_detector")
-
-    class _Detector:
-        def get_context(self):
-            time.sleep(0.05)
-            return "ctx"
-
-    context_module.get_context_detector = lambda: _Detector()
-    monkeypatch.setitem(sys.modules, "dicton.context_detector", context_module)
-
+def test_concurrent_starts_only_launch_one_session():
     controller = _DummyController()
     service = SessionService(
         controller=controller,
-        keyboard=None,
+        text_output=None,
         metrics=_DummyMetrics(),
-        app_config=_AppConfig(context_enabled=True),
+        app_config=_AppConfig(),
+        visualizer_factory=lambda: None,
     )
-    monkeypatch.setattr(service, "_load_visualizer", lambda: None)
 
     threads = [
         threading.Thread(target=service.start_recording, args=(ProcessingMode.BASIC,)),
@@ -81,5 +67,5 @@ def test_concurrent_starts_only_launch_one_session(monkeypatch):
     record_thread.join(timeout=1.0)
 
     assert len(controller.sessions) == 1
-    assert controller.sessions == [(ProcessingMode.BASIC, "ctx")]
+    assert controller.sessions == [ProcessingMode.BASIC]
     assert service.recording is False

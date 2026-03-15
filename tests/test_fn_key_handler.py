@@ -5,8 +5,8 @@ from __future__ import annotations
 import threading
 import time
 
-from dicton.fn_key_handler import FnKeyHandler
-from dicton.processing_mode import ProcessingMode
+from dicton.adapters.input.fn.handler import FnKeyHandler
+from dicton.shared.processing_mode import ProcessingMode
 
 
 def test_toggle_callbacks_are_delivered_in_order():

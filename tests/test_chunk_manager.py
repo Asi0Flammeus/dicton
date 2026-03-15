@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from dicton.chunk_manager import ChunkConfig, ChunkManager, FinalizeResult
-from dicton.stt_provider import TranscriptionResult
+from dicton.adapters.audio.chunk_manager import ChunkConfig, ChunkManager, FinalizeResult
+from dicton.adapters.stt.provider import TranscriptionResult
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -125,7 +125,7 @@ def test_overlap_boundary(mock_stt, chunk_config):
     assert manager._chunk_boundary == frames_sent - overlap_frames
 
 
-@patch("dicton.chunk_manager.time.sleep")
+@patch("dicton.adapters.audio.chunk_manager.time.sleep")
 def test_retry_on_failure(mock_sleep, mock_stt, chunk_config):
     """_transcribe_chunk retries on transient error; recovered text present in result."""
     call_count = [0]
@@ -217,7 +217,7 @@ def test_start_session_resets_state(mock_stt, chunk_config):
     assert not manager.has_chunks
 
 
-@patch("dicton.chunk_manager.time.sleep")
+@patch("dicton.adapters.audio.chunk_manager.time.sleep")
 def test_provider_error_partial_results(_mock_sleep, mock_stt, chunk_config):
     """One chunk fails all retries -> is_partial=True, failed_chunks=1."""
     call_count = [0]

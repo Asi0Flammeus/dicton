@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from dicton.stt_provider import NullSTTProvider, STTCapability
+from dicton.adapters.stt.provider import NullSTTProvider, STTCapability
 
 # =============================================================================
 # Factory Tests
@@ -24,7 +24,7 @@ class TestSTTFactory:
     @pytest.fixture(autouse=True)
     def reset_factory(self):
         """Reset factory state before each test."""
-        from dicton import stt_factory
+        from dicton.adapters.stt import factory as stt_factory
 
         stt_factory._PROVIDER_REGISTRY.clear()
         stt_factory._provider_cache.clear()
@@ -34,7 +34,7 @@ class TestSTTFactory:
 
     def test_get_unknown_provider_returns_null(self):
         """Test getting unknown provider returns NullSTTProvider."""
-        from dicton.stt_factory import get_stt_provider
+        from dicton.adapters.stt.factory import get_stt_provider
 
         provider = get_stt_provider("nonexistent")
         assert isinstance(provider, NullSTTProvider)
@@ -49,7 +49,7 @@ class TestSTTFactory:
             patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
             patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
         ):
-            from dicton.stt_factory import get_stt_provider
+            from dicton.adapters.stt.factory import get_stt_provider
 
             provider = get_stt_provider("mistral")
             assert provider.name == "Mistral Voxtral"
@@ -65,7 +65,7 @@ class TestSTTFactory:
             patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
             patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
         ):
-            from dicton.stt_factory import _provider_cache, get_stt_provider
+            from dicton.adapters.stt.factory import _provider_cache, get_stt_provider
 
             provider1 = get_stt_provider("mistral")
             provider2 = get_stt_provider("mistral")
@@ -83,7 +83,7 @@ class TestSTTFactory:
             patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
             patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
         ):
-            from dicton.stt_factory import get_stt_provider
+            from dicton.adapters.stt.factory import get_stt_provider
 
             provider1 = get_stt_provider("mistral", use_cache=False)
             provider2 = get_stt_provider("mistral", use_cache=False)
@@ -97,7 +97,7 @@ class TestSTTFactoryFallback:
     @pytest.fixture(autouse=True)
     def reset_factory(self):
         """Reset factory state before each test."""
-        from dicton import stt_factory
+        from dicton.adapters.stt import factory as stt_factory
 
         stt_factory._PROVIDER_REGISTRY.clear()
         stt_factory._provider_cache.clear()
@@ -117,7 +117,7 @@ class TestSTTFactoryFallback:
             ),
             patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
         ):
-            from dicton.stt_factory import get_stt_provider_with_fallback
+            from dicton.adapters.stt.factory import get_stt_provider_with_fallback
 
             provider = get_stt_provider_with_fallback()
             assert provider.name == "Mistral Voxtral"
@@ -129,7 +129,7 @@ class TestSTTFactoryFallback:
             {"STT_PROVIDER": "", "MISTRAL_API_KEY": "", "ELEVENLABS_API_KEY": ""},
             clear=False,
         ):
-            from dicton.stt_factory import get_stt_provider_with_fallback
+            from dicton.adapters.stt.factory import get_stt_provider_with_fallback
 
             provider = get_stt_provider_with_fallback()
             assert isinstance(provider, NullSTTProvider)
@@ -148,7 +148,7 @@ class TestSTTFactoryFallback:
             ),
             patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
         ):
-            from dicton.stt_factory import get_stt_provider_with_fallback
+            from dicton.adapters.stt.factory import get_stt_provider_with_fallback
 
             provider = get_stt_provider_with_fallback()
             assert provider.name == "Mistral Voxtral"
@@ -167,7 +167,7 @@ class TestSTTFactoryFallback:
             ),
             patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
         ):
-            from dicton.stt_factory import get_stt_provider_with_fallback
+            from dicton.adapters.stt.factory import get_stt_provider_with_fallback
 
             provider = get_stt_provider_with_fallback()
             # "auto" should use fallback chain and find mistral, not return NullSTTProvider
@@ -180,7 +180,7 @@ class TestSTTFactoryAvailable:
     @pytest.fixture(autouse=True)
     def reset_factory(self):
         """Reset factory state before each test."""
-        from dicton import stt_factory
+        from dicton.adapters.stt import factory as stt_factory
 
         stt_factory._PROVIDER_REGISTRY.clear()
         stt_factory._provider_cache.clear()
@@ -198,7 +198,7 @@ class TestSTTFactoryAvailable:
             patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
             patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
         ):
-            from dicton.stt_factory import get_available_stt_providers
+            from dicton.adapters.stt.factory import get_available_stt_providers
 
             available = get_available_stt_providers()
             assert "mistral" in available
@@ -208,7 +208,7 @@ class TestSTTFactoryAvailable:
         with patch.dict(
             "os.environ", {"MISTRAL_API_KEY": "", "ELEVENLABS_API_KEY": ""}, clear=False
         ):
-            from dicton.stt_factory import get_available_stt_providers
+            from dicton.adapters.stt.factory import get_available_stt_providers
 
             available = get_available_stt_providers()
             # May have mistral if SDK is available even without key
@@ -222,7 +222,7 @@ class TestSTTFactoryCache:
     @pytest.fixture(autouse=True)
     def reset_factory(self):
         """Reset factory state before each test."""
-        from dicton import stt_factory
+        from dicton.adapters.stt import factory as stt_factory
 
         stt_factory._PROVIDER_REGISTRY.clear()
         stt_factory._provider_cache.clear()
@@ -240,7 +240,7 @@ class TestSTTFactoryCache:
             patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
             patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
         ):
-            from dicton.stt_factory import (
+            from dicton.adapters.stt.factory import (
                 _provider_cache,
                 clear_provider_cache,
                 get_stt_provider,

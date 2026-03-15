@@ -4,8 +4,8 @@ import importlib
 def test_basic_and_translation_enabled_by_default(clean_env, monkeypatch):
     monkeypatch.delenv("ENABLE_ADVANCED_MODES", raising=False)
 
-    import dicton.config as config_module
-    import dicton.processing_mode as processing_mode
+    import dicton.shared.config as config_module
+    import dicton.shared.processing_mode as processing_mode
 
     importlib.reload(config_module)
     importlib.reload(processing_mode)
@@ -19,8 +19,8 @@ def test_basic_and_translation_enabled_by_default(clean_env, monkeypatch):
 def test_advanced_modes_can_be_reenabled(clean_env, monkeypatch):
     monkeypatch.setenv("ENABLE_ADVANCED_MODES", "true")
 
-    import dicton.config as config_module
-    import dicton.processing_mode as processing_mode
+    import dicton.shared.config as config_module
+    import dicton.shared.processing_mode as processing_mode
 
     importlib.reload(config_module)
     importlib.reload(processing_mode)

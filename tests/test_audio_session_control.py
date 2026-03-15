@@ -1,4 +1,4 @@
-from dicton.adapters import audio_session_control as asc
+from dicton.adapters.audio import session_control as asc
 
 
 def _setup_mocks(monkeypatch, has_cmds, wpctl_mute=None, pactl_mute=None):

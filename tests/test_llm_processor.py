@@ -90,7 +90,7 @@ class TestTranslationPromptStructure:
         """Verify the translate function prompt contains two-step structure."""
         import inspect
 
-        from src.dicton.llm_processor import translate
+        from dicton.adapters.llm.prompts import translate
 
         # Get the function source to verify prompt structure
         source = inspect.getsource(translate)
@@ -105,7 +105,7 @@ class TestTranslationPromptStructure:
         """Verify prompt mentions French filler examples."""
         import inspect
 
-        from src.dicton.llm_processor import translate
+        from dicton.adapters.llm.prompts import translate
 
         source = inspect.getsource(translate)
 
@@ -118,7 +118,7 @@ class TestTranslationPromptStructure:
         """Verify prompt mentions English filler examples."""
         import inspect
 
-        from src.dicton.llm_processor import translate
+        from dicton.adapters.llm.prompts import translate
 
         source = inspect.getsource(translate)
 
@@ -138,7 +138,8 @@ class TestTranslationFillerRemoval:
     @pytest.fixture
     def translation_func(self):
         """Get the translate function."""
-        from src.dicton.llm_processor import is_available, translate
+        from dicton.adapters.llm import is_available
+        from dicton.adapters.llm.prompts import translate
 
         if not is_available():
             pytest.skip("No LLM provider configured")
@@ -211,14 +212,14 @@ class TestTranslationEmptyInput:
 
     def test_translate_empty_string_returns_none(self):
         """Empty input should return None."""
-        from src.dicton.llm_processor import translate
+        from dicton.adapters.llm.prompts import translate
 
         result = translate("")
         assert result is None
 
     def test_translate_none_input_returns_none(self):
         """None input should return None."""
-        from src.dicton.llm_processor import translate
+        from dicton.adapters.llm.prompts import translate
 
         # The function should handle this gracefully
         result = translate(None)  # type: ignore

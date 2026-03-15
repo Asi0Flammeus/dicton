@@ -40,7 +40,7 @@ class _TextProcessor(TextProcessor):
     def __init__(self, result="ok"):
         self.result = result
 
-    def process(self, text: str, mode, selected_text=None, context=None):
+    def process(self, text: str, mode, selected_text=None):
         return self.result
 
 
@@ -48,8 +48,8 @@ class _TextOutput(TextOutput):
     def __init__(self):
         self.calls = []
 
-    def output(self, text: str, mode, replace_selection: bool, context=None) -> None:
-        self.calls.append((text, replace_selection, context))
+    def output(self, text: str, mode, replace_selection: bool) -> None:
+        self.calls.append((text, replace_selection))
 
 
 class _UI(UIFeedback):
@@ -94,7 +94,7 @@ def test_controller_happy_path():
     )
     success, session = controller.run_session(
         mode="basic",
-        session=SessionContext(selected_text=None, context=None),
+        session=SessionContext(selected_text=None),
         mode_names={"basic": "Recording"},
     )
     assert success is True
@@ -112,7 +112,7 @@ def test_controller_no_audio():
     )
     success, session = controller.run_session(
         mode="basic",
-        session=SessionContext(selected_text=None, context=None),
+        session=SessionContext(selected_text=None),
         mode_names={"basic": "Recording"},
     )
     assert success is False
@@ -135,7 +135,7 @@ def test_controller_cancel_during_recording():
     )
     success, session = controller.run_session(
         mode="basic",
-        session=SessionContext(selected_text=None, context=None),
+        session=SessionContext(selected_text=None),
         mode_names={"basic": "Recording"},
     )
     assert success is False
@@ -153,7 +153,7 @@ def test_controller_processing_failure():
     )
     success, session = controller.run_session(
         mode="basic",
-        session=SessionContext(selected_text=None, context=None),
+        session=SessionContext(selected_text=None),
         mode_names={"basic": "Recording"},
     )
     assert success is False
@@ -183,7 +183,7 @@ def test_exception_resets_state():
     with pytest.raises(RuntimeError, match="boom"):
         controller.run_session(
             mode="basic",
-            session=SessionContext(selected_text=None, context=None),
+            session=SessionContext(selected_text=None),
             mode_names={"basic": "Recording"},
         )
 
@@ -215,7 +215,7 @@ def test_cancel_after_transcription():
 
     success, session = controller.run_session(
         mode="basic",
-        session=SessionContext(selected_text=None, context=None),
+        session=SessionContext(selected_text=None),
         mode_names={"basic": "Recording"},
     )
     assert success is False
