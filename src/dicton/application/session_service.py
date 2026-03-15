@@ -12,10 +12,11 @@ from ..processing_mode import ProcessingMode, get_mode_color, is_mode_enabled
 class SessionService:
     """Coordinate dictation session policy around the core controller."""
 
-    def __init__(self, controller, text_output, metrics, app_config):
+    def __init__(self, controller, text_output, metrics, app_config, selection_reader=None):
         self._controller = controller
         self._text_output = text_output
         self._metrics = metrics
+        self._selection = selection_reader
         self._app_config = app_config
         self._session_lock = threading.Lock()
         self._starting = False
@@ -212,34 +213,29 @@ class SessionService:
         return viz
 
     def _capture_selection_for_act_on_text(self) -> str | None:
-        try:
-            from ..platform_utils import IS_WAYLAND
-            from ..selection_handler import get_primary_selection, has_selection
-
-            if not has_selection():
-                print("⚠ No text selected")
-                from ..ui_feedback import notify
-
-                notify("⚠ No Selection", "Highlight text first, then press FN+Shift")
-                return None
-
-            selected = get_primary_selection()
-            if not selected:
-                tool_hint = "wl-clipboard" if IS_WAYLAND else "xclip"
-                print(f"⚠ Could not read selection (install {tool_hint})")
-                from ..ui_feedback import notify
-
-                notify("⚠ Selection Error", f"Install {tool_hint}")
-                return None
-
-            return selected
-
-        except ImportError as exc:
-            print(f"⚠ Selection handler not available: {exc}")
+        if self._selection is None:
+            print("⚠ Selection reader not configured")
             from ..ui_feedback import notify
 
             notify("⚠ Not Available", "Install xclip or wl-clipboard")
             return None
+
+        if not self._selection.has_selection():
+            print("⚠ No text selected")
+            from ..ui_feedback import notify
+
+            notify("⚠ No Selection", "Highlight text first, then press FN+Shift")
+            return None
+
+        selected = self._selection.get_selection()
+        if not selected:
+            print("⚠ Could not read selection")
+            from ..ui_feedback import notify
+
+            notify("⚠ Selection Error", "Install xclip or wl-clipboard")
+            return None
+
+        return selected
 
     def process_text(
         self,
