@@ -43,15 +43,15 @@ class _AppConfig:
         self.debug = True
 
 
-def test_concurrent_starts_only_launch_one_session(monkeypatch):
+def test_concurrent_starts_only_launch_one_session():
     controller = _DummyController()
     service = SessionService(
         controller=controller,
         text_output=None,
         metrics=_DummyMetrics(),
         app_config=_AppConfig(),
+        visualizer_factory=lambda: None,
     )
-    monkeypatch.setattr(service, "_load_visualizer", lambda: None)
 
     threads = [
         threading.Thread(target=service.start_recording, args=(ProcessingMode.BASIC,)),

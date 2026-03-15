@@ -5,8 +5,12 @@ from __future__ import annotations
 import threading
 
 from ..core.controller import SessionContext
-from ..shared.config import config
 from ..shared.processing_mode import ProcessingMode, get_mode_color, is_mode_enabled
+
+
+class _NullNotifications:
+    def notify(self, title: str, message: str, timeout: int = 2) -> None:
+        pass
 
 
 class SessionService:
@@ -20,16 +24,20 @@ class SessionService:
         app_config,
         selection_reader=None,
         notification_service=None,
+        llm_provider=None,
+        visualizer_factory=None,
     ):
         self._controller = controller
         self._text_output = text_output
         self._metrics = metrics
         self._selection = selection_reader
-        if notification_service is None:
-            from ..adapters.ui.notifications_null import NullNotificationService
-
-            notification_service = NullNotificationService()
-        self._notifications = notification_service
+        self._notifications = (
+            notification_service if notification_service is not None else _NullNotifications()
+        )
+        self._llm = llm_provider
+        self._get_visualizer = (
+            visualizer_factory if visualizer_factory is not None else lambda: None
+        )
         self._app_config = app_config
         self._session_lock = threading.Lock()
         self._starting = False
@@ -127,7 +135,7 @@ class SessionService:
     def _update_visualizer_color(self, mode: ProcessingMode) -> None:
         try:
             if self._visualizer is None:
-                self._visualizer = self._load_visualizer()
+                self._visualizer = self._get_visualizer()
 
             if self._visualizer:
                 self._visualizer.set_colors(get_mode_color(mode))
@@ -149,7 +157,7 @@ class SessionService:
             ProcessingMode.RAW: "Raw Mode",
         }
         if self._visualizer is None:
-            self._visualizer = self._load_visualizer()
+            self._visualizer = self._get_visualizer()
         viz = self._visualizer
 
         try:
@@ -194,35 +202,6 @@ class SessionService:
             if viz:
                 viz.stop()
 
-    def _load_visualizer(self):
-        viz = None
-        try:
-            if config.VISUALIZER_BACKEND == "gtk":
-                try:
-                    from ..adapters.ui.visualizer_gtk import get_visualizer
-
-                    viz = get_visualizer()
-                except ImportError:
-                    from ..adapters.ui.visualizer import get_visualizer
-
-                    viz = get_visualizer()
-            elif config.VISUALIZER_BACKEND == "vispy":
-                try:
-                    from ..adapters.ui.visualizer_vispy import get_visualizer
-
-                    viz = get_visualizer()
-                except ImportError:
-                    from ..adapters.ui.visualizer import get_visualizer
-
-                    viz = get_visualizer()
-            else:
-                from ..adapters.ui.visualizer import get_visualizer
-
-                viz = get_visualizer()
-        except Exception:
-            viz = None
-        return viz
-
     def _capture_selection_for_act_on_text(self) -> str | None:
         if self._selection is None:
             print("⚠ Selection reader not configured")
@@ -257,30 +236,27 @@ class SessionService:
         if mode in (ProcessingMode.BASIC, ProcessingMode.RAW):
             return text
 
-        try:
-            from ..adapters import llm
-
-            if not llm.is_available():
-                print("⚠ LLM not available (set GEMINI_API_KEY or ANTHROPIC_API_KEY)")
-                self._notifications.notify("⚠ LLM Not Available", "Configure LLM_PROVIDER")
-                return text
-
-            if mode == ProcessingMode.ACT_ON_TEXT and selected_text:
-                return llm.act_on_text(selected_text, text)
-            if mode == ProcessingMode.REFORMULATION:
-                if config.ENABLE_REFORMULATION:
-                    return llm.reformulate(text)
-                return self._filter_fillers_local(text)
-            if mode == ProcessingMode.TRANSLATION:
-                return llm.translate(text, "English")
-            if mode == ProcessingMode.TRANSLATE_REFORMAT:
-                translated = llm.translate(text, "English")
-                if translated:
-                    return llm.reformulate(translated)
-                return None
-        except ImportError:
-            print("⚠ LLM processor not available")
+        if self._llm is None or not self._llm.is_available():
+            print("⚠ LLM not available (set GEMINI_API_KEY or ANTHROPIC_API_KEY)")
+            self._notifications.notify("⚠ LLM Not Available", "Configure LLM_PROVIDER")
             return text
+
+        from ..adapters.llm.prompts import act_on_text, reformulate, translate
+        from ..shared.config import config
+
+        if mode == ProcessingMode.ACT_ON_TEXT and selected_text:
+            return act_on_text(selected_text, text)
+        if mode == ProcessingMode.REFORMULATION:
+            if config.ENABLE_REFORMULATION:
+                return reformulate(text)
+            return self._filter_fillers_local(text)
+        if mode == ProcessingMode.TRANSLATION:
+            return translate(text, "English")
+        if mode == ProcessingMode.TRANSLATE_REFORMAT:
+            translated = translate(text, "English")
+            if translated:
+                return reformulate(translated)
+            return None
 
         return text
 
