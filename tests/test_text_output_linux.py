@@ -6,6 +6,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Patch config where it's consumed, not where it's defined,
+# to avoid stale-reference issues when test_config reloads the module.
+_CONFIG_TARGET = "dicton.adapters.output.linux.config"
+
 
 @pytest.fixture()
 def selection_reader():
@@ -24,9 +28,7 @@ def selection_reader():
 
 @pytest.fixture()
 def output(selection_reader, monkeypatch):
-    from dicton.shared.config import config
-
-    monkeypatch.setattr(config, "PASTE_THRESHOLD_WORDS", 0)  # never paste by default
+    monkeypatch.setattr(_CONFIG_TARGET + ".PASTE_THRESHOLD_WORDS", 0)  # never paste by default
     from dicton.adapters.output.linux import LinuxTextOutput
 
     return LinuxTextOutput(selection_reader=selection_reader)
@@ -90,9 +92,7 @@ def test_replace_selection_uses_ctrl_v(output, selection_reader):
 
 
 def test_paste_uses_ctrl_shift_v(output, selection_reader, monkeypatch):
-    from dicton.shared.config import config
-
-    monkeypatch.setattr(config, "PASTE_THRESHOLD_WORDS", 1)  # enable paste
+    monkeypatch.setattr(_CONFIG_TARGET + ".PASTE_THRESHOLD_WORDS", 1)  # enable paste
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0)
         output.insert_text("long text here", delay_ms=10)
