@@ -512,10 +512,13 @@ class FnKeyHandler:
                     try:
                         events = list(device.read())
                     except OSError:
-                        # Device unplugged - trigger refresh
+                        # Device unplugged - remove from local fd map immediately
+                        # to prevent tight error loop, then trigger async refresh
                         if config.DEBUG:
                             print(f"Device read error (unplugged?): {device.name}")
+                        devices.pop(fd, None)
                         self._pending_refresh.set()
+                        self._wake_select()
                         continue
 
                     for event in events:
