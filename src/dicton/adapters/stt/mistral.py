@@ -115,7 +115,10 @@ class MistralSTTProvider(STTProvider):
         self._client = None
 
         try:
-            from mistralai import Mistral
+            try:
+                from mistralai import Mistral
+            except ImportError:
+                from mistralai.client import Mistral
 
             self._client = Mistral(
                 api_key=self._config.api_key,

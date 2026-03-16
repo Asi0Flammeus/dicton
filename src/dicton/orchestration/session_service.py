@@ -267,7 +267,7 @@ class SessionService:
         replace_selection: bool,
     ) -> None:
         """Emit processed text to the active application."""
-        self._text_output.insert_text(text, typing_delay_ms=50)
+        self._text_output.insert_text(text, delay_ms=50)
 
         if mode == ProcessingMode.ACT_ON_TEXT:
             print(f"✓ Replaced: {text[:50]}..." if len(text) > 50 else f"✓ {text}")
