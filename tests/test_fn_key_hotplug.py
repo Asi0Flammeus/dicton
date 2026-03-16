@@ -42,10 +42,10 @@ def fn_handler(mock_evdev_module):
     # Also mock pyudev as optional
     with patch.dict(sys.modules, {"pyudev": MagicMock()}):
         # Clear any cached imports
-        if "dicton.fn_key_handler" in sys.modules:
-            del sys.modules["dicton.fn_key_handler"]
+        if "dicton.adapters.input.fn.handler" in sys.modules:
+            del sys.modules["dicton.adapters.input.fn.handler"]
 
-        from dicton.fn_key_handler import FnKeyHandler
+        from dicton.adapters.input.fn.handler import FnKeyHandler
 
         handler = FnKeyHandler()
         yield handler
@@ -165,10 +165,10 @@ class TestGracefulDegradation:
         """Handler should work without pyudev (no hot-plug detection)."""
         # Import without pyudev in sys.modules
         with patch.dict(sys.modules, {"pyudev": None}):
-            if "dicton.fn_key_handler" in sys.modules:
-                del sys.modules["dicton.fn_key_handler"]
+            if "dicton.adapters.input.fn.handler" in sys.modules:
+                del sys.modules["dicton.adapters.input.fn.handler"]
 
-            from dicton.fn_key_handler import FnKeyHandler
+            from dicton.adapters.input.fn.handler import FnKeyHandler
 
             handler = FnKeyHandler()
             # Should initialize successfully
@@ -196,10 +196,10 @@ class TestMonitorPollTimeout:
         mock_pyudev.Monitor.from_netlink.return_value = mock_monitor
 
         with patch.dict(sys.modules, {"pyudev": mock_pyudev}):
-            if "dicton.fn_key_handler" in sys.modules:
-                del sys.modules["dicton.fn_key_handler"]
+            if "dicton.adapters.input.fn.handler" in sys.modules:
+                del sys.modules["dicton.adapters.input.fn.handler"]
 
-            from dicton.fn_key_handler import FnKeyHandler
+            from dicton.adapters.input.fn.handler import FnKeyHandler
 
             handler = FnKeyHandler()
             handler._pyudev_available = True
@@ -235,10 +235,10 @@ class TestMonitorPollTimeout:
         mock_pyudev.Monitor.from_netlink.return_value = mock_monitor
 
         with patch.dict(sys.modules, {"pyudev": mock_pyudev}):
-            if "dicton.fn_key_handler" in sys.modules:
-                del sys.modules["dicton.fn_key_handler"]
+            if "dicton.adapters.input.fn.handler" in sys.modules:
+                del sys.modules["dicton.adapters.input.fn.handler"]
 
-            from dicton.fn_key_handler import FnKeyHandler
+            from dicton.adapters.input.fn.handler import FnKeyHandler
 
             handler = FnKeyHandler()
             handler._pyudev_available = True

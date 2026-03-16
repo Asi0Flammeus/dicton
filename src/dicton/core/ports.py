@@ -8,10 +8,7 @@ capability-oriented to keep the core decoupled.
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
-
-if TYPE_CHECKING:
-    from ..context_detector import ContextInfo
+from typing import Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -59,18 +56,15 @@ class TextProcessor(Protocol):
         text: str,
         mode,
         selected_text: str | None = None,
-        context: ContextInfo | None = None,
     ) -> str | None:
-        """Process text based on mode/context."""
+        """Process text based on mode."""
 
 
 @runtime_checkable
 class TextOutput(Protocol):
     """Outputs text to the active application."""
 
-    def output(
-        self, text: str, mode, replace_selection: bool, context: ContextInfo | None = None
-    ) -> None:
+    def output(self, text: str, mode, replace_selection: bool) -> None:
         """Emit text to the active app."""
 
 

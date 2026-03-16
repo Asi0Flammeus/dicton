@@ -33,7 +33,7 @@ def _module_imports(path: Path) -> set[str]:
 
 
 def test_application_layer_avoids_low_level_dependencies():
-    application_dir = SRC / "application"
+    application_dir = SRC / "orchestration"
     assert application_dir.exists()
 
     for path in application_dir.glob("*.py"):
@@ -43,14 +43,17 @@ def test_application_layer_avoids_low_level_dependencies():
 
 
 def test_bootstrap_module_exists_as_composition_root():
-    container = SRC / "bootstrap" / "container.py"
+    container = SRC / "orchestration" / "container.py"
     assert container.exists()
     imports = _module_imports(container)
     assert "dicton" not in imports
 
 
 def test_runtime_entry_still_flows_through_main_module():
-    main_file = SRC / "main.py"
+    main_file = SRC / "__main__.py"
     content = main_file.read_text(encoding="utf-8")
-    assert "build_runtime_service" in content
     assert "run_config_server" in content
+
+    cli_file = SRC / "interfaces" / "cli.py"
+    cli_content = cli_file.read_text(encoding="utf-8")
+    assert "build_runtime_service" in cli_content

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 from .cancel_token import CancelToken
 from .ports import (
@@ -22,16 +21,12 @@ from .ports import (
 )
 from .state_machine import SessionEvent, SessionState, SessionStateMachine
 
-if TYPE_CHECKING:
-    from ..context_detector import ContextInfo
-
 
 @dataclass(frozen=True)
 class SessionContext:
     """Container for optional session details passed to the controller."""
 
     selected_text: str | None = None
-    context: ContextInfo | None = None
 
 
 class DictationController:
@@ -148,7 +143,6 @@ class DictationController:
                     text,
                     mode,
                     selected_text=session.selected_text,
-                    context=session.context,
                 )
 
             if self._cancel_token.cancelled:
@@ -174,7 +168,6 @@ class DictationController:
                     result,
                     mode,
                     replace_selection=session.selected_text is not None,
-                    context=session.context,
                 )
 
             self._state.transition(SessionEvent.OUTPUT_DONE)

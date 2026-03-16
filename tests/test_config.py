@@ -9,7 +9,7 @@ class TestConfigDefaults:
         # Force reimport to pick up clean env
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -19,7 +19,7 @@ class TestConfigDefaults:
         """Test default hotkey key is 'g'."""
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -29,7 +29,7 @@ class TestConfigDefaults:
         """Test default theme color is 'orange'."""
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -39,7 +39,7 @@ class TestConfigDefaults:
         """Test default visualizer backend is 'pygame'."""
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -49,7 +49,7 @@ class TestConfigDefaults:
         """Test default visualizer style is 'toric'."""
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -59,7 +59,7 @@ class TestConfigDefaults:
         """Test debug mode is disabled by default."""
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -69,7 +69,7 @@ class TestConfigDefaults:
         """Test advanced modes are hidden by default."""
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -79,7 +79,7 @@ class TestConfigDefaults:
         """Test reformulation is disabled by default."""
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -96,7 +96,7 @@ class TestConfigFromEnv:
 
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -109,7 +109,7 @@ class TestConfigFromEnv:
 
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -121,7 +121,7 @@ class TestConfigFromEnv:
 
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -133,7 +133,7 @@ class TestConfigFromEnv:
 
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -148,7 +148,7 @@ class TestReloadConfig:
         import importlib
         import os
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
         assert config_module.Config.LLM_PROVIDER == "gemini"  # default
@@ -165,7 +165,7 @@ class TestReloadConfig:
         import importlib
         import os
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -181,7 +181,7 @@ class TestReloadConfig:
         import importlib
         import os
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
         assert config_module.Config.DEBUG is False
@@ -195,7 +195,7 @@ class TestReloadConfig:
         import importlib
         import os
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -209,7 +209,7 @@ class TestFlexokiColors:
 
     def test_all_colors_defined(self):
         """Test all expected color names are defined."""
-        from dicton.config import FLEXOKI_COLORS
+        from dicton.shared.config import FLEXOKI_COLORS
 
         expected_colors = ["red", "orange", "yellow", "green", "cyan", "blue", "purple", "magenta"]
         for color in expected_colors:
@@ -217,7 +217,7 @@ class TestFlexokiColors:
 
     def test_color_structure(self):
         """Test each color has required keys."""
-        from dicton.config import FLEXOKI_COLORS
+        from dicton.shared.config import FLEXOKI_COLORS
 
         for color_name, color_data in FLEXOKI_COLORS.items():
             assert "main" in color_data, f"{color_name} missing 'main'"
@@ -227,7 +227,7 @@ class TestFlexokiColors:
 
     def test_color_values_are_rgb_tuples(self):
         """Test color values are RGB tuples."""
-        from dicton.config import FLEXOKI_COLORS
+        from dicton.shared.config import FLEXOKI_COLORS
 
         for color_name, color_data in FLEXOKI_COLORS.items():
             for key, value in color_data.items():
@@ -243,7 +243,7 @@ class TestPositionPresets:
 
     def test_all_positions_defined(self):
         """Test all expected positions are defined."""
-        from dicton.config import POSITION_PRESETS
+        from dicton.shared.config import POSITION_PRESETS
 
         expected = [
             "top-right",
@@ -259,14 +259,14 @@ class TestPositionPresets:
 
     def test_position_functions_callable(self):
         """Test position values are callable functions."""
-        from dicton.config import POSITION_PRESETS
+        from dicton.shared.config import POSITION_PRESETS
 
         for name, func in POSITION_PRESETS.items():
             assert callable(func), f"{name} is not callable"
 
     def test_position_returns_coordinates(self):
         """Test position functions return valid coordinates."""
-        from dicton.config import POSITION_PRESETS
+        from dicton.shared.config import POSITION_PRESETS
 
         screen_w, screen_h, size = 1920, 1080, 100
 
@@ -288,7 +288,7 @@ class TestConfigMethods:
 
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -302,13 +302,13 @@ class TestConfigMethods:
 
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
         colors = config_module.Config.get_theme_colors()
         # Should fallback to orange
-        from dicton.config import FLEXOKI_COLORS
+        from dicton.shared.config import FLEXOKI_COLORS
 
         assert colors == FLEXOKI_COLORS["orange"]
 
@@ -318,7 +318,7 @@ class TestConfigMethods:
 
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 
@@ -332,7 +332,7 @@ class TestConfigMethods:
 
         import importlib
 
-        import dicton.config as config_module
+        import dicton.shared.config as config_module
 
         importlib.reload(config_module)
 

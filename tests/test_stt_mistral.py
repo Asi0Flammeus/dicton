@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from dicton.stt_provider import STTCapability, STTProviderConfig
+from dicton.adapters.stt.provider import STTCapability, STTProviderConfig
 
 # =============================================================================
 # Provider Initialization Tests
@@ -28,14 +28,14 @@ class TestMistralProviderInit:
     def test_init_without_config(self):
         """Test initialization without explicit config uses environment."""
         with patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False):
-            from dicton.stt_mistral import MistralSTTProvider
+            from dicton.adapters.stt.mistral import MistralSTTProvider
 
             provider = MistralSTTProvider()
             assert provider._config.api_key == "test_key"
 
     def test_init_with_config(self):
         """Test initialization with explicit config."""
-        from dicton.stt_mistral import MistralSTTProvider
+        from dicton.adapters.stt.mistral import MistralSTTProvider
 
         config = STTProviderConfig(api_key="explicit_key", model="voxtral-custom")
         provider = MistralSTTProvider(config)
@@ -44,14 +44,14 @@ class TestMistralProviderInit:
 
     def test_name_property(self):
         """Test provider name."""
-        from dicton.stt_mistral import MistralSTTProvider
+        from dicton.adapters.stt.mistral import MistralSTTProvider
 
         provider = MistralSTTProvider()
         assert provider.name == "Mistral Voxtral"
 
     def test_capabilities(self):
         """Test provider capabilities."""
-        from dicton.stt_mistral import MistralSTTProvider
+        from dicton.adapters.stt.mistral import MistralSTTProvider
 
         provider = MistralSTTProvider()
         caps = provider.capabilities
@@ -72,14 +72,14 @@ class TestMistralAvailability:
     def test_unavailable_without_api_key(self):
         """Test provider is unavailable without API key."""
         with patch.dict("os.environ", {"MISTRAL_API_KEY": ""}, clear=False):
-            from dicton.stt_mistral import MistralSTTProvider
+            from dicton.adapters.stt.mistral import MistralSTTProvider
 
             provider = MistralSTTProvider(STTProviderConfig(api_key=""))
             assert provider.is_available() is False
 
     def test_available_with_api_key(self):
         """Test provider is available with API key and default timeout."""
-        from dicton.stt_mistral import MistralSTTProvider
+        from dicton.adapters.stt.mistral import MistralSTTProvider
 
         mock_mistral_module = MagicMock()
         mock_mistral_class = MagicMock()
@@ -95,7 +95,7 @@ class TestMistralAvailability:
 
     def test_timeout_env_var_override(self):
         """Test STT_TIMEOUT env var overrides default timeout."""
-        from dicton.stt_mistral import MistralSTTProvider
+        from dicton.adapters.stt.mistral import MistralSTTProvider
 
         mock_mistral_module = MagicMock()
         mock_mistral_class = MagicMock()
@@ -114,7 +114,7 @@ class TestMistralAvailability:
 
     def test_unavailable_when_sdk_missing(self):
         """Test provider is unavailable when SDK import fails."""
-        from dicton.stt_mistral import MistralSTTProvider
+        from dicton.adapters.stt.mistral import MistralSTTProvider
 
         # Simulate import error by patching the import inside is_available
         with patch.dict("sys.modules", {"mistralai": None}):
@@ -136,7 +136,7 @@ class TestMistralTranscription:
     @pytest.fixture
     def mock_provider(self):
         """Create provider with mocked client."""
-        from dicton.stt_mistral import MistralSTTProvider
+        from dicton.adapters.stt.mistral import MistralSTTProvider
 
         mock_client = MagicMock()
         provider = MistralSTTProvider(STTProviderConfig(api_key="test_key"))
@@ -245,7 +245,7 @@ class TestMistralStreaming:
 
     def test_stream_transcribe_uses_batch(self):
         """Test stream_transcribe falls back to batch mode."""
-        from dicton.stt_mistral import MistralSTTProvider
+        from dicton.adapters.stt.mistral import MistralSTTProvider
 
         mock_client = MagicMock()
         mock_response = MagicMock()
@@ -279,7 +279,7 @@ class TestMistralTranslation:
 
     def test_translate_returns_none(self):
         """Test translate returns None (not supported)."""
-        from dicton.stt_mistral import MistralSTTProvider
+        from dicton.adapters.stt.mistral import MistralSTTProvider
 
         provider = MistralSTTProvider()
         assert provider.translate(b"audio", "en") is None

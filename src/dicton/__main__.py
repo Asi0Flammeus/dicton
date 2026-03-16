@@ -18,14 +18,14 @@ def _run_config_ui(argv: list[str]) -> None:
     args, _ = parser.parse_known_args(argv)
 
     if args.reset:
-        from .app_paths import get_user_env_path
+        from .shared.app_paths import get_user_env_path
 
         env_path = get_user_env_path()
         if env_path.exists():
             env_path.unlink()
             print(f"Reset: deleted {env_path}")
 
-    from .config_server import run_config_server
+    from .interfaces.config_server import run_config_server
 
     run_config_server(port=args.config_port)
 
@@ -42,7 +42,7 @@ def main() -> None:
         _run_config_ui(argv)
         return
 
-    from .main import main as app_main
+    from .interfaces.cli import main as app_main
 
     app_main()
 
