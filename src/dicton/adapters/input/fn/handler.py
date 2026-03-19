@@ -205,8 +205,10 @@ class FnKeyHandler:
             self._pyudev_available = True
         except ImportError:
             self._pyudev_available = False
-            if config.DEBUG:
-                print("pyudev not installed - keyboard hot-plug detection disabled")
+            print(
+                "WARNING: pyudev not installed - keyboard hot-plug detection disabled. "
+                "Install with: pip install pyudev"
+            )
 
         # Create self-pipe for waking select() on device changes
         self._wake_pipe_r, self._wake_pipe_w = os.pipe()
@@ -391,12 +393,22 @@ class FnKeyHandler:
         Called from the listener loop when _pending_refresh is set.
         Finds new devices OUTSIDE the lock (slow I/O), then updates
         the device list INSIDE the lock (fast).
+
+        If no devices are found (e.g., device node not yet ready during hotplug),
+        schedules a retry after a short delay.
         """
         if config.DEBUG:
             print("Refreshing keyboard devices...")
 
         # Find new devices OUTSIDE the lock (slow I/O operation)
         new_primary, new_secondary = self._find_keyboard_devices()
+
+        # If discovery found nothing, schedule a retry — the device may not be ready yet
+        if not new_primary and not new_secondary:
+            if config.DEBUG:
+                print("No devices found during refresh, scheduling retry...")
+            self._schedule_refresh_retry()
+            return
 
         # Update devices INSIDE the lock (fast operation)
         with self._devices_lock:
@@ -422,6 +434,24 @@ class FnKeyHandler:
                 if self._secondary_devices:
                     names = [d.name for d in self._secondary_devices]
                     print(f"Secondary devices: {', '.join(names)}")
+
+    def _schedule_refresh_retry(self):
+        """Schedule a delayed retry when device refresh found no devices.
+
+        This handles the race where a device node exists in the kernel but
+        isn't yet ready to be opened (common during USB hotplug).
+        """
+
+        def retry():
+            if not self._running:
+                return
+            self._pending_refresh.set()
+            self._last_refresh_time = 0  # Reset debounce so retry runs immediately
+            self._wake_select()
+
+        timer = threading.Timer(1.0, retry)
+        timer.daemon = True
+        timer.start()
 
     def _find_keyboard_devices(self):
         """Find keyboard devices for FN key, custom hotkey, and secondary hotkey.
