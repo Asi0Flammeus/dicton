@@ -55,7 +55,6 @@ CONFIG_FIELD_MAP = {
     "animation_position": "ANIMATION_POSITION",
     "visualizer_backend": "VISUALIZER_BACKEND",
     "hotkey_base": "HOTKEY_BASE",
-    "hotkey_hold_threshold_ms": "HOTKEY_HOLD_THRESHOLD_MS",
     "hotkey_double_tap_window_ms": "HOTKEY_DOUBLE_TAP_WINDOW_MS",
     "filter_fillers": "FILTER_FILLERS",
     "enable_reformulation": "ENABLE_REFORMULATION",
@@ -178,9 +177,6 @@ def get_current_config() -> dict[str, Any]:
         "animation_position": env_vars.get("ANIMATION_POSITION", config.ANIMATION_POSITION),
         "visualizer_backend": env_vars.get("VISUALIZER_BACKEND", config.VISUALIZER_BACKEND),
         "hotkey_base": env_vars.get("HOTKEY_BASE", config.HOTKEY_BASE),
-        "hotkey_hold_threshold_ms": env_vars.get(
-            "HOTKEY_HOLD_THRESHOLD_MS", str(config.HOTKEY_HOLD_THRESHOLD_MS)
-        ),
         "hotkey_double_tap_window_ms": env_vars.get(
             "HOTKEY_DOUBLE_TAP_WINDOW_MS", str(config.HOTKEY_DOUBLE_TAP_WINDOW_MS)
         ),

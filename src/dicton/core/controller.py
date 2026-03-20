@@ -107,7 +107,7 @@ class DictationController:
                 return False, tracker.end_session()
 
             # Transition to PROCESSING if not already done by stop().
-            # stop() calls transition(STOP) when triggered externally (PTT release),
+            # stop() calls transition(STOP) when triggered externally (toggle stop),
             # but for other flows the state may still be RECORDING.
             if self._state.state == SessionState.RECORDING:
                 self._state.transition(SessionEvent.STOP)

@@ -3,10 +3,11 @@
 This module provides FN key capture on Linux using evdev, which can detect
 special keys like XF86WakeUp that pynput may not support directly.
 
-Delayed Start Mode:
-    Recording starts after a small activation delay (default 50ms) to avoid
-    confusion with double-tap. If released before delay, treated as a tap.
-    Double-tap enters toggle mode (locked recording).
+Double-tap toggle mode:
+    First tap is ignored. A second tap within the double-tap window
+    starts recording. A third tap stops it.
+    Advanced modes (FN+modifier) and secondary hotkeys start recording
+    immediately on first press (toggle behavior).
 """
 
 import os
@@ -36,17 +37,15 @@ from .state_machine import HotkeyState
 
 
 class FnKeyHandler:
-    """Handle FN key (XF86WakeUp) with push-to-talk and toggle modes
+    """Handle FN key (XF86WakeUp) with double-tap toggle mode.
 
-    Delayed Start State Machine (avoids confusion with double-tap):
-        IDLE + key_down → WAITING_ACTIVATION (wait for activation delay)
-        WAITING_ACTIVATION + delay_elapsed → RECORDING_PTT (start recording)
-        WAITING_ACTIVATION + key_up → WAITING_DOUBLE (tap detected, wait for double-tap)
-        RECORDING_PTT + key_up < threshold → WAITING_DOUBLE (cancel, wait for double-tap)
-        RECORDING_PTT + key_up >= threshold → IDLE (stop recording, process)
-        WAITING_DOUBLE + key_down < window → RECORDING_TOGGLE (start toggle recording)
+    State Machine:
+        IDLE + key_down (BASIC) → TAP_DOWN
+        IDLE + key_down (advanced/secondary) → RECORDING_TOGGLE (immediate)
+        TAP_DOWN + key_up → WAITING_DOUBLE (start double-tap timer)
+        WAITING_DOUBLE + key_down (within window) → RECORDING_TOGGLE (start recording)
         WAITING_DOUBLE + timeout → IDLE (no action)
-        RECORDING_TOGGLE + tap → IDLE (stop recording, process)
+        RECORDING_TOGGLE + key_down → IDLE (stop recording, process)
     """
 
     def __init__(
@@ -87,14 +86,11 @@ class FnKeyHandler:
         self._toggle_first_release: bool = False
 
         # Thresholds from config
-        self._hold_threshold = config.HOTKEY_HOLD_THRESHOLD_MS / 1000.0
         self._double_tap_window = config.HOTKEY_DOUBLE_TAP_WINDOW_MS / 1000.0
-        self._activation_delay = config.HOTKEY_ACTIVATION_DELAY_MS / 1000.0
 
         # Threads
         self._listener_thread: threading.Thread | None = None
         self._timer_thread: threading.Thread | None = None
-        self._activation_timer: threading.Timer | None = None
         self._running = False
 
         # Deliver start/stop/cancel callbacks in-order on a dedicated worker.
@@ -567,9 +563,8 @@ class FnKeyHandler:
                                 # Only process key up if we're in a recording state
                                 # (to avoid processing releases for key presses that weren't triggered)
                                 if self._state in (
-                                    HotkeyState.RECORDING_PTT,
                                     HotkeyState.RECORDING_TOGGLE,
-                                    HotkeyState.WAITING_ACTIVATION,
+                                    HotkeyState.TAP_DOWN,
                                     HotkeyState.WAITING_DOUBLE,
                                 ):
                                     self._on_fn_key_up()
@@ -647,11 +642,11 @@ class FnKeyHandler:
                 self._trigger_stop_recording()
 
     def _on_fn_key_down(self):
-        """Handle FN key press with activation delay
+        """Handle FN key press.
 
         Behavior depends on mode:
-        - BASIC (FN only): PTT with hold (after delay), toggle with double-tap
-        - Advanced modes (FN+modifier or secondary hotkey): Toggle-only (press to start, press to stop)
+        - BASIC (FN only): Double-tap to start/stop recording
+        - Advanced modes (FN+modifier or secondary hotkey): Toggle (press to start, press to stop)
         """
         now = time.time()
 
@@ -670,14 +665,12 @@ class FnKeyHandler:
                     self._toggle_first_release = True  # Ignore first release
                     self._trigger_start_recording()
                 else:
-                    # BASIC mode via FN: Wait for activation delay before starting
-                    self._state = HotkeyState.WAITING_ACTIVATION
-                    self._start_activation_timer()
+                    # BASIC mode via FN: Wait for tap release, then double-tap
+                    self._state = HotkeyState.TAP_DOWN
 
             elif self._state == HotkeyState.WAITING_DOUBLE:
-                # Second tap within window - enter toggle mode (BASIC mode only)
+                # Second tap within window - enter toggle mode
                 if now - self._key_up_time < self._double_tap_window:
-                    self._cancel_activation_timer()
                     self._state = HotkeyState.RECORDING_TOGGLE
                     self._toggle_first_release = False  # Double-tap toggle stops on next tap
                     self._trigger_start_recording()
@@ -691,8 +684,7 @@ class FnKeyHandler:
                         self._toggle_first_release = True
                         self._trigger_start_recording()
                     else:
-                        self._state = HotkeyState.WAITING_ACTIVATION
-                        self._start_activation_timer()
+                        self._state = HotkeyState.TAP_DOWN
 
             elif self._state == HotkeyState.RECORDING_TOGGLE:
                 # In toggle mode, second key press stops recording
@@ -705,25 +697,11 @@ class FnKeyHandler:
         now = time.time()
 
         with self._state_lock:
-            if self._state == HotkeyState.WAITING_ACTIVATION:
-                # Key released before activation delay elapsed (tap detected)
-                self._cancel_activation_timer()
+            if self._state == HotkeyState.TAP_DOWN:
+                # First tap completed - wait for second tap
                 self._key_up_time = now
                 self._state = HotkeyState.WAITING_DOUBLE
                 self._start_double_tap_timer()
-
-            elif self._state == HotkeyState.RECORDING_PTT:
-                hold_duration = now - self._key_down_time
-                if hold_duration < self._hold_threshold:
-                    # Short press (tap) - CANCEL recording, wait for double-tap
-                    self._key_up_time = now
-                    self._state = HotkeyState.WAITING_DOUBLE
-                    self._trigger_cancel_recording()
-                    self._start_double_tap_timer()
-                else:
-                    # Held long enough - stop recording normally (will process)
-                    self._state = HotkeyState.IDLE
-                    self._trigger_stop_recording()
 
             elif self._state == HotkeyState.RECORDING_TOGGLE:
                 # Toggle mode: recording continues until next key press
@@ -742,29 +720,6 @@ class FnKeyHandler:
 
         timer = threading.Thread(target=check_timeout, daemon=True)
         timer.start()
-
-    def _start_activation_timer(self):
-        """Start timer for activation delay before recording starts"""
-        self._cancel_activation_timer()  # Cancel any existing timer
-
-        def on_activation_delay_elapsed():
-            with self._state_lock:
-                if self._state == HotkeyState.WAITING_ACTIVATION:
-                    # Delay elapsed while still held - start PTT recording
-                    self._state = HotkeyState.RECORDING_PTT
-                    self._trigger_start_recording()
-
-        self._activation_timer = threading.Timer(
-            self._activation_delay, on_activation_delay_elapsed
-        )
-        self._activation_timer.daemon = True
-        self._activation_timer.start()
-
-    def _cancel_activation_timer(self):
-        """Cancel the activation delay timer if running"""
-        if self._activation_timer is not None:
-            self._activation_timer.cancel()
-            self._activation_timer = None
 
     def _trigger_start_recording(self):
         """Trigger recording start callback with current mode"""
@@ -791,7 +746,7 @@ class FnKeyHandler:
     def is_recording(self) -> bool:
         """Check if currently in a recording state"""
         with self._state_lock:
-            return self._state in (HotkeyState.RECORDING_PTT, HotkeyState.RECORDING_TOGGLE)
+            return self._state == HotkeyState.RECORDING_TOGGLE
 
     @property
     def is_toggle_mode(self) -> bool:

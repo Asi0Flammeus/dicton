@@ -46,8 +46,7 @@ def clear_latency_log() -> None:
 def build_parser() -> argparse.ArgumentParser:
     epilog = """
 Hotkeys (default):
-  FN (hold)        Direct transcription
-  FN (double-tap)  Toggle recording
+  FN (double-tap)  Toggle recording (direct transcription)
   FN + Ctrl        Translate to English
 
 Examples:
@@ -61,8 +60,7 @@ Examples:
     if config.ENABLE_ADVANCED_MODES:
         epilog = """
 Hotkeys (FN key mode):
-  FN (hold)        Direct transcription
-  FN (double-tap)  Toggle recording
+  FN (double-tap)  Toggle recording (direct transcription)
   FN + Ctrl        Translate to English
   FN + Shift       Act on Text
   FN + Alt         LLM Reformulation
