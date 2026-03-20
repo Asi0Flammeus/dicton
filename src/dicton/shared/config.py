@@ -161,13 +161,8 @@ class Config:
     # Custom hotkey value: modifier+key combo (e.g., "alt+g", "ctrl+shift+d")
     # Only used when HOTKEY_BASE is "custom"
     CUSTOM_HOTKEY_VALUE = os.getenv("CUSTOM_HOTKEY_VALUE", "alt+g")
-    # Hold threshold in ms - press longer than this triggers push-to-talk
-    # Lower = more responsive PTT, higher = better tap detection
-    HOTKEY_HOLD_THRESHOLD_MS = int(os.getenv("HOTKEY_HOLD_THRESHOLD_MS", "100"))
     # Double-tap window in ms - second press within this triggers toggle mode
     HOTKEY_DOUBLE_TAP_WINDOW_MS = int(os.getenv("HOTKEY_DOUBLE_TAP_WINDOW_MS", "300"))
-    # Activation delay in ms - wait before starting recording to distinguish from double-tap
-    HOTKEY_ACTIVATION_DELAY_MS = int(os.getenv("HOTKEY_ACTIVATION_DELAY_MS", "50"))
 
     # Secondary hotkeys - alternative keys that work like FN (for keyboards without KEY_WAKEUP)
     # Options: escape, f1-f12, capslock, pause, insert, home, end, pageup, pagedown, none
@@ -279,9 +274,7 @@ class Config:
         cls.HOTKEY_KEY = os.getenv("HOTKEY_KEY", "g")
         cls.HOTKEY_BASE = os.getenv("HOTKEY_BASE", "fn")
         cls.CUSTOM_HOTKEY_VALUE = os.getenv("CUSTOM_HOTKEY_VALUE", "alt+g")
-        cls.HOTKEY_HOLD_THRESHOLD_MS = int(os.getenv("HOTKEY_HOLD_THRESHOLD_MS", "100"))
         cls.HOTKEY_DOUBLE_TAP_WINDOW_MS = int(os.getenv("HOTKEY_DOUBLE_TAP_WINDOW_MS", "300"))
-        cls.HOTKEY_ACTIVATION_DELAY_MS = int(os.getenv("HOTKEY_ACTIVATION_DELAY_MS", "50"))
         cls.SECONDARY_HOTKEY = os.getenv("SECONDARY_HOTKEY", "none").lower()
         cls.SECONDARY_HOTKEY_TRANSLATION = os.getenv("SECONDARY_HOTKEY_TRANSLATION", "none").lower()
         cls.SECONDARY_HOTKEY_ACT_ON_TEXT = os.getenv("SECONDARY_HOTKEY_ACT_ON_TEXT", "none").lower()

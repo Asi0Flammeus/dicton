@@ -86,7 +86,7 @@ class RuntimeService:
         self._init_tray()
 
         if self._use_fn_key:
-            print("Hotkey: FN key (hold=PTT, double-tap=toggle)")
+            print("Hotkey: FN key (double-tap=toggle)")
             print("Modes: FN=Direct transcription, FN+Ctrl=Translate to English")
             if config.ENABLE_ADVANCED_MODES:
                 print("Advanced: FN+Alt=Reformulation, FN+Shift=Act on Text, FN+Space=Raw")

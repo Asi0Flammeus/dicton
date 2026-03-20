@@ -865,17 +865,10 @@
 
             <div class="section">
                 <div class="section-title">Timing Settings</div>
-                <div class="grid-2">
-                    <div class="form-group">
-                        <label>Hold Threshold (ms)</label>
-                        <input type="text" id="hotkey_hold_threshold_ms" placeholder="100">
-                        <div class="hint">Press longer = push-to-talk</div>
-                    </div>
-                    <div class="form-group">
-                        <label>Double-tap Window (ms)</label>
-                        <input type="text" id="hotkey_double_tap_window_ms" placeholder="300">
-                        <div class="hint">Second press within = toggle</div>
-                    </div>
+                <div class="form-group">
+                    <label>Double-tap Window (ms)</label>
+                    <input type="text" id="hotkey_double_tap_window_ms" placeholder="300">
+                    <div class="hint">Second press within this window = toggle recording</div>
                 </div>
             </div>
 
@@ -1364,7 +1357,6 @@
             document.getElementById('animation_position').value = cfg.animation_position || 'top-right';
             document.getElementById('visualizer_backend').value = cfg.visualizer_backend || 'pygame';
             document.getElementById('hotkey_base').value = cfg.hotkey_base || 'fn';
-            document.getElementById('hotkey_hold_threshold_ms').value = cfg.hotkey_hold_threshold_ms || '100';
             document.getElementById('hotkey_double_tap_window_ms').value = cfg.hotkey_double_tap_window_ms || '300';
             document.getElementById('filter_fillers').checked = cfg.filter_fillers !== false;
             document.getElementById('enable_reformulation').checked = cfg.enable_reformulation !== false;
@@ -1400,7 +1392,6 @@
                 animation_position: document.getElementById('animation_position').value,
                 visualizer_backend: document.getElementById('visualizer_backend').value,
                 hotkey_base: hotkeyBase,
-                hotkey_hold_threshold_ms: document.getElementById('hotkey_hold_threshold_ms').value,
                 hotkey_double_tap_window_ms: document.getElementById('hotkey_double_tap_window_ms').value,
                 filter_fillers: document.getElementById('filter_fillers').checked,
                 enable_reformulation: document.getElementById('enable_reformulation').checked,

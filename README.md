@@ -21,7 +21,7 @@ It is built for speed and low friction: press a hotkey, talk, release, and the t
 ## Why It Works Well
 
 - It stays out of the way. You do not have to dictate inside a separate editor first.
-- It is fast. The app is optimized for short push-to-talk dictation.
+- It is fast. The app is optimized for short voice dictation.
 - It is simple. The default workflow is just “talk” or “translate to English”.
 - It works across apps. If you can type there, Dicton can usually type there too.
 - It has provider fallback. You can use Mistral or ElevenLabs for speech-to-text.
@@ -106,8 +106,7 @@ GEMINI_API_KEY=your_key_here
 
 ### Linux default hotkeys
 
-- `FN` hold: transcribe
-- `FN` double-tap: start/stop recording
+- `FN` double-tap: start/stop recording (transcribe)
 - `FN + Ctrl`: translate to English
 
 ### Windows default hotkey
