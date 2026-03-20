@@ -7,34 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.4.1]
-
-### Fixed
-
-- Made device hotplug resilient to transient failures: individual device open errors no longer crash the entire discovery, and failed refreshes are retried after a short delay.
-- Removed push-to-talk (hold) mode which was buggy and caused accidental recordings during normal keyboard usage. Double-tap toggle is now the only activation method for BASIC mode.
-- Removed `HOTKEY_HOLD_THRESHOLD_MS` and `HOTKEY_ACTIVATION_DELAY_MS` config options (no longer needed).
-
-## [1.4.0]
-
-### Added
-
-- Chunked STT pipeline for processing long recordings in parallel segments.
-- System tray icon with status and quick actions.
-
-### Changed
-
-- Restructured codebase into COPA (Core, Orchestration, Ports, Adapters) architecture.
-
-### Fixed
-
-- Fixed STT factory fallback chain ignoring configured providers.
-- Fixed Config class attributes not refreshing on `save_config`.
-- Fixed chunk silence detection with DC offset removal.
-- Fixed 429 retry handling and chunked pipeline bypass.
-- Fixed reliability issues causing pipeline hangs.
-- Fixed setup wizard ordering and 401 errors.
-
 ## [1.3.1]
 
 ### Changed
