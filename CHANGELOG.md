@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1]
+
+### Fixed
+
+- Made device hotplug resilient to transient failures during USB keyboard plug/unplug (#45).
+
+### Removed
+
+- Removed push-to-talk (hold) mode; double-tap toggle is now the only activation for BASIC mode (#46).
+
 ## [1.3.1]
 
 ### Changed
