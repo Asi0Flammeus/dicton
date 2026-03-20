@@ -10,6 +10,25 @@ def _is_external_keyboard(name: str) -> bool:
     return any(brand.lower() in name.lower() for brand in external_brands)
 
 
+def _open_all_devices(*, debug: bool = False) -> list:
+    """Open all available input devices, skipping any that fail.
+
+    Resilient to transient failures during device hotplug: if a device node
+    exists but cannot be opened (e.g., being added/removed), it is silently
+    skipped instead of aborting the entire discovery.
+    """
+    import evdev
+
+    devices = []
+    for path in evdev.list_devices():
+        try:
+            devices.append(evdev.InputDevice(path))
+        except (OSError, PermissionError) as exc:
+            if debug:
+                print(f"  Skipping {path}: {exc}")
+    return devices
+
+
 def find_keyboard_devices(
     *,
     custom_hotkey_enabled: bool,
@@ -19,10 +38,10 @@ def find_keyboard_devices(
 ):
     """Find primary and secondary keyboard devices for FN/custom hotkeys."""
     try:
-        import evdev
+        import evdev  # noqa: F401
         from evdev import ecodes
 
-        devices = [evdev.InputDevice(path) for path in evdev.list_devices()]
+        devices = _open_all_devices(debug=debug)
 
         if debug:
             print("Scanning input devices...")
