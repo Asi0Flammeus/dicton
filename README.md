@@ -124,6 +124,32 @@ GEMINI_API_KEY=your_key_here
 - Latest release: [https://github.com/Asi0Flammeus/dicton/releases/latest](https://github.com/Asi0Flammeus/dicton/releases/latest)
 - All releases: `https://github.com/Asi0Flammeus/dicton/releases`
 
+## FAQ
+
+### Dicton doesn't start automatically after reboot (i3, sway, or other tiling WM)
+
+The "Enable auto-start" option in the setup wizard writes an XDG autostart entry (`~/.config/autostart/dicton.desktop`). Full desktop environments (GNOME, KDE, XFCE) process these automatically, but **tiling window managers like i3 or sway do not**.
+
+**Fix:** add this line to your i3 config (`~/.config/i3/config`):
+
+```
+exec --no-startup-id dex --autostart --environment i3
+```
+
+This uses [dex](https://github.com/jceb/dex) to process all XDG autostart entries at login. Install it first if needed (`sudo apt install dex`).
+
+Alternatively, you can start Dicton directly without dex:
+
+```
+exec --no-startup-id dicton
+```
+
+For sway, the equivalent in `~/.config/sway/config` is:
+
+```
+exec dex --autostart --environment sway
+```
+
 ## Development
 
 If you want to work on Dicton rather than just install it:
