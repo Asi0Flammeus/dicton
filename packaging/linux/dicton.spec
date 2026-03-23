@@ -22,6 +22,8 @@ datas += [
 ]
 
 hiddenimports = [
+    "backports",
+    "backports.tarfile",
     "dicton.config_server",
     "dicton.context_detector_wayland",
     "dicton.context_detector_x11",

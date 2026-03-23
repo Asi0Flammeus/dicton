@@ -72,7 +72,9 @@ jobs:
           sudo apt-get install -y portaudio19-dev libportaudio2 xdotool xclip libnotify-bin
 
       - name: Install package dependencies
-        run: pip install -e ".[linux,packaging]"
+        run: |
+          pip install -e ".[linux,packaging]"
+          pip install backports.tarfile
 
       - name: Build Linux release assets
         run: ./scripts/build-linux-package.sh
@@ -103,7 +105,9 @@ jobs:
 
       - name: Install package dependencies
         shell: bash
-        run: pip install -e ".[windows,context-windows,notifications,llm,configui,mistral,packaging]"
+        run: |
+          pip install -e ".[windows,context-windows,notifications,llm,configui,mistral,packaging]"
+          pip install backports.tarfile
 
       - name: Build Windows bundle
         shell: powershell
