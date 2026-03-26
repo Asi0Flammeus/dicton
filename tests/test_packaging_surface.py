@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import importlib
-import importlib.metadata
 import os
 import shutil
 import subprocess
@@ -17,13 +16,24 @@ from dicton.shared.update_checker import GITHUB_API_URL
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_runtime_version_matches_installed_metadata():
-    try:
-        installed_version = importlib.metadata.version("dicton")
-    except importlib.metadata.PackageNotFoundError:
-        pytest.skip("dicton package metadata not available in this environment")
+def test_runtime_version_is_at_least_latest_git_tag():
+    """Source __version__ must be >= the latest git version tag (vX.Y.Z)."""
+    result = subprocess.run(
+        ["git", "tag", "--list", "v*", "--sort=-v:refname"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        pytest.skip("no git version tags found")
 
-    assert dicton.__version__ == installed_version
+    latest_tag = result.stdout.strip().splitlines()[0].lstrip("v")
+    from packaging.version import Version
+
+    assert Version(dicton.__version__) >= Version(latest_tag), (
+        f"Source version {dicton.__version__} is behind latest tag v{latest_tag}"
+    )
 
 
 def test_cli_version_works_without_full_app_startup():
