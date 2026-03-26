@@ -250,6 +250,89 @@
             color: var(--muted);
             line-height: 1.6;
         }
+        /* Hotkey capture buttons */
+        .hotkey-capture {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: #0d0c0c;
+            color: var(--text);
+            padding: 12px 14px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            text-align: left;
+            min-height: 44px;
+        }
+        .hotkey-capture:hover {
+            border-color: rgba(218, 112, 44, 0.35);
+        }
+        .hotkey-capture:focus {
+            outline: none;
+        }
+        .hotkey-capture.listening {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(218, 112, 44, 0.25);
+            animation: hotkey-pulse 1.5s ease-in-out infinite;
+        }
+        .hotkey-capture .hotkey-display {
+            flex: 1;
+        }
+        .hotkey-capture .hotkey-placeholder {
+            color: #66625e;
+        }
+        .hotkey-capture .hotkey-listening-text {
+            color: var(--accent);
+        }
+        .hotkey-capture .hotkey-clear {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--muted);
+            cursor: pointer;
+            padding: 0 0 0 8px;
+            font-size: 1.1rem;
+            line-height: 1;
+        }
+        .hotkey-capture .hotkey-clear:hover {
+            color: var(--red);
+        }
+        .hotkey-capture.has-value .hotkey-clear {
+            display: block;
+        }
+        .hotkey-capture .hotkey-keys {
+            display: inline-flex;
+            gap: 4px;
+            align-items: center;
+        }
+        .hotkey-capture .hotkey-keys kbd {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-family: inherit;
+            font-size: 0.88rem;
+            color: var(--text);
+        }
+        .hotkey-capture .hotkey-keys .hotkey-sep {
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+        .hotkey-warn {
+            margin-top: 4px;
+            font-size: 0.82rem;
+            color: var(--red);
+            min-height: 1.2em;
+        }
+        @keyframes hotkey-pulse {
+            0%, 100% { box-shadow: 0 0 0 2px rgba(218, 112, 44, 0.25); }
+            50% { box-shadow: 0 0 0 4px rgba(218, 112, 44, 0.15); }
+        }
         @media (max-width: 860px) {
             .form-grid,
             .step-nav {
@@ -401,27 +484,37 @@
                         </select>
                     </div>
                     <div class="field">
-                        <label for="custom_hotkey_value">Custom hotkey value</label>
-                        <input id="custom_hotkey_value" type="text" placeholder="alt+g">
+                        <label>Custom hotkey value</label>
+                        <button type="button" class="hotkey-capture" id="custom_hotkey_capture"
+                                data-value="" data-allow-modifiers="true">
+                            <span class="hotkey-display">
+                                <span class="hotkey-placeholder">Click to set hotkey...</span>
+                            </span>
+                            <span class="hotkey-clear" title="Clear">&times;</span>
+                        </button>
+                        <div class="hotkey-warn" id="custom_hotkey_warn"></div>
                     </div>
                     <div class="field">
-                        <label for="secondary_hotkey">Secondary hotkey</label>
-                        <select id="secondary_hotkey">
-                            <option value="none">None</option>
-                            <option value="f1">F1</option>
-                            <option value="f2">F2</option>
-                            <option value="capslock">Caps Lock</option>
-                            <option value="escape">Escape</option>
-                        </select>
+                        <label>Secondary hotkey</label>
+                        <button type="button" class="hotkey-capture" id="secondary_hotkey_capture"
+                                data-value="none" data-allow-modifiers="false">
+                            <span class="hotkey-display">
+                                <span class="hotkey-placeholder">Click to set hotkey...</span>
+                            </span>
+                            <span class="hotkey-clear" title="Clear">&times;</span>
+                        </button>
+                        <div class="hotkey-warn" id="secondary_hotkey_warn"></div>
                     </div>
                     <div class="field">
-                        <label for="secondary_hotkey_translation">Translation hotkey</label>
-                        <select id="secondary_hotkey_translation">
-                            <option value="none">None</option>
-                            <option value="f2">F2</option>
-                            <option value="f3">F3</option>
-                            <option value="f4">F4</option>
-                        </select>
+                        <label>Translation hotkey</label>
+                        <button type="button" class="hotkey-capture" id="secondary_hotkey_translation_capture"
+                                data-value="none" data-allow-modifiers="false">
+                            <span class="hotkey-display">
+                                <span class="hotkey-placeholder">Click to set hotkey...</span>
+                            </span>
+                            <span class="hotkey-clear" title="Clear">&times;</span>
+                        </button>
+                        <div class="hotkey-warn" id="secondary_hotkey_translation_warn"></div>
                     </div>
                 </div>
                 <div id="hotkey-note" class="status-note"></div>
@@ -481,6 +574,180 @@
             testConfirmed: false,
         };
 
+        /* ---- Hotkey interactive capture (Obsidian-style) ---- */
+
+        const BROWSER_KEY_MAP = {
+            KeyA: 'a', KeyB: 'b', KeyC: 'c', KeyD: 'd', KeyE: 'e',
+            KeyF: 'f', KeyG: 'g', KeyH: 'h', KeyI: 'i', KeyJ: 'j',
+            KeyK: 'k', KeyL: 'l', KeyM: 'm', KeyN: 'n', KeyO: 'o',
+            KeyP: 'p', KeyQ: 'q', KeyR: 'r', KeyS: 's', KeyT: 't',
+            KeyU: 'u', KeyV: 'v', KeyW: 'w', KeyX: 'x', KeyY: 'y', KeyZ: 'z',
+            Digit0: '0', Digit1: '1', Digit2: '2', Digit3: '3', Digit4: '4',
+            Digit5: '5', Digit6: '6', Digit7: '7', Digit8: '8', Digit9: '9',
+            F1: 'f1', F2: 'f2', F3: 'f3', F4: 'f4', F5: 'f5', F6: 'f6',
+            F7: 'f7', F8: 'f8', F9: 'f9', F10: 'f10', F11: 'f11', F12: 'f12',
+            Escape: 'escape', CapsLock: 'capslock', Tab: 'tab', Space: 'space',
+            Enter: 'enter', Backspace: 'backspace', Delete: 'delete',
+            Insert: 'insert', Home: 'home', End: 'end',
+            PageUp: 'pageup', PageDown: 'pagedown', Pause: 'pause',
+            ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+            Backquote: 'grave', Minus: 'minus', Equal: 'equal',
+            BracketLeft: '[', BracketRight: ']', Backslash: '\\',
+            Semicolon: ';', Quote: "'", Comma: ',', Period: '.', Slash: '/',
+        };
+
+        const SECONDARY_ALLOWED = new Set([
+            'escape', 'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9',
+            'f10', 'f11', 'f12', 'capslock', 'pause', 'insert', 'home', 'end',
+            'pageup', 'pagedown',
+        ]);
+
+        const DISPLAY_NAMES = {
+            capslock: 'Caps Lock', pageup: 'Page Up', pagedown: 'Page Down',
+            escape: 'Escape', backspace: 'Backspace', delete: 'Delete',
+            insert: 'Insert', home: 'Home', end: 'End', pause: 'Pause',
+            space: 'Space', enter: 'Enter', tab: 'Tab', grave: '`',
+            up: 'Up', down: 'Down', left: 'Left', right: 'Right',
+        };
+
+        let activeCapture = null;
+
+        function displayName(key) {
+            if (key.startsWith('f') && key.length <= 3 && !isNaN(key.slice(1))) return key.toUpperCase();
+            return DISPLAY_NAMES[key] || key.toUpperCase();
+        }
+
+        function renderHotkeyValue(btn, value) {
+            const display = btn.querySelector('.hotkey-display');
+            if (!value || value === 'none') {
+                display.innerHTML = '<span class="hotkey-placeholder">Click to set hotkey...</span>';
+                btn.classList.remove('has-value');
+                btn.dataset.value = btn.dataset.allowModifiers === 'true' ? '' : 'none';
+                return;
+            }
+            const parts = value.split('+');
+            const kbds = parts.map(p => `<kbd>${displayName(p)}</kbd>`);
+            display.innerHTML = '<span class="hotkey-keys">' + kbds.join('<span class="hotkey-sep">+</span>') + '</span>';
+            btn.classList.add('has-value');
+            btn.dataset.value = value;
+        }
+
+        function startListening(btn) {
+            if (activeCapture) stopListening(activeCapture, false);
+            activeCapture = btn;
+            btn.classList.add('listening');
+            btn.querySelector('.hotkey-display').innerHTML =
+                '<span class="hotkey-listening-text">Press a key combo...</span>';
+            const warnId = btn.id.replace('_capture', '_warn');
+            const warn = document.getElementById(warnId);
+            if (warn) warn.textContent = '';
+        }
+
+        function stopListening(btn, apply) {
+            btn.classList.remove('listening');
+            if (!apply) renderHotkeyValue(btn, btn.dataset.value);
+            if (activeCapture === btn) activeCapture = null;
+        }
+
+        function handleCaptureKeydown(e) {
+            if (!activeCapture) return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            const btn = activeCapture;
+            const allowModifiers = btn.dataset.allowModifiers === 'true';
+            const warnId = btn.id.replace('_capture', '_warn');
+            const warn = document.getElementById(warnId);
+
+            // Escape cancels
+            if (e.code === 'Escape' && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+                stopListening(btn, false);
+                return;
+            }
+
+            // Backspace/Delete clears
+            if ((e.code === 'Backspace' || e.code === 'Delete') && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+                renderHotkeyValue(btn, 'none');
+                stopListening(btn, true);
+                return;
+            }
+
+            // Ignore modifier-only presses
+            if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) return;
+
+            const keyName = BROWSER_KEY_MAP[e.code];
+            if (!keyName) {
+                if (warn) warn.textContent = 'Unrecognized key. Try another.';
+                return;
+            }
+
+            if (allowModifiers) {
+                // Custom hotkey: build modifier+key combo
+                const parts = [];
+                if (e.ctrlKey) parts.push('ctrl');
+                if (e.shiftKey) parts.push('shift');
+                if (e.altKey) parts.push('alt');
+                parts.push(keyName);
+
+                // Require at least one modifier for custom hotkey
+                if (!e.ctrlKey && !e.shiftKey && !e.altKey) {
+                    if (warn) warn.textContent = 'Custom hotkey needs a modifier (Ctrl, Shift, or Alt).';
+                    return;
+                }
+
+                const value = parts.join('+');
+                renderHotkeyValue(btn, value);
+                stopListening(btn, true);
+                if (warn) warn.textContent = '';
+
+                // Auto-switch mode to custom
+                document.getElementById('hotkey_base').value = 'custom';
+            } else {
+                // Secondary hotkey: single key, must be in allowed set
+                if (e.ctrlKey || e.shiftKey || e.altKey) {
+                    if (warn) warn.textContent = 'Secondary hotkeys are single keys (no modifiers).';
+                    return;
+                }
+                if (!SECONDARY_ALLOWED.has(keyName)) {
+                    if (warn) warn.textContent = `"${displayName(keyName)}" is not supported. Use F1-F12, Caps Lock, Escape, Pause, Insert, Home, End, Page Up/Down.`;
+                    return;
+                }
+                renderHotkeyValue(btn, keyName);
+                stopListening(btn, true);
+                if (warn) warn.textContent = '';
+            }
+        }
+
+        function initHotkeyCaptures() {
+            const buttons = document.querySelectorAll('.hotkey-capture');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    // If clicking the clear button
+                    if (e.target.classList.contains('hotkey-clear')) {
+                        e.stopPropagation();
+                        renderHotkeyValue(btn, 'none');
+                        const warnId = btn.id.replace('_capture', '_warn');
+                        const warn = document.getElementById(warnId);
+                        if (warn) warn.textContent = '';
+                        return;
+                    }
+                    startListening(btn);
+                });
+            });
+
+            document.addEventListener('keydown', handleCaptureKeydown);
+
+            // Click outside cancels listening
+            document.addEventListener('click', (e) => {
+                if (activeCapture && !activeCapture.contains(e.target)) {
+                    stopListening(activeCapture, false);
+                }
+            });
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initHotkeyCaptures);
+
         function setStep(step) {
             state.currentStep = step;
             document.querySelectorAll('.step-panel').forEach((panel) => panel.classList.remove('active'));
@@ -537,9 +804,9 @@
             document.getElementById('language').value = config.language || 'auto';
             document.getElementById('llm_provider').value = config.llm_provider || 'gemini';
             document.getElementById('hotkey_base').value = config.hotkey_base || 'fn';
-            document.getElementById('custom_hotkey_value').value = config.custom_hotkey_value || 'alt+g';
-            document.getElementById('secondary_hotkey').value = config.secondary_hotkey || 'none';
-            document.getElementById('secondary_hotkey_translation').value = config.secondary_hotkey_translation || 'none';
+            renderHotkeyValue(document.getElementById('custom_hotkey_capture'), config.custom_hotkey_value || '');
+            renderHotkeyValue(document.getElementById('secondary_hotkey_capture'), config.secondary_hotkey || 'none');
+            renderHotkeyValue(document.getElementById('secondary_hotkey_translation_capture'), config.secondary_hotkey_translation || 'none');
             updateSecretState('mistral', config.mistral_api_key_set, config.mistral_api_key_masked);
             updateSecretState('elevenlabs', config.elevenlabs_api_key_set, config.elevenlabs_api_key_masked);
             updateSecretState('gemini', config.gemini_api_key_set, config.gemini_api_key_masked);
@@ -560,9 +827,9 @@
                 language: document.getElementById('language').value,
                 llm_provider: document.getElementById('llm_provider').value,
                 hotkey_base: document.getElementById('hotkey_base').value,
-                custom_hotkey_value: document.getElementById('custom_hotkey_value').value.trim(),
-                secondary_hotkey: document.getElementById('secondary_hotkey').value,
-                secondary_hotkey_translation: document.getElementById('secondary_hotkey_translation').value,
+                custom_hotkey_value: document.getElementById('custom_hotkey_capture').dataset.value || '',
+                secondary_hotkey: document.getElementById('secondary_hotkey_capture').dataset.value || 'none',
+                secondary_hotkey_translation: document.getElementById('secondary_hotkey_translation_capture').dataset.value || 'none',
             };
 
             const mistral = document.getElementById('mistral_api_key').value.trim();
