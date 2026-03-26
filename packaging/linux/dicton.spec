@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, collect_submodules
 
 
 spec_dir = Path(globals().get("SPECPATH", Path.cwd())).resolve()
@@ -13,7 +13,6 @@ datas = collect_data_files(
         "assets/setup_ui.html",
         "assets/config_ui.html",
         "assets/logo.png",
-        "default_contexts.json",
     ],
 )
 datas += [
@@ -21,18 +20,11 @@ datas += [
     (str(project_root / "README.md"), "."),
 ]
 
-hiddenimports = [
-    "dicton.config_server",
-    "dicton.context_detector_wayland",
-    "dicton.context_detector_x11",
-    "dicton.log_setup",
-    "dicton.main",
-    "dicton.stt_elevenlabs",
-    "dicton.stt_mistral",
-    "dicton.tray",
-]
+hiddenimports = []
 hiddenimports += collect_submodules("pynput")
 hiddenimports += collect_submodules("Xlib")
+hiddenimports += collect_submodules("evdev")
+hiddenimports += collect_submodules("pyudev")
 
 # Collect GTK/gi typelibs for the system tray.
 # PyGObject (gi) is a system apt package in /usr/lib/python3/dist-packages/,
@@ -80,6 +72,8 @@ except Exception:
 try:
     hiddenimports += collect_submodules("gi")
     hiddenimports += collect_submodules("cairo")
+    binaries += collect_dynamic_libs("gi")
+    binaries += collect_dynamic_libs("cairo")
 except Exception:
     pass
 

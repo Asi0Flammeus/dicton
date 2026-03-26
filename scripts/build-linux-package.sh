@@ -59,6 +59,26 @@ Description: Voice-to-text dictation with direct transcription and translation
  translation to English, packaged here as a Linux one-folder bundle.
 EOF
 
+cat > "${STAGE_DIR}/DEBIAN/postinst" <<'EOF'
+#!/bin/sh
+set -e
+
+# Check if the installing user is in the 'input' group
+SUDO_USER="${SUDO_USER:-$(logname 2>/dev/null || echo '')}"
+if [ -n "$SUDO_USER" ]; then
+    if ! groups "$SUDO_USER" 2>/dev/null | grep -qw input; then
+        echo ""
+        echo "╔══════════════════════════════════════════════════════════════╗"
+        echo "║  Dicton needs access to /dev/input/* for hotkey detection.  ║"
+        echo "║  Run: sudo usermod -aG input $SUDO_USER                    ║"
+        echo "║  Then log out and log back in for the change to take effect.║"
+        echo "╚══════════════════════════════════════════════════════════════╝"
+        echo ""
+    fi
+fi
+EOF
+chmod 0755 "${STAGE_DIR}/DEBIAN/postinst"
+
 deb_path="${DIST_DIR}/dicton_${version}_amd64.deb"
 echo "==> Building Debian package: ${deb_path}"
 dpkg-deb --build --root-owner-group "${STAGE_DIR}" "${deb_path}"

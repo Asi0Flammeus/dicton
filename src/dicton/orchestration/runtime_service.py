@@ -59,17 +59,33 @@ class RuntimeService:
             )
             return self._fn_handler.start()
         except ImportError:
-            print("FN key support requires evdev: pip install dicton[fnkey]")
+            from ..shared.platform_utils import IS_WAYLAND, IS_X11, WAYLAND_COMPOSITOR
+
+            print("FN key backend: evdev not available in this build")
+            print(
+                f"   Platform: X11={IS_X11}, Wayland={IS_WAYLAND}, compositor={WAYLAND_COMPOSITOR}"
+            )
             return False
         except Exception as exc:
-            if self._app_config.debug:
-                print(f"FN handler init failed: {exc}")
+            from ..shared.platform_utils import IS_WAYLAND, IS_X11, WAYLAND_COMPOSITOR
+
+            print(f"FN handler init failed: {exc}")
+            print(
+                f"   Platform: X11={IS_X11}, Wayland={IS_WAYLAND}, compositor={WAYLAND_COMPOSITOR}"
+            )
             return False
 
     def run(self) -> None:
         print("\n" + "=" * 50)
         print("🚀 Dicton")
         print("=" * 50)
+
+        from ..shared.platform_utils import IS_WAYLAND, IS_X11, WAYLAND_COMPOSITOR
+
+        if IS_X11:
+            print("Display: X11")
+        elif IS_WAYLAND:
+            print(f"Display: Wayland ({WAYLAND_COMPOSITOR})")
 
         if self._check_vpn_active():
             print("⚠ VPN detected - API calls may fail or timeout")
@@ -95,7 +111,23 @@ class RuntimeService:
             try:
                 self._keyboard.start()
             except ImportError as exc:
-                print(f"❌ No usable hotkey backend is available.\n{exc}")
+                from ..shared.platform_utils import IS_WAYLAND, IS_X11, WAYLAND_COMPOSITOR
+
+                print("❌ No usable hotkey backend is available.")
+                print(
+                    f"   Platform: X11={IS_X11}, Wayland={IS_WAYLAND}, compositor={WAYLAND_COMPOSITOR}"
+                )
+                print(f"   Error: {exc}")
+                if IS_WAYLAND:
+                    print("\n💡 On Wayland, pynput requires XWayland.")
+                    print(
+                        "   Recommended: use HOTKEY_BASE=fn (evdev-based, works natively on Wayland)"
+                    )
+                    print("   Or log in with 'Ubuntu on Xorg' session.")
+                print("\nTry one of the following resolutions:")
+                print(" * Install evdev: pip install evdev (for FN key / custom hotkey support)")
+                print(" * Add your user to the 'input' group: sudo usermod -aG input $USER")
+                print(" * If using Wayland, ensure XWayland is running and DISPLAY is set")
                 return
 
         print(f"STT: {self._recognizer.provider_name}")
