@@ -162,6 +162,7 @@ class RuntimeService:
                 on_quit=self.request_shutdown,
                 on_toggle_debug=self._toggle_debug,
                 log_path=self._log_path,
+                initial_debug=config.DEBUG,
             )
             self._session_service.add_state_observer(self._tray.on_state_change)
             self._tray.start()

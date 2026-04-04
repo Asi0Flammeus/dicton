@@ -17,16 +17,31 @@ from ..adapters.llm.factory import get_llm_provider_with_fallback
 from ..adapters.output.factory import get_text_output
 from ..adapters.output.selection_factory import get_selection_reader
 from ..adapters.ui.notifications_factory import get_notification_service
+from ..adapters.ui.visualizer_config import VisualizerConfig
 from ..core.controller import DictationController
-from ..shared.config import config
+from ..shared.config import FLEXOKI_COLORS, config
 from ..shared.latency_tracker import get_latency_tracker
 from .runtime_service import RuntimeService
 from .session_service import SessionService
 
 
+def _build_visualizer_config() -> VisualizerConfig:
+    """Resolve all visualizer settings into a single config dataclass."""
+    return VisualizerConfig(
+        theme_colors=config.get_theme_colors(),
+        flexoki_colors=FLEXOKI_COLORS,
+        rms_normalization=config.RMS_NORMALIZATION,
+        animation_position_fn=config.get_animation_position,
+        debug=config.DEBUG,
+        opacity=config.VISUALIZER_OPACITY,
+        visualizer_style=config.VISUALIZER_STYLE,
+    )
+
+
 def _build_visualizer_factory():
     """Create a callable that returns a fresh visualizer instance or None."""
     backend = config.VISUALIZER_BACKEND
+    viz_config = _build_visualizer_config()
 
     def _factory():
         try:
@@ -42,7 +57,7 @@ def _build_visualizer_factory():
                     from ..adapters.ui.visualizer import get_visualizer
             else:
                 from ..adapters.ui.visualizer import get_visualizer
-            return get_visualizer()
+            return get_visualizer(viz_config)
         except Exception:
             return None
 
@@ -83,7 +98,9 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
         mute_strategy=config.PLAYBACK_MUTE_STRATEGY,
         mute_backend=config.MUTE_BACKEND,
     )
-    notification_service = get_notification_service()
+    notification_service = get_notification_service(
+        notifications_enabled=config.NOTIFICATIONS_ENABLED,
+    )
 
     # === LLM + visualizer ===
     llm_provider = get_llm_provider_with_fallback(user_provider=config.LLM_PROVIDER)

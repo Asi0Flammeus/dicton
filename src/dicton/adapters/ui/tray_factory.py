@@ -18,6 +18,7 @@ def get_system_tray(
     on_toggle_debug: Callable[[], bool],
     log_path: Path | None = None,
     config_port: int = 6873,
+    initial_debug: bool = False,
 ) -> SystemTray:
     """Return the appropriate SystemTray for the current platform."""
     if IS_LINUX:
@@ -29,6 +30,7 @@ def get_system_tray(
                 on_toggle_debug=on_toggle_debug,
                 log_path=log_path,
                 config_port=config_port,
+                initial_debug=initial_debug,
             )
         except ImportError:
             return NullSystemTray()

@@ -9,7 +9,7 @@ import numpy as np
 # Use pyglet backend for VisPy (lighter than PyQt6, works well with X11)
 import vispy
 
-from ...shared.config import config
+from .visualizer_config import VisualizerConfig
 
 vispy.use("pyglet")
 
@@ -536,7 +536,11 @@ class VisPyVisualizerCanvas(app.Canvas):
     """VisPy canvas for audio visualization"""
 
     def __init__(
-        self, style_name: str = "toric", size: tuple = (200, 200), transparent: bool = False
+        self,
+        viz_config: VisualizerConfig,
+        style_name: str = "toric",
+        size: tuple = (200, 200),
+        transparent: bool = False,
     ):
         # Configure context for transparency if needed
         context_config = {}
@@ -549,8 +553,6 @@ class VisPyVisualizerCanvas(app.Canvas):
                 "alpha_size": 8,
             }
 
-        # Get window position from config
-        # Note: VisPy position is set differently
         app.Canvas.__init__(
             self,
             size=size,
@@ -562,8 +564,9 @@ class VisPyVisualizerCanvas(app.Canvas):
         )
 
         self.style_name = style_name
-        self.colors = config.get_theme_colors()
+        self.colors = viz_config.theme_colors
         self.transparent = transparent
+        self._rms_normalization = viz_config.rms_normalization
 
         # Audio data
         self.levels = np.zeros(FFT_BINS, dtype=np.float32)
@@ -642,7 +645,7 @@ class VisPyVisualizerCanvas(app.Canvas):
                 return
 
             # Calculate RMS for global level
-            rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / config.RMS_NORMALIZATION
+            rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / self._rms_normalization
             rms = min(1.0, rms * 1.8)
 
             # FFT analysis
@@ -669,7 +672,8 @@ class VisPyVisualizerCanvas(app.Canvas):
 class Visualizer:
     """Main visualizer class - manages the VisPy canvas in a separate thread"""
 
-    def __init__(self):
+    def __init__(self, viz_config: VisualizerConfig):
+        self._cfg = viz_config
         self.running = False
         self.thread = None
         self._ready = threading.Event()
@@ -735,7 +739,7 @@ class Visualizer:
     def _run(self):
         try:
             # Get style from config
-            style_name = config.VISUALIZER_STYLE
+            style_name = self._cfg.visualizer_style
 
             # Get size based on style
             size_map = {
@@ -765,11 +769,14 @@ class Visualizer:
                 pass
 
             # Calculate position
-            pos_x, pos_y = config.get_animation_position(screen_w, screen_h, size[0])
+            pos_x, pos_y = self._cfg.animation_position_fn(screen_w, screen_h, size[0])
 
             # Create canvas with position and transparency
             self.canvas = VisPyVisualizerCanvas(
-                style_name=style_name, size=size, transparent=use_transparent
+                viz_config=self._cfg,
+                style_name=style_name,
+                size=size,
+                transparent=use_transparent,
             )
 
             # Set window position
@@ -810,7 +817,7 @@ class Visualizer:
             print(f"VisPy Visualizer error: {e}")
             import traceback
 
-            if config.DEBUG:
+            if self._cfg.debug:
                 traceback.print_exc()
         finally:
             self._ready.set()
@@ -820,9 +827,16 @@ class Visualizer:
 _visualizer = None
 
 
-def get_visualizer() -> Visualizer:
-    """Get the global visualizer instance"""
+def get_visualizer(viz_config: VisualizerConfig | None = None) -> Visualizer:
+    """Return the singleton Visualizer, creating it on first call.
+
+    *viz_config* is required on the first call (typically from the
+    composition root) and ignored on subsequent calls.
+    """
     global _visualizer
     if _visualizer is None:
-        _visualizer = Visualizer()
+        if viz_config is None:
+            msg = "VisualizerConfig is required for first instantiation"
+            raise RuntimeError(msg)
+        _visualizer = Visualizer(viz_config)
     return _visualizer
