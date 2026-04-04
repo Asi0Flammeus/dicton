@@ -12,9 +12,9 @@ from typing import Any
 import numpy as np
 
 from ...shared.platform_utils import IS_LINUX, IS_WINDOWS
-from ...shared.text_processor import get_text_processor
 from ..stt.factory import get_stt_provider_with_fallback
 from ..stt.provider import NullSTTProvider, STTProvider
+from ..text.processor import get_text_processor
 
 
 # Suppress audio system warnings (ALSA on Linux, etc.)

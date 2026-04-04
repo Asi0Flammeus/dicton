@@ -282,7 +282,7 @@ class SessionService:
 
     def _filter_fillers_local(self, text: str) -> str:
         try:
-            from ..shared.text_processor import filter_filler_words
+            from ..adapters.text.processor import filter_filler_words
 
             return filter_filler_words(text)
         except ImportError:

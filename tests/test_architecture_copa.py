@@ -58,10 +58,17 @@ def test_core_does_not_import_adapters():
         assert not bad_abs, f"core/{path.name} has absolute import of: {sorted(bad_abs)}"
 
 
+# Backward-compat shims that re-export from their canonical adapter/orchestration
+# homes are allowed to cross the layer boundary.
+_SHARED_SHIM_ALLOWLIST = {"text_processor.py"}
+
+
 def test_shared_does_not_import_adapters_or_orchestration():
     """Shared utilities must not depend on adapters or orchestration."""
     forbidden = {"adapters", "orchestration"}
     for path in _all_py_files("shared"):
+        if path.name in _SHARED_SHIM_ALLOWLIST:
+            continue
         rel = _relative_imports(path)
         bad = rel & forbidden
         assert not bad, f"shared/{path.name} imports from forbidden layers: {sorted(bad)}"
