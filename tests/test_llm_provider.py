@@ -76,11 +76,6 @@ def gemini_env(monkeypatch):
     sys.modules["google.genai"] = mock_genai
     sys.modules["google.genai.types"] = mock_genai.types
 
-    # Ensure config picks up the env var
-    from dicton.shared.config import config
-
-    monkeypatch.setattr(config, "GEMINI_API_KEY", "test-gemini-key")
-
     yield mock_genai, mock_client
 
     # Clean up module cache so other tests get a clean slate
@@ -94,13 +89,10 @@ def test_gemini_provider_name():
     assert GeminiLLMProvider().name == "gemini"
 
 
-def test_gemini_is_available_without_key(monkeypatch):
-    from dicton.shared.config import config
-
-    monkeypatch.setattr(config, "GEMINI_API_KEY", "")
+def test_gemini_is_available_without_key():
     from dicton.adapters.llm.gemini import GeminiLLMProvider
 
-    assert GeminiLLMProvider().is_available() is False
+    assert GeminiLLMProvider(api_key="").is_available() is False
 
 
 def test_gemini_is_available_with_key_and_sdk(gemini_env):
@@ -167,10 +159,6 @@ def anthropic_env(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-anthropic-key")
     sys.modules["anthropic"] = mock_module
 
-    from dicton.shared.config import config
-
-    monkeypatch.setattr(config, "ANTHROPIC_API_KEY", "test-anthropic-key")
-
     yield mock_module, mock_client
 
     sys.modules.pop("anthropic", None)
@@ -182,13 +170,10 @@ def test_anthropic_provider_name():
     assert AnthropicLLMProvider().name == "anthropic"
 
 
-def test_anthropic_is_available_without_key(monkeypatch):
-    from dicton.shared.config import config
-
-    monkeypatch.setattr(config, "ANTHROPIC_API_KEY", "")
+def test_anthropic_is_available_without_key():
     from dicton.adapters.llm.anthropic import AnthropicLLMProvider
 
-    assert AnthropicLLMProvider().is_available() is False
+    assert AnthropicLLMProvider(api_key="").is_available() is False
 
 
 def test_anthropic_is_available_with_key_and_sdk(anthropic_env):
