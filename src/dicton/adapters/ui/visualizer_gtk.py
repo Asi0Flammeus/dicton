@@ -18,7 +18,7 @@ import threading
 
 import numpy as np
 
-from ...shared.config import config
+from .visualizer_config import VisualizerConfig
 
 import gi
 
@@ -44,7 +44,7 @@ PEAK_HOLD_FRAMES = 30
 class TransparentVisualizerWindow(Gtk.Window):
     """GTK window with true per-pixel transparency for the ring visualizer."""
 
-    def __init__(self):
+    def __init__(self, viz_config: VisualizerConfig):
         super().__init__(title="Dicton")
 
         # Window setup
@@ -93,11 +93,13 @@ class TransparentVisualizerWindow(Gtk.Window):
         self.peak_hold_counter = 0
 
         # Theme colors (normalized to 0-1)
-        colors = config.get_theme_colors()
+        colors = viz_config.theme_colors
         self.color_main = tuple(c / 255.0 for c in colors["main"])
         self.color_mid = tuple(c / 255.0 for c in colors["mid"])
         self.color_dim = tuple(c / 255.0 for c in colors["dim"])
         self.color_glow = tuple(c / 255.0 for c in colors["glow"])
+
+        self._rms_normalization = viz_config.rms_normalization
 
         # Animation timer (60 FPS)
         self.timer_id = None
@@ -313,7 +315,7 @@ class TransparentVisualizerWindow(Gtk.Window):
                 return
 
             # Calculate raw RMS
-            raw_rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / config.RMS_NORMALIZATION
+            raw_rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / self._rms_normalization
 
             with self.lock:
                 # Adaptive gain control
@@ -366,7 +368,8 @@ class TransparentVisualizerWindow(Gtk.Window):
 class Visualizer:
     """GTK-based visualizer with true transparency on Linux."""
 
-    def __init__(self):
+    def __init__(self, viz_config: VisualizerConfig):
+        self._cfg = viz_config
         self.running = False
         self.thread = None
         self._ready = threading.Event()
@@ -377,16 +380,14 @@ class Visualizer:
 
     def set_colors(self, color_name: str):
         """Dynamically switch ring color by Flexoki color name."""
-        from ...shared.config import FLEXOKI_COLORS
-
         color_name = color_name.lower()
-        if color_name not in FLEXOKI_COLORS:
+        if color_name not in self._cfg.flexoki_colors:
             color_name = "orange"
 
         # Store for later if window doesn't exist yet
         self._pending_color = color_name
 
-        colors = FLEXOKI_COLORS[color_name]
+        colors = self._cfg.flexoki_colors[color_name]
         if self.window:
             with self.window.lock:
                 self.window.color_main = tuple(c / 255.0 for c in colors["main"])
@@ -482,7 +483,7 @@ class Visualizer:
 
         except Exception as e:
             print(f"GTK Visualizer error: {e}")
-            if config.DEBUG:
+            if self._cfg.debug:
                 import traceback
 
                 traceback.print_exc()
@@ -497,9 +498,9 @@ class Visualizer:
             geometry = monitor.get_geometry()
             screen_w, screen_h = geometry.width, geometry.height
 
-            pos_x, pos_y = config.get_animation_position(screen_w, screen_h, SIZE)
+            pos_x, pos_y = self._cfg.animation_position_fn(screen_w, screen_h, SIZE)
 
-            self.window = TransparentVisualizerWindow()
+            self.window = TransparentVisualizerWindow(self._cfg)
 
             # Apply pending color if set_colors() was called before window creation
             if self._pending_color:
@@ -517,7 +518,7 @@ class Visualizer:
             self.window.start_animation()
         except Exception as e:
             print(f"GTK Visualizer window creation error: {e}")
-            if config.DEBUG:
+            if self._cfg.debug:
                 import traceback
 
                 traceback.print_exc()
@@ -549,7 +550,7 @@ class Visualizer:
         except ImportError:
             pass
         except Exception as e:
-            if config.DEBUG:
+            if self._cfg.debug:
                 print(f"⚠ Could not set X11 window type: {e}")
 
 
@@ -557,9 +558,16 @@ class Visualizer:
 _visualizer = None
 
 
-def get_visualizer() -> Visualizer:
-    """Get the global visualizer instance."""
+def get_visualizer(viz_config: VisualizerConfig | None = None) -> Visualizer:
+    """Return the singleton Visualizer, creating it on first call.
+
+    *viz_config* is required on the first call (typically from the
+    composition root) and ignored on subsequent calls.
+    """
     global _visualizer
     if _visualizer is None:
-        _visualizer = Visualizer()
+        if viz_config is None:
+            msg = "VisualizerConfig is required for first instantiation"
+            raise RuntimeError(msg)
+        _visualizer = Visualizer(viz_config)
     return _visualizer

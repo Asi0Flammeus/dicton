@@ -13,7 +13,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ...shared.config import config
 from ..stt.provider import STTProvider
 
 logger = logging.getLogger(__name__)
@@ -30,6 +29,7 @@ class ChunkConfig:
     chunk_size: int
     sample_rate: int
     stt_timeout: float
+    rms_normalization: float = 8000.0
 
     @classmethod
     def from_app_config(cls, cfg) -> "ChunkConfig":
@@ -43,6 +43,7 @@ class ChunkConfig:
             chunk_size=cfg.CHUNK_SIZE,
             sample_rate=cfg.SAMPLE_RATE,
             stt_timeout=cfg.STT_TIMEOUT,
+            rms_normalization=cfg.RMS_NORMALIZATION,
         )
 
 
@@ -150,7 +151,7 @@ class ChunkManager:
         """Compute normalised AC-coupled RMS (DC offset removed)."""
         data = np.frombuffer(raw_audio, dtype=np.int16).astype(np.float32)
         data = data - np.mean(data)  # Remove DC offset
-        return float(np.sqrt(np.mean(data**2)) / config.RMS_NORMALIZATION)
+        return float(np.sqrt(np.mean(data**2)) / self._config.rms_normalization)
 
     _CHUNK_MAX_ATTEMPTS = 3
     _CHUNK_RETRY_BASE_DELAY = 2.0  # doubles each attempt

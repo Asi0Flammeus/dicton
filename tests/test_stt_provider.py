@@ -147,38 +147,21 @@ class TestTextFilter:
     @pytest.fixture
     def recognizer(self):
         """Create SpeechRecognizer with mocked audio subsystem."""
-        with (
-            patch("dicton.adapters.audio.recognizer.pyaudio"),
-            patch("dicton.adapters.audio.recognizer.config") as mock_config,
-            patch("dicton.adapters.audio.recognizer.get_text_processor") as mock_processor,
-            patch(
-                "dicton.adapters.audio.recognizer.get_stt_provider_with_fallback"
-            ) as mock_factory,
-        ):
-            mock_config.MIC_DEVICE = "auto"
-            mock_config.SAMPLE_RATE = 16000
+        from dicton.adapters.audio.recognizer import SpeechRecognizer
 
-            # Mock factory to return NullSTTProvider
-            mock_factory.return_value = NullSTTProvider()
+        recognizer = object.__new__(SpeechRecognizer)
+        recognizer._stt_provider = NullSTTProvider()
+        recognizer._provider_available = False
+        recognizer.recording = False
+        recognizer._cancelled = False
+        recognizer.input_device = None
+        recognizer._sample_rate = 16000
+        recognizer._chunk_size = 1024
+        recognizer._mic_device = "auto"
+        recognizer._debug = False
+        recognizer._visualizer_factory = None
 
-            # Mock text processor to return input unchanged
-            processor_instance = MagicMock()
-            processor_instance.process.side_effect = lambda x: x
-            mock_processor.return_value = processor_instance
-
-            from dicton.adapters.audio.recognizer import SpeechRecognizer
-
-            recognizer = object.__new__(SpeechRecognizer)
-            recognizer._stt_provider = NullSTTProvider()
-            recognizer._provider_available = False
-            recognizer.recording = False
-            recognizer._cancelled = False
-            recognizer.input_device = None
-
-            # Set up text processor mock
-            recognizer._processor = processor_instance
-
-            return recognizer
+        return recognizer
 
     def test_filter_returns_none_for_empty(self, recognizer):
         """Test filter returns None for empty text."""
@@ -257,66 +240,39 @@ class TestRecordingLifecycle:
 
     def test_stop_sets_recording_flag(self):
         """Test stop() sets recording flag to False."""
-        with (
-            patch("dicton.adapters.audio.recognizer.pyaudio"),
-            patch("dicton.adapters.audio.recognizer.config"),
-            patch(
-                "dicton.adapters.audio.recognizer.get_stt_provider_with_fallback"
-            ) as mock_factory,
-        ):
-            mock_factory.return_value = NullSTTProvider()
+        from dicton.adapters.audio.recognizer import SpeechRecognizer
 
-            from dicton.adapters.audio.recognizer import SpeechRecognizer
+        recognizer = object.__new__(SpeechRecognizer)
+        recognizer.recording = True
 
-            recognizer = object.__new__(SpeechRecognizer)
-            recognizer.recording = True
+        recognizer.stop()
 
-            recognizer.stop()
-
-            assert recognizer.recording is False
+        assert recognizer.recording is False
 
     def test_cancel_sets_cancelled_flag(self):
         """Test cancel() sets both cancelled and recording flags."""
-        with (
-            patch("dicton.adapters.audio.recognizer.pyaudio"),
-            patch("dicton.adapters.audio.recognizer.config"),
-            patch(
-                "dicton.adapters.audio.recognizer.get_stt_provider_with_fallback"
-            ) as mock_factory,
-        ):
-            mock_factory.return_value = NullSTTProvider()
+        from dicton.adapters.audio.recognizer import SpeechRecognizer
 
-            from dicton.adapters.audio.recognizer import SpeechRecognizer
+        recognizer = object.__new__(SpeechRecognizer)
+        recognizer.recording = True
+        recognizer._cancelled = False
 
-            recognizer = object.__new__(SpeechRecognizer)
-            recognizer.recording = True
-            recognizer._cancelled = False
+        recognizer.cancel()
 
-            recognizer.cancel()
-
-            assert recognizer.recording is False
-            assert recognizer._cancelled is True
+        assert recognizer.recording is False
+        assert recognizer._cancelled is True
 
     def test_record_returns_none_without_provider(self):
         """Test record() returns None when no STT provider available."""
-        with (
-            patch("dicton.adapters.audio.recognizer.pyaudio"),
-            patch("dicton.adapters.audio.recognizer.config"),
-            patch(
-                "dicton.adapters.audio.recognizer.get_stt_provider_with_fallback"
-            ) as mock_factory,
-        ):
-            mock_factory.return_value = NullSTTProvider()
+        from dicton.adapters.audio.recognizer import SpeechRecognizer
 
-            from dicton.adapters.audio.recognizer import SpeechRecognizer
+        recognizer = object.__new__(SpeechRecognizer)
+        recognizer._stt_provider = NullSTTProvider()
+        recognizer._provider_available = False
 
-            recognizer = object.__new__(SpeechRecognizer)
-            recognizer._stt_provider = NullSTTProvider()
-            recognizer._provider_available = False
+        result = recognizer.record()
 
-            result = recognizer.record()
-
-            assert result is None
+        assert result is None
 
 
 # =============================================================================
@@ -329,61 +285,34 @@ class TestTranscription:
 
     def test_transcribe_returns_none_for_empty_audio(self):
         """Test transcribe() returns None for empty audio."""
-        with (
-            patch("dicton.adapters.audio.recognizer.pyaudio"),
-            patch("dicton.adapters.audio.recognizer.config"),
-            patch(
-                "dicton.adapters.audio.recognizer.get_stt_provider_with_fallback"
-            ) as mock_factory,
-        ):
-            mock_provider = MagicMock()
-            mock_provider.is_available.return_value = True
-            mock_factory.return_value = mock_provider
+        from dicton.adapters.audio.recognizer import SpeechRecognizer
 
-            from dicton.adapters.audio.recognizer import SpeechRecognizer
+        mock_provider = MagicMock()
+        mock_provider.is_available.return_value = True
 
-            recognizer = object.__new__(SpeechRecognizer)
-            recognizer._stt_provider = mock_provider
-            recognizer._provider_available = True
+        recognizer = object.__new__(SpeechRecognizer)
+        recognizer._stt_provider = mock_provider
+        recognizer._provider_available = True
 
-            assert recognizer.transcribe(None) is None
-            assert recognizer.transcribe(np.array([])) is None
+        assert recognizer.transcribe(None) is None
+        assert recognizer.transcribe(np.array([])) is None
 
     def test_transcribe_returns_none_without_provider(self):
         """Test transcribe() returns None when no STT provider available."""
-        with (
-            patch("dicton.adapters.audio.recognizer.pyaudio"),
-            patch("dicton.adapters.audio.recognizer.config"),
-            patch(
-                "dicton.adapters.audio.recognizer.get_stt_provider_with_fallback"
-            ) as mock_factory,
-        ):
-            mock_factory.return_value = NullSTTProvider()
+        from dicton.adapters.audio.recognizer import SpeechRecognizer
 
-            from dicton.adapters.audio.recognizer import SpeechRecognizer
+        recognizer = object.__new__(SpeechRecognizer)
+        recognizer._stt_provider = NullSTTProvider()
+        recognizer._provider_available = False
 
-            recognizer = object.__new__(SpeechRecognizer)
-            recognizer._stt_provider = NullSTTProvider()
-            recognizer._provider_available = False
+        audio = np.random.randn(16000).astype(np.float32)
+        result = recognizer.transcribe(audio)
 
-            audio = np.random.randn(16000).astype(np.float32)
-            result = recognizer.transcribe(audio)
-
-            assert result is None
+        assert result is None
 
     def test_transcribe_calls_provider_api(self):
         """Test transcribe() calls STT provider with correct format."""
-        with (
-            patch("dicton.adapters.audio.recognizer.pyaudio"),
-            patch("dicton.adapters.audio.recognizer.config") as mock_config,
-            patch(
-                "dicton.adapters.audio.recognizer.get_stt_provider_with_fallback"
-            ) as mock_factory,
-            patch("dicton.adapters.audio.recognizer.get_text_processor") as mock_proc,
-        ):
-            mock_config.SAMPLE_RATE = 16000
-            mock_config.DEBUG = False
-
+        with patch("dicton.adapters.audio.recognizer.get_text_processor") as mock_proc:
             processor = MagicMock()
             processor.process.side_effect = lambda x: x
             mock_proc.return_value = processor
@@ -393,13 +322,14 @@ class TestTranscription:
             mock_provider.transcribe.return_value = TranscriptionResult(
                 text="Hello world transcription"
             )
-            mock_factory.return_value = mock_provider
 
             from dicton.adapters.audio.recognizer import SpeechRecognizer
 
             recognizer = object.__new__(SpeechRecognizer)
             recognizer._stt_provider = mock_provider
             recognizer._provider_available = True
+            recognizer._sample_rate = 16000
+            recognizer._debug = False
 
             # Create test audio (1 second of silence)
             audio = np.zeros(16000, dtype=np.float32)
@@ -413,31 +343,22 @@ class TestTranscription:
 
     def test_transcribe_handles_api_error(self):
         """Test transcribe() handles API errors gracefully."""
-        with (
-            patch("dicton.adapters.audio.recognizer.pyaudio"),
-            patch("dicton.adapters.audio.recognizer.config") as mock_config,
-            patch(
-                "dicton.adapters.audio.recognizer.get_stt_provider_with_fallback"
-            ) as mock_factory,
-        ):
-            mock_config.SAMPLE_RATE = 16000
-            mock_config.DEBUG = False
+        from dicton.adapters.audio.recognizer import SpeechRecognizer
 
-            # Create mock provider that raises exception
-            mock_provider = MagicMock()
-            mock_provider.transcribe.side_effect = Exception("API Error")
-            mock_factory.return_value = mock_provider
+        # Create mock provider that raises exception
+        mock_provider = MagicMock()
+        mock_provider.transcribe.side_effect = Exception("API Error")
 
-            from dicton.adapters.audio.recognizer import SpeechRecognizer
+        recognizer = object.__new__(SpeechRecognizer)
+        recognizer._stt_provider = mock_provider
+        recognizer._provider_available = True
+        recognizer._sample_rate = 16000
+        recognizer._debug = False
 
-            recognizer = object.__new__(SpeechRecognizer)
-            recognizer._stt_provider = mock_provider
-            recognizer._provider_available = True
+        audio = np.zeros(16000, dtype=np.float32)
+        result = recognizer.transcribe(audio)
 
-            audio = np.zeros(16000, dtype=np.float32)
-            result = recognizer.transcribe(audio)
-
-            assert result is None
+        assert result is None
 
 
 # =============================================================================
@@ -450,17 +371,7 @@ class TestAudioConversion:
 
     def test_wav_format_correct(self):
         """Test WAV file is created with correct format."""
-        with (
-            patch("dicton.adapters.audio.recognizer.pyaudio"),
-            patch("dicton.adapters.audio.recognizer.config") as mock_config,
-            patch(
-                "dicton.adapters.audio.recognizer.get_stt_provider_with_fallback"
-            ) as mock_factory,
-            patch("dicton.adapters.audio.recognizer.get_text_processor") as mock_proc,
-        ):
-            mock_config.SAMPLE_RATE = 16000
-            mock_config.DEBUG = False
-
+        with patch("dicton.adapters.audio.recognizer.get_text_processor") as mock_proc:
             processor = MagicMock()
             processor.process.side_effect = lambda x: x
             mock_proc.return_value = processor
@@ -468,6 +379,8 @@ class TestAudioConversion:
             from dicton.adapters.audio.recognizer import SpeechRecognizer
 
             recognizer = object.__new__(SpeechRecognizer)
+            recognizer._sample_rate = 16000
+            recognizer._debug = False
 
             # Capture the WAV bytes sent to provider
             captured_wav = None
@@ -479,7 +392,6 @@ class TestAudioConversion:
 
             mock_provider = MagicMock()
             mock_provider.transcribe.side_effect = capture_transcribe
-            mock_factory.return_value = mock_provider
 
             recognizer._stt_provider = mock_provider
             recognizer._provider_available = True

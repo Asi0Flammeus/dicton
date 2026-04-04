@@ -54,7 +54,13 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
     config.create_dirs()
 
     # === Audio providers ===
-    recognizer = SpeechRecognizer()
+    recognizer = SpeechRecognizer(
+        sample_rate=config.SAMPLE_RATE,
+        chunk_size=config.CHUNK_SIZE,
+        mic_device=config.MIC_DEVICE,
+        debug=config.DEBUG,
+        visualizer_factory=_build_visualizer_factory(),
+    )
     chunk_manager = None
     if config.CHUNK_ENABLED:
         chunk_config = ChunkConfig.from_app_config(config)
@@ -72,12 +78,15 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
         clipboard_verify_delay_ms=config.CLIPBOARD_VERIFY_DELAY_MS,
         clipboard_max_retries=config.CLIPBOARD_MAX_RETRIES,
     )
-    audio_control = get_audio_session_control()
+    audio_control = get_audio_session_control(
+        mute_playback=config.MUTE_PLAYBACK_ON_RECORDING,
+        mute_strategy=config.PLAYBACK_MUTE_STRATEGY,
+        mute_backend=config.MUTE_BACKEND,
+    )
     notification_service = get_notification_service()
 
     # === LLM + visualizer ===
     llm_provider = get_llm_provider_with_fallback(user_provider=config.LLM_PROVIDER)
-    visualizer_factory = _build_visualizer_factory()
 
     # === Config / metrics ===
     app_config = load_app_config()
@@ -99,7 +108,7 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
         selection_reader=selection_reader,
         notification_service=notification_service,
         llm_provider=llm_provider,
-        visualizer_factory=visualizer_factory,
+        visualizer_factory=_build_visualizer_factory(),
     )
     session_service.bind_controller(
         DictationController(
