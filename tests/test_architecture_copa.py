@@ -60,7 +60,7 @@ def test_core_does_not_import_adapters():
 
 # Backward-compat shims that re-export from their canonical adapter/orchestration
 # homes are allowed to cross the layer boundary.
-_SHARED_SHIM_ALLOWLIST = {"text_processor.py"}
+_SHARED_SHIM_ALLOWLIST = {"text_processor.py", "update_checker.py"}
 
 
 def test_shared_does_not_import_adapters_or_orchestration():

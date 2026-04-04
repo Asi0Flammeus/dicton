@@ -119,7 +119,7 @@ def main() -> None:
         return
 
     if args.check_update:
-        from ..shared.update_checker import check_for_updates, print_update_notification
+        from ..adapters.config.update_checker import check_for_updates, print_update_notification
 
         print("Checking for updates...")
         update = check_for_updates(force=True)

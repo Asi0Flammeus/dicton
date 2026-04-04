@@ -101,7 +101,7 @@ class RuntimeService:
             print("  If dictation hangs, try disconnecting VPN")
 
         try:
-            from ..shared.update_checker import check_for_updates_async
+            from ..adapters.config.update_checker import check_for_updates_async
 
             check_for_updates_async()
         except ImportError:
