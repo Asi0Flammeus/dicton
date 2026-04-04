@@ -10,6 +10,7 @@ from ..adapters.audio.recognizer import SpeechRecognizer
 from ..adapters.audio.session_control import get_audio_session_control
 from ..adapters.audio.stt_adapter import STTAdapter
 from ..adapters.config.config_env import load_app_config
+from ..adapters.config.latency import get_latency_tracker
 from ..adapters.config.metrics import MetricsAdapter
 from ..adapters.config.text_processing import TextOutputAdapter, TextProcessorAdapter
 from ..adapters.input.hotkey_listener import HotkeyListener
@@ -22,7 +23,6 @@ from ..adapters.ui.visualizer_config import VisualizerConfig
 from ..core.config_model import AppConfig
 from ..core.controller import DictationController
 from ..shared.app_paths import get_user_config_dir, get_user_data_dir
-from ..shared.latency_tracker import get_latency_tracker
 from .runtime_service import RuntimeService
 from .session_service import SessionService
 

@@ -18,7 +18,7 @@ from ..shared.platform_utils import IS_WINDOWS
 
 def show_latency_report() -> None:
     """Show latency report from log file."""
-    from ..shared.latency_tracker import LatencyTracker
+    from ..adapters.config.latency import LatencyTracker
 
     tracker = LatencyTracker(enabled=True)
     count = tracker.load_from_log()
@@ -36,7 +36,7 @@ def show_latency_report() -> None:
 
 def clear_latency_log() -> None:
     """Clear the latency log file."""
-    from ..shared.latency_tracker import LatencyTracker
+    from ..adapters.config.latency import LatencyTracker
 
     tracker = LatencyTracker(enabled=True)
     tracker.clear_log()

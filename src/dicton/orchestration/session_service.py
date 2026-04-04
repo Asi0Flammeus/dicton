@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 
 from ..core.controller import SessionContext
-from ..shared.processing_mode import ProcessingMode, get_mode_color, is_mode_enabled
+from ..core.processing_mode import ProcessingMode, get_mode_color, is_mode_enabled
 
 
 class _NullNotifications:

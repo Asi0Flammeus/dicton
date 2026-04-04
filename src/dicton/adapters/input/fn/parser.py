@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ....shared.processing_mode import ProcessingMode
+from ....core.processing_mode import ProcessingMode
 
 # XF86WakeUp keycode - typically mapped to FN key on many laptops
 KEY_WAKEUP = 143
