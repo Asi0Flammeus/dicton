@@ -269,27 +269,29 @@ def test_setup_status_endpoint_defaults_to_speech_step(monkeypatch, tmp_path):
     TestClient = pytest.importorskip("fastapi.testclient").TestClient
 
     import dicton.interfaces.config_server as config_server
+    import dicton.interfaces.web.config_logic as config_logic
 
     monkeypatch.setattr(config_server.Config, "CONFIG_DIR", tmp_path)
+    autostart_stub = lambda: {  # noqa: E731
+        "supported": True,
+        "enabled": False,
+        "path": str(tmp_path / "dicton.desktop"),
+    }
+    monkeypatch.setattr(config_logic, "get_autostart_state", autostart_stub)
+    monkeypatch.setattr(config_logic, "has_display_session", lambda: True)
+    monkeypatch.setattr(config_logic, "read_env_file", lambda: {})
     monkeypatch.setattr(
-        config_server,
-        "get_autostart_state",
-        lambda: {"supported": True, "enabled": False, "path": str(tmp_path / "dicton.desktop")},
-    )
-    monkeypatch.setattr(config_server, "has_display_session", lambda: True)
-    monkeypatch.setattr(config_server, "read_env_file", lambda: {})
-    monkeypatch.setattr(
-        config_server,
+        config_logic,
         "_hotkey_status",
         lambda env_vars: {"ready": True, "mode": "fn", "detail": "ready"},
     )
     monkeypatch.setattr(
-        config_server,
+        config_logic,
         "_text_output_status",
         lambda: {"ready": True, "detail": "ready"},
     )
-    config_server._setup_state["first_test_passed"] = False
-    config_server._setup_state["last_test_text"] = ""
+    config_logic._setup_state["first_test_passed"] = False
+    config_logic._setup_state["last_test_text"] = ""
 
     client = TestClient(config_server.create_app())
     response = client.get("/api/setup/status")
@@ -304,21 +306,23 @@ def test_setup_save_persists_speech_provider_fields(monkeypatch, tmp_path):
     TestClient = pytest.importorskip("fastapi.testclient").TestClient
 
     import dicton.interfaces.config_server as config_server
+    import dicton.interfaces.web.config_logic as config_logic
 
     monkeypatch.setattr(config_server.Config, "CONFIG_DIR", tmp_path)
+    autostart_stub = lambda: {  # noqa: E731
+        "supported": True,
+        "enabled": False,
+        "path": str(tmp_path / "dicton.desktop"),
+    }
+    monkeypatch.setattr(config_logic, "get_autostart_state", autostart_stub)
+    monkeypatch.setattr(config_logic, "has_display_session", lambda: True)
     monkeypatch.setattr(
-        config_server,
-        "get_autostart_state",
-        lambda: {"supported": True, "enabled": False, "path": str(tmp_path / "dicton.desktop")},
-    )
-    monkeypatch.setattr(config_server, "has_display_session", lambda: True)
-    monkeypatch.setattr(
-        config_server,
+        config_logic,
         "_hotkey_status",
         lambda env_vars: {"ready": True, "mode": "fn", "detail": "ready"},
     )
     monkeypatch.setattr(
-        config_server,
+        config_logic,
         "_text_output_status",
         lambda: {"ready": True, "detail": "ready"},
     )
