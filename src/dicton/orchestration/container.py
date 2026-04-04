@@ -64,13 +64,19 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
         )
 
     # === Platform adapters ===
-    selection_reader = get_selection_reader()
-    text_output = get_text_output(selection_reader)
+    selection_reader = get_selection_reader(debug=config.DEBUG)
+    text_output = get_text_output(
+        selection_reader,
+        paste_threshold_words=config.PASTE_THRESHOLD_WORDS,
+        debug=config.DEBUG,
+        clipboard_verify_delay_ms=config.CLIPBOARD_VERIFY_DELAY_MS,
+        clipboard_max_retries=config.CLIPBOARD_MAX_RETRIES,
+    )
     audio_control = get_audio_session_control()
     notification_service = get_notification_service()
 
     # === LLM + visualizer ===
-    llm_provider = get_llm_provider_with_fallback()
+    llm_provider = get_llm_provider_with_fallback(user_provider=config.LLM_PROVIDER)
     visualizer_factory = _build_visualizer_factory()
 
     # === Config / metrics ===
@@ -78,7 +84,11 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
     metrics = get_latency_tracker()
 
     # === Input ===
-    hotkey_listener = HotkeyListener(None)
+    hotkey_listener = HotkeyListener(
+        None,
+        hotkey_modifier=config.HOTKEY_MODIFIER,
+        hotkey_key=config.HOTKEY_KEY,
+    )
 
     # === Wiring ===
     session_service = SessionService(

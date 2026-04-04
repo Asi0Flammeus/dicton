@@ -56,6 +56,13 @@ class RuntimeService:
                 on_start_recording=self._session_service.start_recording,
                 on_stop_recording=self._session_service.stop_recording,
                 on_cancel_recording=self._session_service.cancel_recording,
+                double_tap_window_ms=config.HOTKEY_DOUBLE_TAP_WINDOW_MS,
+                debug=config.DEBUG,
+                secondary_hotkey=config.SECONDARY_HOTKEY,
+                secondary_hotkey_translation=config.SECONDARY_HOTKEY_TRANSLATION,
+                secondary_hotkey_act_on_text=config.SECONDARY_HOTKEY_ACT_ON_TEXT,
+                hotkey_base=config.HOTKEY_BASE,
+                custom_hotkey_value=config.CUSTOM_HOTKEY_VALUE,
             )
             return self._fn_handler.start()
         except ImportError:

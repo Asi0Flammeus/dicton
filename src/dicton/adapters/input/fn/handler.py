@@ -16,7 +16,6 @@ import threading
 import time
 from collections.abc import Callable
 
-from ....shared.config import config
 from ....shared.platform_utils import IS_LINUX
 from ....shared.processing_mode import ProcessingMode, advanced_modes_enabled
 from .device_registry import build_device_fd_map, find_keyboard_devices
@@ -53,6 +52,14 @@ class FnKeyHandler:
         on_start_recording: Callable[[ProcessingMode], None] | None = None,
         on_stop_recording: Callable[[], None] | None = None,
         on_cancel_recording: Callable[[], None] | None = None,
+        *,
+        double_tap_window_ms: int = 300,
+        debug: bool = False,
+        secondary_hotkey: str = "none",
+        secondary_hotkey_translation: str = "none",
+        secondary_hotkey_act_on_text: str = "none",
+        hotkey_base: str = "fn",
+        custom_hotkey_value: str = "alt+g",
     ):
         """Initialize FN key handler.
 
@@ -60,10 +67,25 @@ class FnKeyHandler:
             on_start_recording: Callback when recording starts, receives the ProcessingMode.
             on_stop_recording: Callback when recording stops (will process audio).
             on_cancel_recording: Callback when recording is cancelled (tap detected, discard audio).
+            double_tap_window_ms: Double-tap detection window in milliseconds.
+            debug: Enable debug logging.
+            secondary_hotkey: Secondary hotkey for basic/reformulation mode.
+            secondary_hotkey_translation: Secondary hotkey for translation mode.
+            secondary_hotkey_act_on_text: Secondary hotkey for act-on-text mode.
+            hotkey_base: Hotkey base type ("fn" or "custom").
+            custom_hotkey_value: Custom hotkey specification (e.g. "alt+g").
         """
         self.on_start_recording = on_start_recording
         self.on_stop_recording = on_stop_recording
         self.on_cancel_recording = on_cancel_recording
+
+        # Config values
+        self._debug = debug
+        self._secondary_hotkey_cfg = secondary_hotkey
+        self._secondary_hotkey_translation_cfg = secondary_hotkey_translation
+        self._secondary_hotkey_act_on_text_cfg = secondary_hotkey_act_on_text
+        self._hotkey_base = hotkey_base
+        self._custom_hotkey_value_cfg = custom_hotkey_value
 
         # State machine
         self._state = HotkeyState.IDLE
@@ -86,7 +108,7 @@ class FnKeyHandler:
         self._toggle_first_release: bool = False
 
         # Thresholds from config
-        self._double_tap_window = config.HOTKEY_DOUBLE_TAP_WINDOW_MS / 1000.0
+        self._double_tap_window = double_tap_window_ms / 1000.0
 
         # Threads
         self._listener_thread: threading.Thread | None = None
@@ -132,14 +154,14 @@ class FnKeyHandler:
 
     def _build_secondary_hotkeys_map(self):
         """Build mapping of secondary hotkey keycodes to their processing modes."""
-        if config.DEBUG:
+        if self._debug:
             print(
-                f"Secondary hotkey config: basic={config.SECONDARY_HOTKEY}, translation={config.SECONDARY_HOTKEY_TRANSLATION}, act={config.SECONDARY_HOTKEY_ACT_ON_TEXT}"
+                f"Secondary hotkey config: basic={self._secondary_hotkey_cfg}, translation={self._secondary_hotkey_translation_cfg}, act={self._secondary_hotkey_act_on_text_cfg}"
             )
         self._secondary_hotkeys = build_secondary_hotkeys(
-            secondary_hotkey=config.SECONDARY_HOTKEY,
-            secondary_hotkey_translation=config.SECONDARY_HOTKEY_TRANSLATION,
-            secondary_hotkey_act_on_text=config.SECONDARY_HOTKEY_ACT_ON_TEXT,
+            secondary_hotkey=self._secondary_hotkey_cfg,
+            secondary_hotkey_translation=self._secondary_hotkey_translation_cfg,
+            secondary_hotkey_act_on_text=self._secondary_hotkey_act_on_text_cfg,
             advanced_modes_enabled=advanced_modes_enabled(),
         )
 
@@ -150,8 +172,8 @@ class FnKeyHandler:
         Supported modifiers: ctrl, shift, alt
         """
         spec = parse_custom_hotkey(
-            hotkey_base=config.HOTKEY_BASE.lower(),
-            hotkey_value=config.CUSTOM_HOTKEY_VALUE,
+            hotkey_base=self._hotkey_base.lower(),
+            hotkey_value=self._custom_hotkey_value_cfg,
             logger=print,
         )
         self._custom_hotkey_enabled = spec.enabled
@@ -160,7 +182,7 @@ class FnKeyHandler:
         self._custom_hotkey_requires_shift = spec.requires_shift
         self._custom_hotkey_requires_alt = spec.requires_alt
 
-        if config.DEBUG:
+        if self._debug:
             print(
                 "Custom hotkey parsed: "
                 f"key={self._custom_hotkey_keycode}, "
@@ -234,7 +256,7 @@ class FnKeyHandler:
         # Log devices and configuration
         if self._custom_hotkey_enabled:
             # Custom hotkey mode (e.g., alt+g)
-            print(f"Custom hotkey enabled: {config.CUSTOM_HOTKEY_VALUE}")
+            print(f"Custom hotkey enabled: {self._custom_hotkey_value_cfg}")
             if self._device:
                 print(f"Listening on device: {self._device.name}")
         elif self._device:
@@ -308,7 +330,7 @@ class FnKeyHandler:
                     elif action == "cancel" and self.on_cancel_recording:
                         self.on_cancel_recording()
                 except Exception as exc:
-                    if config.DEBUG:
+                    if self._debug:
                         print(f"Hotkey callback '{action}' failed: {exc}")
 
         self._callback_thread = threading.Thread(target=run_callbacks, daemon=True)
@@ -357,7 +379,7 @@ class FnKeyHandler:
             monitor = pyudev.Monitor.from_netlink(context)
             monitor.filter_by(subsystem="input")
 
-            if config.DEBUG:
+            if self._debug:
                 print("Device monitor started (pyudev)")
 
             # Use timeout-based polling instead of blocking iter()
@@ -371,7 +393,7 @@ class FnKeyHandler:
                 if device.device_node and device.device_node.startswith("/dev/input/event"):
                     action = device.action
                     if action in ("add", "remove"):
-                        if config.DEBUG:
+                        if self._debug:
                             print(f"Device {action}: {device.device_node}")
 
                         # Signal the listener loop to refresh devices
@@ -380,7 +402,7 @@ class FnKeyHandler:
                         self._wake_select()
 
         except Exception as e:
-            if self._running and config.DEBUG:
+            if self._running and self._debug:
                 print(f"Device monitor error: {e}")
 
     def _refresh_devices(self):
@@ -393,7 +415,7 @@ class FnKeyHandler:
         If no devices are found (e.g., device node not yet ready during hotplug),
         schedules a retry after a short delay.
         """
-        if config.DEBUG:
+        if self._debug:
             print("Refreshing keyboard devices...")
 
         # Find new devices OUTSIDE the lock (slow I/O operation)
@@ -401,7 +423,7 @@ class FnKeyHandler:
 
         # If discovery found nothing, schedule a retry — the device may not be ready yet
         if not new_primary and not new_secondary:
-            if config.DEBUG:
+            if self._debug:
                 print("No devices found during refresh, scheduling retry...")
             self._schedule_refresh_retry()
             return
@@ -424,7 +446,7 @@ class FnKeyHandler:
             self._device = new_primary
             self._secondary_devices = new_secondary
 
-            if config.DEBUG:
+            if self._debug:
                 if self._device:
                     print(f"Primary device: {self._device.name}")
                 if self._secondary_devices:
@@ -461,7 +483,7 @@ class FnKeyHandler:
             custom_hotkey_enabled=self._custom_hotkey_enabled,
             custom_hotkey_keycode=self._custom_hotkey_keycode,
             secondary_hotkeys=self._secondary_hotkeys,
-            debug=config.DEBUG,
+            debug=self._debug,
         )
 
     def _build_device_fd_map(self) -> dict:
@@ -485,7 +507,7 @@ class FnKeyHandler:
             # Build initial list of devices to monitor
             with self._devices_lock:
                 devices = self._build_device_fd_map()
-                if config.DEBUG:
+                if self._debug:
                     if self._device:
                         print(f"Listening for FN key on: {self._device.name}")
                     for sec_device in self._secondary_devices:
@@ -540,7 +562,7 @@ class FnKeyHandler:
                     except OSError:
                         # Device unplugged - remove from local fd map immediately
                         # to prevent tight error loop, then trigger async refresh
-                        if config.DEBUG:
+                        if self._debug:
                             print(f"Device read error (unplugged?): {device.name}")
                         devices.pop(fd, None)
                         self._pending_refresh.set()
@@ -609,7 +631,7 @@ class FnKeyHandler:
                         # value == 2 is key repeat, ignored
 
         except Exception as e:
-            if self._running and config.DEBUG:
+            if self._running and self._debug:
                 print(f"FN key listener error: {e}")
 
     def _update_modifier_state(self, keycode: int, value: int):

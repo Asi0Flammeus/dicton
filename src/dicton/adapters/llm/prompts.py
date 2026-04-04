@@ -5,13 +5,16 @@ from __future__ import annotations
 from .factory import DEFAULT_FALLBACK_ORDER, _register_providers, get_llm_provider
 
 
-def _call(prompt: str) -> str | None:
+def _call(
+    prompt: str,
+    *,
+    user_provider: str = "auto",
+    debug: bool = False,
+) -> str | None:
     """Call the configured LLM provider, falling back on error."""
-    from ...shared.config import config
-
     _register_providers()
 
-    user_provider = config.LLM_PROVIDER.lower()
+    user_provider = user_provider.lower()
     if user_provider and user_provider != "auto":
         order = [user_provider] + [p for p in DEFAULT_FALLBACK_ORDER if p != user_provider]
     else:
@@ -28,21 +31,29 @@ def _call(prompt: str) -> str | None:
                 return result
         except Exception as e:
             last_error = e
-            if config.DEBUG:
+            if debug:
                 print(f"{name} failed, trying fallback: {e}")
 
-    if last_error and config.DEBUG:
+    if last_error and debug:
         print(f"All LLM providers failed. Last error: {last_error}")
 
     return None
 
 
-def act_on_text(selected_text: str, instruction: str) -> str | None:
+def act_on_text(
+    selected_text: str,
+    instruction: str,
+    *,
+    user_provider: str = "auto",
+    debug: bool = False,
+) -> str | None:
     """Apply a voice instruction to selected text using LLM.
 
     Args:
         selected_text: The text the user has selected.
         instruction: The voice instruction (e.g., "make this more formal").
+        user_provider: Preferred LLM provider name.
+        debug: Enable debug output.
 
     Returns:
         The modified text, or None on error.
@@ -66,15 +77,23 @@ USER INSTRUCTION:
 
 MODIFIED TEXT:"""
 
-    return _call(prompt)
+    return _call(prompt, user_provider=user_provider, debug=debug)
 
 
-def reformulate(text: str, language: str | None = None) -> str | None:
+def reformulate(
+    text: str,
+    language: str | None = None,
+    *,
+    user_provider: str = "auto",
+    debug: bool = False,
+) -> str | None:
     """Lightly reformulate text to clean up grammar and filler words.
 
     Args:
         text: The transcribed text to reformulate.
         language: Optional language code (e.g., 'en', 'fr') to ensure output matches.
+        user_provider: Preferred LLM provider name.
+        debug: Enable debug output.
 
     Returns:
         The reformulated text, or None on error.
@@ -122,13 +141,19 @@ TEXT TO CLEAN:
 
 CLEANED TEXT (same language as input):"""
 
-    result = _call(prompt)
+    result = _call(prompt, user_provider=user_provider, debug=debug)
     if result and result.strip().lower() == "none":
         return None
     return result
 
 
-def translate(text: str, target_language: str = "English") -> str | None:
+def translate(
+    text: str,
+    target_language: str = "English",
+    *,
+    user_provider: str = "auto",
+    debug: bool = False,
+) -> str | None:
     """Translate text to target language.
 
     Uses explicit two-step process:
@@ -138,6 +163,8 @@ def translate(text: str, target_language: str = "English") -> str | None:
     Args:
         text: The text to translate.
         target_language: The language to translate to (default: English).
+        user_provider: Preferred LLM provider name.
+        debug: Enable debug output.
 
     Returns:
         The translated text, or None on error.
@@ -199,7 +226,7 @@ TEXT TO TRANSLATE:
 
 TRANSLATION:"""
 
-    result = _call(prompt)
+    result = _call(prompt, user_provider=user_provider, debug=debug)
     if result and result.strip().lower() == "none":
         return None
     return result

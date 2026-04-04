@@ -10,6 +10,9 @@ from .selection_base import SelectionReader
 class WaylandSelectionReader(SelectionReader):
     """Selection/clipboard via wl-paste/wl-copy (native Wayland)."""
 
+    def __init__(self, *, debug: bool = False) -> None:
+        self._debug = debug
+
     def get_selection(self) -> str | None:
         try:
             result = subprocess.run(
@@ -22,9 +25,7 @@ class WaylandSelectionReader(SelectionReader):
                 return result.stdout.strip()
             return None
         except FileNotFoundError:
-            from ...shared.config import config
-
-            if config.DEBUG:
+            if self._debug:
                 print("wl-paste not found. Install with: sudo apt install wl-clipboard")
             return None
         except (subprocess.TimeoutExpired, Exception):

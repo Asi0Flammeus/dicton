@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import subprocess
 
-from ...shared.config import config
 from .base import TextOutput
 from .fallback import PynputTextOutput
 
@@ -12,8 +11,22 @@ from .fallback import PynputTextOutput
 class LinuxTextOutput(TextOutput):
     """Text output via xdotool + xclip for Linux (X11/XWayland)."""
 
-    def __init__(self, selection_reader=None):
+    def __init__(
+        self,
+        selection_reader=None,
+        *,
+        paste_threshold_words: int = 10,
+        debug: bool = False,
+        clipboard_verify_delay_ms: int = 50,
+        clipboard_max_retries: int = 5,
+    ):
+        super().__init__(
+            debug=debug,
+            clipboard_verify_delay_ms=clipboard_verify_delay_ms,
+            clipboard_max_retries=clipboard_max_retries,
+        )
         self._selection = selection_reader
+        self._paste_threshold_words = paste_threshold_words
         self._pynput_fallback = PynputTextOutput()
 
     def insert_text(self, text: str, delay_ms: int = 50) -> None:
@@ -21,15 +34,15 @@ class LinuxTextOutput(TextOutput):
             return
 
         word_count = len(text.split())
-        threshold = config.PASTE_THRESHOLD_WORDS
+        threshold = self._paste_threshold_words
         use_paste = threshold == -1 or (threshold > 0 and word_count > threshold)
 
         if use_paste:
-            if config.DEBUG:
+            if self._debug:
                 print(f"📋 Using paste for {word_count} words (threshold: {threshold})")
             if self.paste_text(text):
                 return
-            if config.DEBUG:
+            if self._debug:
                 print("⚠ Paste failed, falling back to streaming")
 
         try:

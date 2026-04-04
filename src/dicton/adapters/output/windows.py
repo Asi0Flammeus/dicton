@@ -9,7 +9,8 @@ from .fallback import PynputTextOutput
 class WindowsTextOutput(TextOutput):
     """Text output via pyautogui + pyperclip for Windows."""
 
-    def __init__(self):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._pynput_fallback = PynputTextOutput()
 
     def insert_text(self, text: str, delay_ms: int = 50) -> None:
