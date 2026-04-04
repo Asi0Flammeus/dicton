@@ -107,6 +107,59 @@ def test_text_processor_adapter_satisfies_core_port():
     assert isinstance(adapter, TextProcessor)
 
 
+def test_metrics_adapter_satisfies_core_port():
+    """MetricsAdapter must satisfy the core MetricsSink protocol."""
+    from contextlib import nullcontext
+
+    from dicton.adapters.config.metrics import MetricsAdapter
+
+    class _FakeTracker:
+        def start_session(self):
+            pass
+
+        def measure(self, name, **kwargs):
+            return nullcontext()
+
+        def end_session(self):
+            return None
+
+    adapter = MetricsAdapter(_FakeTracker())
+    assert isinstance(adapter, MetricsSink)
+
+
+def test_audio_capture_adapter_satisfies_core_port():
+    """AudioCaptureAdapter must satisfy the core AudioCapture protocol."""
+    from dicton.adapters.audio.capture_adapter import AudioCaptureAdapter
+
+    class _FakeRecognizer:
+        def record(self, on_chunk=None):
+            return None
+
+        def stop(self):
+            pass
+
+        def cancel(self):
+            pass
+
+    adapter = AudioCaptureAdapter(_FakeRecognizer())
+    assert isinstance(adapter, AudioCapture)
+
+
+def test_stt_adapter_satisfies_core_port():
+    """STTAdapter must satisfy the core STTService protocol."""
+    from dicton.adapters.audio.stt_adapter import STTAdapter
+
+    class _FakeRecognizer:
+        def transcribe(self, audio):
+            return None
+
+        def filter_text(self, text):
+            return text
+
+    adapter = STTAdapter(_FakeRecognizer())
+    assert isinstance(adapter, STTService)
+
+
 # ---------------------------------------------------------------------------
 # 4. SessionService can be constructed with null/mock dependencies
 # ---------------------------------------------------------------------------
