@@ -188,7 +188,7 @@ class RuntimeService:
 
         clear_provider_cache()
 
-        from ..adapters.llm import cleanup as llm_cleanup
+        from ..adapters.llm.factory import cleanup as llm_cleanup
 
         llm_cleanup()
 

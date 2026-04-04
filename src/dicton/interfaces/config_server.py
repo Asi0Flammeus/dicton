@@ -219,7 +219,7 @@ def save_config(data: dict[str, Any]) -> None:
 
     clear_provider_cache()
 
-    from ..adapters.llm import cleanup as llm_cleanup
+    from ..adapters.llm.factory import cleanup as llm_cleanup
 
     llm_cleanup()
 

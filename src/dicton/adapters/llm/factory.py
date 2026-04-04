@@ -101,6 +101,12 @@ def get_available_providers() -> list[str]:
     return available
 
 
+def is_available() -> bool:
+    """Check if at least one LLM provider is configured and available."""
+    provider = get_llm_provider_with_fallback(verbose=False)
+    return provider.is_available()
+
+
 def cleanup() -> None:
     """Close all cached providers and clear the cache."""
     for provider in _provider_cache.values():
