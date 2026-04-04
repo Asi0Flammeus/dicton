@@ -6,7 +6,6 @@ import atexit
 import shutil
 import subprocess
 
-from ...shared.config import config
 from ...shared.platform_utils import IS_LINUX
 
 
@@ -23,19 +22,37 @@ class NullAudioSessionControl:
         pass
 
 
-def get_audio_session_control():
+def get_audio_session_control(
+    *,
+    mute_playback: bool = True,
+    mute_strategy: str = "auto",
+    mute_backend: str = "auto",
+):
     """Return the appropriate audio session control for this platform."""
     if IS_LINUX:
-        return AudioSessionControlAdapter()
+        return AudioSessionControlAdapter(
+            mute_playback=mute_playback,
+            mute_strategy=mute_strategy,
+            mute_backend=mute_backend,
+        )
     return NullAudioSessionControl()
 
 
 class AudioSessionControlAdapter:
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        mute_playback: bool = True,
+        mute_strategy: str = "auto",
+        mute_backend: str = "auto",
+    ):
         self._active = False
         self._paused_players: list[str] = []
         self._sink_muted_before: bool | None = None
         self._mute_backend_used: str | None = None
+        self._mute_playback = mute_playback
+        self._mute_strategy = _normalize_strategy(mute_strategy)
+        self._mute_backend = _normalize_backend(mute_backend)
         atexit.register(self._force_restore)
 
     def start_recording(self) -> None:
@@ -43,14 +60,14 @@ class AudioSessionControlAdapter:
             return
         self._active = True
 
-        if config.MUTE_PLAYBACK_ON_RECORDING:
+        if self._mute_playback:
             self._apply_playback_control()
 
     def stop_recording(self) -> None:
         if not self._active:
             return
 
-        if config.MUTE_PLAYBACK_ON_RECORDING:
+        if self._mute_playback:
             self._restore_playback_control()
 
         self._active = False
@@ -59,8 +76,8 @@ class AudioSessionControlAdapter:
         self.stop_recording()
 
     def _apply_playback_control(self) -> None:
-        strategy = _normalize_strategy(config.PLAYBACK_MUTE_STRATEGY)
-        backend = _normalize_backend(config.MUTE_BACKEND)
+        strategy = self._mute_strategy
+        backend = self._mute_backend
 
         paused = []
         if strategy in ("auto", "pause"):

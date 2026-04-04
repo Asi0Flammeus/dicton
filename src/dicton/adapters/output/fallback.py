@@ -10,7 +10,8 @@ from .base import TextOutput
 class PynputTextOutput(TextOutput):
     """Fallback text output using pynput character-by-character typing."""
 
-    def __init__(self):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._keyboard_controller = None
 
     def _get_pynput_components(self):

@@ -244,18 +244,20 @@ class SessionService:
         from ..adapters.llm.prompts import act_on_text, reformulate, translate
         from ..shared.config import config
 
+        llm_kwargs = {"user_provider": config.LLM_PROVIDER, "debug": config.DEBUG}
+
         if mode == ProcessingMode.ACT_ON_TEXT and selected_text:
-            return act_on_text(selected_text, text)
+            return act_on_text(selected_text, text, **llm_kwargs)
         if mode == ProcessingMode.REFORMULATION:
             if config.ENABLE_REFORMULATION:
-                return reformulate(text)
+                return reformulate(text, **llm_kwargs)
             return self._filter_fillers_local(text)
         if mode == ProcessingMode.TRANSLATION:
-            return translate(text, "English")
+            return translate(text, "English", **llm_kwargs)
         if mode == ProcessingMode.TRANSLATE_REFORMAT:
-            translated = translate(text, "English")
+            translated = translate(text, "English", **llm_kwargs)
             if translated:
-                return reformulate(translated)
+                return reformulate(translated, **llm_kwargs)
             return None
 
         return text

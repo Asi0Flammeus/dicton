@@ -65,11 +65,13 @@ class GtkSystemTray(SystemTray):
         on_toggle_debug: Callable[[], bool],
         log_path: Path | None = None,
         config_port: int = 6873,
+        initial_debug: bool = False,
     ):
         self._on_quit = on_quit
         self._on_toggle_debug = on_toggle_debug
         self._log_path = log_path
         self._config_port = config_port
+        self._debug = initial_debug
         self._indicator = None
         self._status_item = None
         self._debug_item = None
@@ -129,9 +131,7 @@ class GtkSystemTray(SystemTray):
 
         menu.append(Gtk.SeparatorMenuItem())
 
-        from ...shared.config import config
-
-        debug_label = f"Debug mode: {'ON' if config.DEBUG else 'OFF'}"
+        debug_label = f"Debug mode: {'ON' if self._debug else 'OFF'}"
         self._debug_item = Gtk.MenuItem(label=debug_label)
         self._debug_item.connect("activate", self._on_debug_clicked)
         menu.append(self._debug_item)

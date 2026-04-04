@@ -4,7 +4,9 @@ from __future__ import annotations
 
 
 class AudioCaptureAdapter:
-    def __init__(self, recognizer, chunk_manager=None):
+    """Adapter satisfying :class:`~dicton.core.ports.AudioCapture`."""
+
+    def __init__(self, recognizer, chunk_manager=None) -> None:
         self._recognizer = recognizer
         self._chunk_manager = chunk_manager
 

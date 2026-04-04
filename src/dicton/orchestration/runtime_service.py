@@ -56,6 +56,13 @@ class RuntimeService:
                 on_start_recording=self._session_service.start_recording,
                 on_stop_recording=self._session_service.stop_recording,
                 on_cancel_recording=self._session_service.cancel_recording,
+                double_tap_window_ms=config.HOTKEY_DOUBLE_TAP_WINDOW_MS,
+                debug=config.DEBUG,
+                secondary_hotkey=config.SECONDARY_HOTKEY,
+                secondary_hotkey_translation=config.SECONDARY_HOTKEY_TRANSLATION,
+                secondary_hotkey_act_on_text=config.SECONDARY_HOTKEY_ACT_ON_TEXT,
+                hotkey_base=config.HOTKEY_BASE,
+                custom_hotkey_value=config.CUSTOM_HOTKEY_VALUE,
             )
             return self._fn_handler.start()
         except ImportError:
@@ -155,6 +162,7 @@ class RuntimeService:
                 on_quit=self.request_shutdown,
                 on_toggle_debug=self._toggle_debug,
                 log_path=self._log_path,
+                initial_debug=config.DEBUG,
             )
             self._session_service.add_state_observer(self._tray.on_state_change)
             self._tray.start()
@@ -188,7 +196,7 @@ class RuntimeService:
 
         clear_provider_cache()
 
-        from ..adapters.llm import cleanup as llm_cleanup
+        from ..adapters.llm.factory import cleanup as llm_cleanup
 
         llm_cleanup()
 

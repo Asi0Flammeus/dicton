@@ -138,7 +138,7 @@ class TestTranslationFillerRemoval:
     @pytest.fixture
     def translation_func(self):
         """Get the translate function."""
-        from dicton.adapters.llm import is_available
+        from dicton.adapters.llm.factory import is_available
         from dicton.adapters.llm.prompts import translate
 
         if not is_available():

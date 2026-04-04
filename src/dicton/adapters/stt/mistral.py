@@ -40,16 +40,18 @@ class MistralSTTProvider(STTProvider):
 
     DEFAULT_MODEL = "voxtral-mini-latest"
 
-    def __init__(self, config: STTProviderConfig | None = None):
+    def __init__(self, config: STTProviderConfig | None = None, *, debug: bool = False):
         """Initialize Mistral provider.
 
         Args:
             config: Provider configuration. If None, uses environment defaults.
+            debug: Enable debug logging to stdout.
         """
         super().__init__(config)
         self._client = None
         self._api_key_hash: str | None = None
         self._is_available = False
+        self._debug = debug
 
         # Use config model or fall back to environment/default
         if not self._config.model:
@@ -188,9 +190,7 @@ class MistralSTTProvider(STTProvider):
 
         wav_content = wav_buffer.read()
 
-        from ...shared.config import config as app_config
-
-        if app_config.DEBUG:
+        if self._debug:
             print(
                 f"[Mistral] Calling API: model={self._config.model}, audio={len(wav_content)} bytes"
             )
@@ -207,7 +207,7 @@ class MistralSTTProvider(STTProvider):
                     file={"content": wav_content, "file_name": "audio.wav"},
                 )
 
-                if app_config.DEBUG:
+                if self._debug:
                     chars = len(result.text) if result and hasattr(result, "text") else 0
                     print(f"[Mistral] Response received: {chars} chars")
 

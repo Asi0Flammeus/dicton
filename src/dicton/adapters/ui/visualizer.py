@@ -14,7 +14,7 @@ if IS_LINUX and IS_X11:
 
 import numpy as np
 
-from ...shared.config import config
+from .visualizer_config import VisualizerConfig
 
 # Transparency colorkey (magenta - unlikely to be used in the visualizer)
 TRANSPARENT_COLORKEY = (255, 0, 255)
@@ -34,7 +34,8 @@ PEAK_HOLD_FRAMES = 30  # Frames to hold peak before decay (~0.5s at 60fps)
 class Visualizer:
     """Circular donut audio visualizer with transparent background"""
 
-    def __init__(self):
+    def __init__(self, viz_config: VisualizerConfig):
+        self._cfg = viz_config
         self.running = False
         self.thread = None
         self.levels = np.zeros(WAVE_POINTS)
@@ -55,8 +56,8 @@ class Visualizer:
         self.peak_level = 0.0
         self.peak_hold_counter = 0
 
-        # Load theme colors from config
-        colors = config.get_theme_colors()
+        # Load theme colors from injected config
+        colors = self._cfg.theme_colors
         self.COLOR_MAIN = colors["main"]
         self.COLOR_MID = colors["mid"]
         self.COLOR_DIM = colors["dim"]
@@ -68,13 +69,11 @@ class Visualizer:
         Args:
             color_name: One of 'red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple', 'magenta'
         """
-        from ...shared.config import FLEXOKI_COLORS
-
         color_name = color_name.lower()
-        if color_name not in FLEXOKI_COLORS:
+        if color_name not in self._cfg.flexoki_colors:
             color_name = "orange"  # fallback
 
-        colors = FLEXOKI_COLORS[color_name]
+        colors = self._cfg.flexoki_colors[color_name]
         with self.lock:
             self.COLOR_MAIN = colors["main"]
             self.COLOR_MID = colors["mid"]
@@ -130,7 +129,7 @@ class Visualizer:
                 return
 
             # Calculate raw RMS (before gain)
-            raw_rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / config.RMS_NORMALIZATION
+            raw_rms = np.sqrt(np.mean(data.astype(np.float32) ** 2)) / self._cfg.rms_normalization
 
             # Adaptive gain adjustment based on peak levels
             with self.lock:
@@ -203,7 +202,7 @@ class Visualizer:
             # Get position from config
             info = pygame.display.Info()
             screen_w, screen_h = info.current_w, info.current_h
-            pos_x, pos_y = config.get_animation_position(screen_w, screen_h, SIZE)
+            pos_x, pos_y = self._cfg.animation_position_fn(screen_w, screen_h, SIZE)
 
             # Set window position (cross-platform approach)
             # SDL_VIDEO_WINDOW_POS works on most platforms
@@ -260,12 +259,12 @@ class Visualizer:
             window.change_property(wm_type, d.intern_atom("ATOM"), 32, [wm_utility])
             d.sync()
 
-            if config.DEBUG:
+            if self._cfg.debug:
                 print("✓ X11 window type set to UTILITY (floating in tiling WMs)")
         except ImportError:
             pass
         except Exception as e:
-            if config.DEBUG:
+            if self._cfg.debug:
                 print(f"⚠ Could not set X11 window type: {e}")
 
     def _setup_windows_transparency(self, pygame):
@@ -311,18 +310,18 @@ class Visualizer:
             from pygame._sdl2.video import Window
 
             sdl_window = Window.from_display_module()
-            opacity = max(0.0, min(1.0, config.VISUALIZER_OPACITY))
+            opacity = max(0.0, min(1.0, self._cfg.opacity))
             sdl_window.opacity = opacity
             self.linux_opacity_mode = True
-            if config.DEBUG:
+            if self._cfg.debug:
                 print(f"✓ Linux X11 transparency enabled (opacity: {opacity})")
         except (ImportError, AttributeError) as e:
-            if config.DEBUG:
+            if self._cfg.debug:
                 print(f"⚠ Linux transparency not available: {e}")
             self.linux_opacity_mode = False
             self.transparent = False
         except Exception as e:
-            if config.DEBUG:
+            if self._cfg.debug:
                 print(f"⚠ Window opacity failed (compositor running?): {e}")
             self.linux_opacity_mode = False
             self.transparent = False
@@ -344,7 +343,7 @@ class Visualizer:
             wm_info = pygame.display.get_wm_info()
             window_id = wm_info.get("window")
             if not window_id:
-                if config.DEBUG:
+                if self._cfg.debug:
                     print("⚠ Could not get X11 window ID")
                 return False
 
@@ -354,7 +353,7 @@ class Visualizer:
 
             # Check if XShape extension is available
             if not d.has_extension("SHAPE"):
-                if config.DEBUG:
+                if self._cfg.debug:
                     print("⚠ XShape extension not available")
                 return False
 
@@ -389,16 +388,16 @@ class Visualizer:
             pixmap.free()
 
             self.xshape_mode = True
-            if config.DEBUG:
+            if self._cfg.debug:
                 print("✓ XShape circular window enabled")
             return True
 
         except ImportError:
-            if config.DEBUG:
+            if self._cfg.debug:
                 print("⚠ python-xlib not installed for XShape support")
             return False
         except Exception as e:
-            if config.DEBUG:
+            if self._cfg.debug:
                 print(f"⚠ XShape setup failed: {e}")
             import traceback
 
@@ -555,8 +554,16 @@ class Visualizer:
 _visualizer = None
 
 
-def get_visualizer() -> Visualizer:
+def get_visualizer(viz_config: VisualizerConfig | None = None) -> Visualizer:
+    """Return the singleton Visualizer, creating it on first call.
+
+    *viz_config* is required on the first call (typically from the
+    composition root) and ignored on subsequent calls.
+    """
     global _visualizer
     if _visualizer is None:
-        _visualizer = Visualizer()
+        if viz_config is None:
+            msg = "VisualizerConfig is required for first instantiation"
+            raise RuntimeError(msg)
+        _visualizer = Visualizer(viz_config)
     return _visualizer

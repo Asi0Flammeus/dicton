@@ -6,16 +6,16 @@ from ...shared.platform_utils import IS_LINUX, IS_MACOS, IS_WAYLAND, IS_WINDOWS
 from .selection_base import NullSelectionReader, SelectionReader
 
 
-def get_selection_reader() -> SelectionReader:
+def get_selection_reader(*, debug: bool = False) -> SelectionReader:
     """Return the appropriate SelectionReader for the current platform."""
     if IS_LINUX:
         if IS_WAYLAND:
             from .selection_wayland import WaylandSelectionReader
 
-            return WaylandSelectionReader()
+            return WaylandSelectionReader(debug=debug)
         from .selection_x11 import X11SelectionReader
 
-        return X11SelectionReader()
+        return X11SelectionReader(debug=debug)
     if IS_WINDOWS:
         from .selection_windows import WindowsSelectionReader
 

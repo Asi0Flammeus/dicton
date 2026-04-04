@@ -1,13 +1,18 @@
 """Speech recognition - STT provider abstraction (capture then transcribe) - Cross-platform"""
 
+from __future__ import annotations
+
 import contextlib
 import io
 import os
 import wave
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 
 from ...shared.platform_utils import IS_LINUX, IS_WINDOWS
+from ...shared.text_processor import get_text_processor
 from ..stt.factory import get_stt_provider_with_fallback
 from ..stt.provider import NullSTTProvider, STTProvider
 
@@ -34,33 +39,27 @@ def suppress_stderr():
 with suppress_stderr():
     import pyaudio
 
-from ...shared.config import config
-from ...shared.text_processor import get_text_processor
-
-# Import visualizer based on configured backend
-if config.VISUALIZER_BACKEND == "gtk":
-    try:
-        from ..ui.visualizer_gtk import get_visualizer
-    except ImportError as e:
-        print(f"⚠ GTK not available ({e}), falling back to pygame")
-        from ..ui.visualizer import get_visualizer
-elif config.VISUALIZER_BACKEND == "vispy":
-    try:
-        from ..ui.visualizer_vispy import get_visualizer
-    except ImportError:
-        print("⚠ VisPy not available, falling back to pygame")
-        from ..ui.visualizer import get_visualizer
-else:
-    from ..ui.visualizer import get_visualizer
-
 
 class SpeechRecognizer:
     """Speech recognizer: record audio, then transcribe via STT provider."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        sample_rate: int = 16000,
+        chunk_size: int = 1024,
+        mic_device: str = "auto",
+        debug: bool = False,
+        visualizer_factory: Callable[[], Any] | None = None,
+    ):
         self.recording = False
         self._cancelled = False  # Flag for immediate cancel (discard audio)
         self.input_device = None
+        self._sample_rate = sample_rate
+        self._chunk_size = chunk_size
+        self._mic_device = mic_device
+        self._debug = debug
+        self._visualizer_factory = visualizer_factory
 
         # Initialize STT provider via factory (respects STT_PROVIDER config)
         self._stt_provider: STTProvider = get_stt_provider_with_fallback()
@@ -93,18 +92,18 @@ class SpeechRecognizer:
 
     def _find_input_device(self):
         """Find the best available input device - cross-platform."""
-        self.device_sample_rate = config.SAMPLE_RATE
+        self.device_sample_rate = self._sample_rate
 
         try:
-            if config.MIC_DEVICE != "auto":
+            if self._mic_device != "auto":
                 try:
-                    self.input_device = int(config.MIC_DEVICE)
+                    self.input_device = int(self._mic_device)
                     info = self.audio.get_device_info_by_index(self.input_device)
                     self.device_sample_rate = int(info["defaultSampleRate"])
                     print(f"✓ Mic: {info['name']} @ {self.device_sample_rate}Hz (forced)")
                     return
                 except Exception:
-                    print(f"⚠ Device {config.MIC_DEVICE} not found, auto-detecting...")
+                    print(f"⚠ Device {self._mic_device} not found, auto-detecting...")
 
             default_info = self.audio.get_default_input_device_info()
             default_idx = default_info["index"]
@@ -139,7 +138,7 @@ class SpeechRecognizer:
         except Exception as e:
             print(f"⚠ Could not detect mic: {e}")
             self.input_device = None
-            self.device_sample_rate = config.SAMPLE_RATE
+            self.device_sample_rate = self._sample_rate
 
     def _select_best_device(self, devices: list) -> dict:
         """Select the best audio input device based on platform."""
@@ -186,7 +185,7 @@ class SpeechRecognizer:
             print("⚠ No STT provider available")
             return None
 
-        viz = get_visualizer()
+        viz = self._visualizer_factory() if self._visualizer_factory else None
         stream = None
         frames = []
         self._cancelled = False  # Reset cancel flag
@@ -196,31 +195,34 @@ class SpeechRecognizer:
                 stream = self.audio.open(
                     format=pyaudio.paInt16,
                     channels=1,
-                    rate=config.SAMPLE_RATE,
+                    rate=self._sample_rate,
                     input=True,
                     input_device_index=self.input_device,
-                    frames_per_buffer=config.CHUNK_SIZE,
+                    frames_per_buffer=self._chunk_size,
                 )
 
             self.recording = True
-            viz.start()
+            if viz:
+                viz.start()
             print("🎤 Recording...")
 
             while self.recording:
                 try:
-                    data = stream.read(config.CHUNK_SIZE, exception_on_overflow=False)
+                    data = stream.read(self._chunk_size, exception_on_overflow=False)
                     frames.append(data)
-                    viz.update(data)
+                    if viz:
+                        viz.update(data)
                     if on_chunk:
                         on_chunk(data)
                 except Exception as e:
-                    if config.DEBUG:
+                    if self._debug:
                         print(f"⚠ Read error: {e}")
                     break
 
         except Exception as e:
             print(f"❌ Recording error: {e}")
-            viz.stop()  # Stop visualizer on error
+            if viz:
+                viz.stop()  # Stop visualizer on error
             return None
 
         finally:
@@ -231,16 +233,19 @@ class SpeechRecognizer:
 
         # Check if recording was cancelled (tap detected)
         if self._cancelled:
-            viz.stop()  # Stop visualizer on cancel
+            if viz:
+                viz.stop()  # Stop visualizer on cancel
             return None
 
         if not frames:
-            viz.stop()  # Stop visualizer if no frames
+            if viz:
+                viz.stop()  # Stop visualizer if no frames
             return None
 
         # Switch visualizer to processing mode (pulsing animation)
         # Caller will call viz.stop() after transcription/LLM processing completes
-        viz.start_processing()
+        if viz:
+            viz.start_processing()
 
         # Convert to numpy array
         audio_data = b"".join(frames)
@@ -266,21 +271,21 @@ class SpeechRecognizer:
                 stream = self.audio.open(
                     format=pyaudio.paInt16,
                     channels=1,
-                    rate=config.SAMPLE_RATE,
+                    rate=self._sample_rate,
                     input=True,
                     input_device_index=self.input_device,
-                    frames_per_buffer=config.CHUNK_SIZE,
+                    frames_per_buffer=self._chunk_size,
                 )
 
             # Calculate number of chunks needed
-            chunks_needed = int(duration_seconds * config.SAMPLE_RATE / config.CHUNK_SIZE)
+            chunks_needed = int(duration_seconds * self._sample_rate / self._chunk_size)
 
             for _ in range(chunks_needed):
                 try:
-                    data = stream.read(config.CHUNK_SIZE, exception_on_overflow=False)
+                    data = stream.read(self._chunk_size, exception_on_overflow=False)
                     frames.append(data)
                 except Exception as e:
-                    if config.DEBUG:
+                    if self._debug:
                         print(f"⚠ Read error: {e}")
                     break
 
@@ -324,7 +329,7 @@ class SpeechRecognizer:
         with wave.open(wav_buffer, "wb") as wav_file:
             wav_file.setnchannels(1)
             wav_file.setsampwidth(2)  # 16-bit
-            wav_file.setframerate(config.SAMPLE_RATE)
+            wav_file.setframerate(self._sample_rate)
             wav_file.writeframes(audio_int16.tobytes())
 
         wav_buffer.seek(0)
@@ -352,7 +357,7 @@ class SpeechRecognizer:
 
         except Exception as e:
             print(f"❌ Transcription error: {e}")
-            if config.DEBUG:
+            if self._debug:
                 import traceback
 
                 traceback.print_exc()

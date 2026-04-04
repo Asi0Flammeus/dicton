@@ -2,18 +2,17 @@
 
 from __future__ import annotations
 
-from ...shared.config import Config
 from ...shared.platform_utils import IS_LINUX, IS_MACOS, IS_WINDOWS
 from .notifications_base import NotificationService
 from .notifications_null import NullNotificationService
 
 
-def get_notification_service() -> NotificationService:
+def get_notification_service(*, notifications_enabled: bool = False) -> NotificationService:
     """Return the appropriate NotificationService for the current platform.
 
-    Returns NullNotificationService if notifications are disabled in config.
+    Returns NullNotificationService if notifications are disabled.
     """
-    if not Config.NOTIFICATIONS_ENABLED:
+    if not notifications_enabled:
         return NullNotificationService()
 
     if IS_LINUX:

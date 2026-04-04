@@ -1,17 +1,23 @@
 """Keyboard hotkey listener for Dicton."""
 
-from ...shared.config import config
-
 
 class HotkeyListener:
     """Listen for configured hotkey and trigger on_toggle callback."""
 
-    def __init__(self, on_toggle_callback):
+    def __init__(
+        self,
+        on_toggle_callback,
+        *,
+        hotkey_modifier: str = "alt",
+        hotkey_key: str = "g",
+    ):
         self.on_toggle = on_toggle_callback
         self.listener = None
         self.pressed_keys = set()
         self.hotkey_active = False
         self._keyboard_controller = None
+        self._hotkey_modifier = hotkey_modifier
+        self._hotkey_key = hotkey_key
 
     def _get_pynput_components(self):
         """Import pynput lazily so Linux startup can avoid X-only backends."""
@@ -54,7 +60,7 @@ class HotkeyListener:
 
             if self._is_hotkey_pressed() and not self.hotkey_active:
                 self.hotkey_active = True
-                hotkey_char = config.HOTKEY_KEY.lower()
+                hotkey_char = self._hotkey_key.lower()
                 try:
                     self._get_keyboard_controller().release(hotkey_char)
                 except Exception:
@@ -89,8 +95,8 @@ class HotkeyListener:
     def _is_hotkey_pressed(self) -> bool:
         """Check if configured hotkey is pressed."""
         _, _, key_cls = self._get_pynput_components()
-        mod = config.HOTKEY_MODIFIER.lower()
-        key = config.HOTKEY_KEY.lower()
+        mod = self._hotkey_modifier.lower()
+        key = self._hotkey_key.lower()
 
         if mod in ("alt", "alt_l", "alt_r"):
             if not (

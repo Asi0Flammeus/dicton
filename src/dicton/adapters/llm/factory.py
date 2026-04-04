@@ -60,17 +60,20 @@ def get_llm_provider(name: str, use_cache: bool = True) -> LLMProvider:
 
 
 def get_llm_provider_with_fallback(
+    user_provider: str = "auto",
     fallback_order: list[str] | None = None,
     verbose: bool = True,
 ) -> LLMProvider:
     """Get the best available LLM provider with fallback chain.
 
-    Respects LLM_PROVIDER env var as the primary choice.
+    Args:
+        user_provider: Preferred provider name (e.g. "gemini", "anthropic", "auto").
+        fallback_order: Custom fallback order. Defaults to DEFAULT_FALLBACK_ORDER.
+        verbose: Print warnings when preferred provider is unavailable.
     """
     _register_providers()
-    from ...shared.config import config
 
-    user_provider = config.LLM_PROVIDER.lower()
+    user_provider = user_provider.lower()
     if user_provider and user_provider != "auto":
         provider = get_llm_provider(user_provider)
         if provider.is_available():
@@ -99,6 +102,12 @@ def get_available_providers() -> list[str]:
         except Exception:
             pass
     return available
+
+
+def is_available() -> bool:
+    """Check if at least one LLM provider is configured and available."""
+    provider = get_llm_provider_with_fallback(user_provider="auto", verbose=False)
+    return provider.is_available()
 
 
 def cleanup() -> None:

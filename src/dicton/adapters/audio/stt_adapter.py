@@ -8,11 +8,13 @@ logger = logging.getLogger(__name__)
 
 
 class STTAdapter:
-    def __init__(self, recognizer, chunk_manager=None):
+    """Adapter satisfying :class:`~dicton.core.ports.STTService`."""
+
+    def __init__(self, recognizer, chunk_manager=None) -> None:
         self._recognizer = recognizer
         self._chunk_manager = chunk_manager
 
-    def transcribe(self, audio):
+    def transcribe(self, audio) -> str | None:
         if self._chunk_manager:
             result = self._chunk_manager.finalize()
             if result.is_partial:

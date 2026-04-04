@@ -105,36 +105,34 @@ def test_no_cache_returns_new_instance():
 
 
 def test_fallback_returns_null_when_none_available(monkeypatch):
-    from dicton.shared.config import config
-
-    monkeypatch.setattr(config, "LLM_PROVIDER", "auto")
-    provider = get_llm_provider_with_fallback(fallback_order=[], verbose=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    provider = get_llm_provider_with_fallback(
+        user_provider="auto", fallback_order=[], verbose=False
+    )
     assert isinstance(provider, NullLLMProvider)
 
 
-def test_fallback_uses_first_available():
+def test_fallback_uses_first_available(monkeypatch):
     _PROVIDER_REGISTRY["never"] = _NeverAvailableProvider
     _PROVIDER_REGISTRY["always"] = _AlwaysAvailableProvider
 
-    from dicton.shared.config import config
-
-    # Simulate no user-configured provider
-    original = config.LLM_PROVIDER
-    config.LLM_PROVIDER = "auto"
-    try:
-        provider = get_llm_provider_with_fallback(fallback_order=["never", "always"], verbose=False)
-        assert isinstance(provider, _AlwaysAvailableProvider)
-    finally:
-        config.LLM_PROVIDER = original
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    provider = get_llm_provider_with_fallback(
+        user_provider="auto", fallback_order=["never", "always"], verbose=False
+    )
+    assert isinstance(provider, _AlwaysAvailableProvider)
 
 
 def test_fallback_respects_user_provider(monkeypatch):
     _PROVIDER_REGISTRY["always"] = _AlwaysAvailableProvider
 
-    from dicton.shared.config import config
-
-    monkeypatch.setattr(config, "LLM_PROVIDER", "always")
-    provider = get_llm_provider_with_fallback(fallback_order=[], verbose=False)
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    provider = get_llm_provider_with_fallback(
+        user_provider="always", fallback_order=[], verbose=False
+    )
     assert isinstance(provider, _AlwaysAvailableProvider)
 
 

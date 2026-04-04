@@ -10,6 +10,9 @@ from .selection_base import SelectionReader
 class X11SelectionReader(SelectionReader):
     """Selection/clipboard via xclip (X11 and XWayland)."""
 
+    def __init__(self, *, debug: bool = False) -> None:
+        self._debug = debug
+
     def get_selection(self) -> str | None:
         try:
             result = subprocess.run(
@@ -22,9 +25,7 @@ class X11SelectionReader(SelectionReader):
                 return result.stdout.strip()
             return None
         except FileNotFoundError:
-            from ...shared.config import config
-
-            if config.DEBUG:
+            if self._debug:
                 print("xclip not installed. Install with: sudo apt install xclip")
             return None
         except (subprocess.TimeoutExpired, Exception):
