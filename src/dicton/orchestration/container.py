@@ -17,31 +17,36 @@ from ..adapters.llm.factory import get_llm_provider_with_fallback
 from ..adapters.output.factory import get_text_output
 from ..adapters.output.selection_factory import get_selection_reader
 from ..adapters.ui.notifications_factory import get_notification_service
+from ..adapters.ui.theme_constants import FLEXOKI_COLORS, get_animation_position, get_theme_colors
 from ..adapters.ui.visualizer_config import VisualizerConfig
+from ..core.config_model import AppConfig
 from ..core.controller import DictationController
-from ..shared.config import FLEXOKI_COLORS, config
+from ..shared.app_paths import get_user_config_dir, get_user_data_dir
 from ..shared.latency_tracker import get_latency_tracker
 from .runtime_service import RuntimeService
 from .session_service import SessionService
 
 
-def _build_visualizer_config() -> VisualizerConfig:
+def _build_visualizer_config(app_config: AppConfig) -> VisualizerConfig:
     """Resolve all visualizer settings into a single config dataclass."""
+    theme_color = app_config.theme_color
+    anim_pos = app_config.animation_position
+
     return VisualizerConfig(
-        theme_colors=config.get_theme_colors(),
+        theme_colors=get_theme_colors(theme_color),
         flexoki_colors=FLEXOKI_COLORS,
-        rms_normalization=config.RMS_NORMALIZATION,
-        animation_position_fn=config.get_animation_position,
-        debug=config.DEBUG,
-        opacity=config.VISUALIZER_OPACITY,
-        visualizer_style=config.VISUALIZER_STYLE,
+        rms_normalization=app_config.rms_normalization,
+        animation_position_fn=lambda w, h, s: get_animation_position(anim_pos, w, h, s),
+        debug=app_config.debug,
+        opacity=app_config.visualizer_opacity,
+        visualizer_style=app_config.visualizer_style,
     )
 
 
-def _build_visualizer_factory():
+def _build_visualizer_factory(app_config: AppConfig):
     """Create a callable that returns a fresh visualizer instance or None."""
-    backend = config.VISUALIZER_BACKEND
-    viz_config = _build_visualizer_config()
+    backend = app_config.visualizer_backend
+    viz_config = _build_visualizer_config(app_config)
 
     def _factory():
         try:
@@ -66,54 +71,72 @@ def _build_visualizer_factory():
 
 def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
     """Build the runtime service with the current production adapters."""
-    config.create_dirs()
+    # Ensure user directories exist
+    config_dir = get_user_config_dir()
+    data_dir = get_user_data_dir()
+    models_dir = data_dir / "models"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    data_dir.mkdir(parents=True, exist_ok=True)
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    app_config = load_app_config()
 
     # === Audio providers ===
     recognizer = SpeechRecognizer(
-        sample_rate=config.SAMPLE_RATE,
-        chunk_size=config.CHUNK_SIZE,
-        mic_device=config.MIC_DEVICE,
-        debug=config.DEBUG,
-        visualizer_factory=_build_visualizer_factory(),
+        sample_rate=app_config.sample_rate,
+        chunk_size=app_config.chunk_size,
+        mic_device=app_config.mic_device,
+        debug=app_config.debug,
+        visualizer_factory=_build_visualizer_factory(app_config),
     )
     chunk_manager = None
-    if config.CHUNK_ENABLED:
-        chunk_config = ChunkConfig.from_app_config(config)
+    if app_config.chunk_enabled:
+        chunk_config = ChunkConfig(
+            enabled=app_config.chunk_enabled,
+            min_chunk_s=app_config.chunk_min_s,
+            max_chunk_s=app_config.chunk_max_s,
+            overlap_s=app_config.chunk_overlap_s,
+            silence_threshold=app_config.chunk_silence_threshold,
+            silence_window_s=app_config.chunk_silence_window_s,
+            chunk_size=app_config.chunk_size,
+            sample_rate=app_config.sample_rate,
+            stt_timeout=app_config.stt_timeout,
+            rms_normalization=float(app_config.rms_normalization),
+        )
         chunk_manager = ChunkManager(
             stt_provider=recognizer.stt_provider,
             config=chunk_config,
         )
 
     # === Platform adapters ===
-    selection_reader = get_selection_reader(debug=config.DEBUG)
+    selection_reader = get_selection_reader(debug=app_config.debug)
     text_output = get_text_output(
         selection_reader,
-        paste_threshold_words=config.PASTE_THRESHOLD_WORDS,
-        debug=config.DEBUG,
-        clipboard_verify_delay_ms=config.CLIPBOARD_VERIFY_DELAY_MS,
-        clipboard_max_retries=config.CLIPBOARD_MAX_RETRIES,
+        paste_threshold_words=app_config.paste_threshold_words,
+        debug=app_config.debug,
+        clipboard_verify_delay_ms=app_config.clipboard_verify_delay_ms,
+        clipboard_max_retries=app_config.clipboard_max_retries,
     )
     audio_control = get_audio_session_control(
-        mute_playback=config.MUTE_PLAYBACK_ON_RECORDING,
-        mute_strategy=config.PLAYBACK_MUTE_STRATEGY,
-        mute_backend=config.MUTE_BACKEND,
+        mute_playback=app_config.mute_playback_on_recording,
+        mute_strategy=app_config.playback_mute_strategy,
+        mute_backend=app_config.mute_backend,
     )
     notification_service = get_notification_service(
-        notifications_enabled=config.NOTIFICATIONS_ENABLED,
+        notifications_enabled=app_config.notifications_enabled,
     )
 
     # === LLM + visualizer ===
-    llm_provider = get_llm_provider_with_fallback(user_provider=config.LLM_PROVIDER)
+    llm_provider = get_llm_provider_with_fallback(user_provider=app_config.llm_provider)
 
     # === Config / metrics ===
-    app_config = load_app_config()
     metrics = get_latency_tracker()
 
     # === Input ===
     hotkey_listener = HotkeyListener(
         None,
-        hotkey_modifier=config.HOTKEY_MODIFIER,
-        hotkey_key=config.HOTKEY_KEY,
+        hotkey_modifier=app_config.hotkey_modifier,
+        hotkey_key=app_config.hotkey_key,
     )
 
     # === Wiring ===
@@ -125,7 +148,7 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
         selection_reader=selection_reader,
         notification_service=notification_service,
         llm_provider=llm_provider,
-        visualizer_factory=_build_visualizer_factory(),
+        visualizer_factory=_build_visualizer_factory(app_config),
     )
     session_service.bind_controller(
         DictationController(

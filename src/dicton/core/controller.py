@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Any
 
 from .cancel_token import CancelToken
 from .ports import (
@@ -66,9 +67,9 @@ class DictationController:
 
     def run_session(
         self,
-        mode,
+        mode: Any,
         session: SessionContext,
-        mode_names: dict,
+        mode_names: dict[Any, str],
         pre_output: Callable[[], None] | None = None,
     ) -> tuple[bool, object | None]:
         """Run one dictation session.

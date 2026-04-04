@@ -11,8 +11,8 @@ import warnings
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 warnings.filterwarnings("ignore")
 
+from ..adapters.config.config_env import load_app_config
 from ..orchestration.container import build_runtime_service
-from ..shared.config import config
 from ..shared.platform_utils import IS_WINDOWS
 
 
@@ -44,6 +44,7 @@ def clear_latency_log() -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    app_cfg = load_app_config()
     epilog = """
 Hotkeys (default):
   FN (double-tap)  Toggle recording (direct transcription)
@@ -57,7 +58,7 @@ Examples:
   dicton --check-update   Check for new version
   dicton --clear-log      Clear latency history
 """
-    if config.ENABLE_ADVANCED_MODES:
+    if app_cfg.enable_advanced_modes:
         epilog = """
 Hotkeys (FN key mode):
   FN (double-tap)  Toggle recording (direct transcription)
