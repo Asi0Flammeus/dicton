@@ -8,10 +8,33 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from ...shared.config import Config, config
+from ...shared.app_paths import get_user_config_dir
 from ...shared.platform_utils import IS_LINUX, IS_MACOS, IS_WINDOWS, get_platform_info
 from ...shared.startup import get_autostart_state, has_display_session
 from .env_io import get_env_path, read_env_file, write_env_file
+
+# ---------------------------------------------------------------------------
+# Hardcoded defaults matching AppConfig / config_env defaults.  These are
+# only used as fallbacks when a key is missing from both the .env file and
+# os.environ.
+# ---------------------------------------------------------------------------
+_DEFAULTS: dict[str, str] = {
+    "STT_PROVIDER": "auto",
+    "LLM_PROVIDER": "gemini",
+    "THEME_COLOR": "orange",
+    "VISUALIZER_STYLE": "toric",
+    "ANIMATION_POSITION": "top-right",
+    "VISUALIZER_BACKEND": "pygame",
+    "HOTKEY_BASE": "fn",
+    "HOTKEY_DOUBLE_TAP_WINDOW_MS": "300",
+    "LANGUAGE": "auto",
+    "CUSTOM_HOTKEY_VALUE": "alt+g",
+    "SECONDARY_HOTKEY": "none",
+    "SECONDARY_HOTKEY_TRANSLATION": "none",
+    "SECONDARY_HOTKEY_ACT_ON_TEXT": "none",
+    "PLAYBACK_MUTE_STRATEGY": "auto",
+    "MUTE_BACKEND": "auto",
+}
 
 CONFIG_FIELD_MAP = {
     "stt_provider": "STT_PROVIDER",
@@ -55,6 +78,11 @@ _setup_state: dict[str, Any] = {
 }
 
 
+def _default(key: str) -> str:
+    """Return the hardcoded default for *key*, falling back to ``""``."""
+    return _DEFAULTS.get(key, "")
+
+
 def _mask_api_key(key: str) -> str:
     """Mask API key showing first char + dots + last 2 chars."""
     if not key or len(key) < 4:
@@ -74,7 +102,7 @@ def get_current_config() -> dict[str, Any]:
 
     return {
         # STT settings
-        "stt_provider": env_vars.get("STT_PROVIDER", config.STT_PROVIDER),
+        "stt_provider": env_vars.get("STT_PROVIDER", _default("STT_PROVIDER")),
         # API keys - masked values for display
         "mistral_api_key_set": bool(mistral_key),
         "mistral_api_key_masked": _mask_api_key(mistral_key),
@@ -85,32 +113,36 @@ def get_current_config() -> dict[str, Any]:
         "anthropic_api_key_set": bool(anthropic_key),
         "anthropic_api_key_masked": _mask_api_key(anthropic_key),
         # Other config values
-        "llm_provider": env_vars.get("LLM_PROVIDER", config.LLM_PROVIDER),
+        "llm_provider": env_vars.get("LLM_PROVIDER", _default("LLM_PROVIDER")),
         "enable_advanced_modes": (env_vars.get("ENABLE_ADVANCED_MODES", "false").lower() == "true"),
-        "theme_color": env_vars.get("THEME_COLOR", config.THEME_COLOR),
-        "visualizer_style": env_vars.get("VISUALIZER_STYLE", config.VISUALIZER_STYLE),
-        "animation_position": env_vars.get("ANIMATION_POSITION", config.ANIMATION_POSITION),
-        "visualizer_backend": env_vars.get("VISUALIZER_BACKEND", config.VISUALIZER_BACKEND),
-        "hotkey_base": env_vars.get("HOTKEY_BASE", config.HOTKEY_BASE),
+        "theme_color": env_vars.get("THEME_COLOR", _default("THEME_COLOR")),
+        "visualizer_style": env_vars.get("VISUALIZER_STYLE", _default("VISUALIZER_STYLE")),
+        "animation_position": env_vars.get("ANIMATION_POSITION", _default("ANIMATION_POSITION")),
+        "visualizer_backend": env_vars.get("VISUALIZER_BACKEND", _default("VISUALIZER_BACKEND")),
+        "hotkey_base": env_vars.get("HOTKEY_BASE", _default("HOTKEY_BASE")),
         "hotkey_double_tap_window_ms": env_vars.get(
-            "HOTKEY_DOUBLE_TAP_WINDOW_MS", str(config.HOTKEY_DOUBLE_TAP_WINDOW_MS)
+            "HOTKEY_DOUBLE_TAP_WINDOW_MS", _default("HOTKEY_DOUBLE_TAP_WINDOW_MS")
         ),
         "filter_fillers": env_vars.get("FILTER_FILLERS", "true").lower() == "true",
         "enable_reformulation": env_vars.get("ENABLE_REFORMULATION", "false").lower() == "true",
-        "language": env_vars.get("LANGUAGE", config.LANGUAGE),
+        "language": env_vars.get("LANGUAGE", _default("LANGUAGE")),
         "debug": env_vars.get("DEBUG", "false").lower() == "true",
         # Hotkey settings
-        "custom_hotkey_value": env_vars.get("CUSTOM_HOTKEY_VALUE", "alt+g"),
-        "secondary_hotkey": env_vars.get("SECONDARY_HOTKEY", "none"),
-        "secondary_hotkey_translation": env_vars.get("SECONDARY_HOTKEY_TRANSLATION", "none"),
-        "secondary_hotkey_act_on_text": env_vars.get("SECONDARY_HOTKEY_ACT_ON_TEXT", "none"),
+        "custom_hotkey_value": env_vars.get("CUSTOM_HOTKEY_VALUE", _default("CUSTOM_HOTKEY_VALUE")),
+        "secondary_hotkey": env_vars.get("SECONDARY_HOTKEY", _default("SECONDARY_HOTKEY")),
+        "secondary_hotkey_translation": env_vars.get(
+            "SECONDARY_HOTKEY_TRANSLATION", _default("SECONDARY_HOTKEY_TRANSLATION")
+        ),
+        "secondary_hotkey_act_on_text": env_vars.get(
+            "SECONDARY_HOTKEY_ACT_ON_TEXT", _default("SECONDARY_HOTKEY_ACT_ON_TEXT")
+        ),
         "mute_playback_on_recording": (
             env_vars.get("MUTE_PLAYBACK_ON_RECORDING", "true").lower() == "true"
         ),
         "playback_mute_strategy": env_vars.get(
-            "PLAYBACK_MUTE_STRATEGY", config.PLAYBACK_MUTE_STRATEGY
+            "PLAYBACK_MUTE_STRATEGY", _default("PLAYBACK_MUTE_STRATEGY")
         ),
-        "mute_backend": env_vars.get("MUTE_BACKEND", config.MUTE_BACKEND),
+        "mute_backend": env_vars.get("MUTE_BACKEND", _default("MUTE_BACKEND")),
     }
 
 
@@ -127,6 +159,11 @@ def save_config(data: dict[str, Any]) -> None:
             os.environ[env_var] = str(value)
 
     write_env_file(env_vars)
+
+    # Refresh the legacy singleton so that any in-process code still using
+    # ``shared.config.config`` sees the updated values.  We import locally
+    # to keep the module-level dependency on ``shared.config`` removed.
+    from ...shared.config import Config
 
     Config.reload_config()
 
@@ -150,7 +187,7 @@ def _get_env_bool(env_vars: dict[str, str], key: str, default: bool = False) -> 
 
 
 def _stt_status(env_vars: dict[str, str]) -> dict[str, Any]:
-    selected = _get_env_string(env_vars, "STT_PROVIDER", config.STT_PROVIDER).lower()
+    selected = _get_env_string(env_vars, "STT_PROVIDER", _default("STT_PROVIDER")).lower()
     has_mistral = bool(_get_env_string(env_vars, "MISTRAL_API_KEY"))
     has_elevenlabs = bool(_get_env_string(env_vars, "ELEVENLABS_API_KEY"))
 
@@ -182,9 +219,9 @@ def _stt_status(env_vars: dict[str, str]) -> dict[str, Any]:
 
 
 def _hotkey_status(env_vars: dict[str, str]) -> dict[str, Any]:
-    hotkey_base = _get_env_string(env_vars, "HOTKEY_BASE", config.HOTKEY_BASE).lower()
+    hotkey_base = _get_env_string(env_vars, "HOTKEY_BASE", _default("HOTKEY_BASE")).lower()
     custom_hotkey = _get_env_string(
-        env_vars, "CUSTOM_HOTKEY_VALUE", config.CUSTOM_HOTKEY_VALUE
+        env_vars, "CUSTOM_HOTKEY_VALUE", _default("CUSTOM_HOTKEY_VALUE")
     ).lower()
 
     if IS_LINUX:
@@ -274,7 +311,7 @@ def _text_output_status() -> dict[str, Any]:
 
 def _llm_status(env_vars: dict[str, str]) -> dict[str, Any]:
     """Check whether an LLM provider key is configured for translation."""
-    provider = env_vars.get("LLM_PROVIDER", config.LLM_PROVIDER).lower()
+    provider = env_vars.get("LLM_PROVIDER", _default("LLM_PROVIDER")).lower()
     gemini_key = env_vars.get("GEMINI_API_KEY", "")
     anthropic_key = env_vars.get("ANTHROPIC_API_KEY", "")
 
@@ -335,7 +372,7 @@ def build_setup_status() -> dict[str, Any]:
 
 def get_dictionary() -> dict[str, Any]:
     """Get dictionary contents."""
-    dictionary_path = Config.CONFIG_DIR / "dictionary.json"
+    dictionary_path = get_user_config_dir() / "dictionary.json"
     if not dictionary_path.exists():
         return {"similarity_words": [], "replacements": {}, "case_sensitive": {}, "patterns": []}
 
@@ -352,7 +389,7 @@ def get_dictionary() -> dict[str, Any]:
 
 def save_dictionary(data: dict[str, Any]) -> None:
     """Save dictionary to file."""
-    dictionary_path = Config.CONFIG_DIR / "dictionary.json"
+    dictionary_path = get_user_config_dir() / "dictionary.json"
     dictionary_path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(dictionary_path, "w", encoding="utf-8") as f:

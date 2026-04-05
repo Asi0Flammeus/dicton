@@ -6,7 +6,7 @@ import threading
 
 
 class CancelToken:
-    def __init__(self):
+    def __init__(self) -> None:
         self._event = threading.Event()
 
     @property

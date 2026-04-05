@@ -6,8 +6,6 @@ import logging
 import threading
 from pathlib import Path
 
-from ..shared.config import config
-
 
 class _NullNotifications:
     def notify(self, title: str, message: str, timeout: int = 2) -> None:
@@ -40,12 +38,16 @@ class RuntimeService:
         self._notifications = (
             notification_service if notification_service is not None else _NullNotifications()
         )
+        # Mutable debug flag — toggled at runtime via the system tray.
+        # Starts from the frozen AppConfig snapshot and lives only in this
+        # service instance (no global singleton mutation).
+        self._debug = app_config.debug
 
         if not self._recognizer._provider_available:
             print("❌ No STT provider configured - dictation will not work!")
 
     def _init_fn_handler(self) -> bool:
-        hotkey_base = config.HOTKEY_BASE.lower()
+        hotkey_base = self._app_config.hotkey_base.lower()
         if hotkey_base not in ("fn", "custom"):
             return False
 
@@ -56,13 +58,13 @@ class RuntimeService:
                 on_start_recording=self._session_service.start_recording,
                 on_stop_recording=self._session_service.stop_recording,
                 on_cancel_recording=self._session_service.cancel_recording,
-                double_tap_window_ms=config.HOTKEY_DOUBLE_TAP_WINDOW_MS,
-                debug=config.DEBUG,
-                secondary_hotkey=config.SECONDARY_HOTKEY,
-                secondary_hotkey_translation=config.SECONDARY_HOTKEY_TRANSLATION,
-                secondary_hotkey_act_on_text=config.SECONDARY_HOTKEY_ACT_ON_TEXT,
-                hotkey_base=config.HOTKEY_BASE,
-                custom_hotkey_value=config.CUSTOM_HOTKEY_VALUE,
+                double_tap_window_ms=self._app_config.hotkey_double_tap_window_ms,
+                debug=self._debug,
+                secondary_hotkey=self._app_config.secondary_hotkey,
+                secondary_hotkey_translation=self._app_config.secondary_hotkey_translation,
+                secondary_hotkey_act_on_text=self._app_config.secondary_hotkey_act_on_text,
+                hotkey_base=self._app_config.hotkey_base,
+                custom_hotkey_value=self._app_config.custom_hotkey_value,
             )
             return self._fn_handler.start()
         except ImportError:
@@ -99,7 +101,7 @@ class RuntimeService:
             print("  If dictation hangs, try disconnecting VPN")
 
         try:
-            from ..shared.update_checker import check_for_updates_async
+            from ..adapters.config.update_checker import check_for_updates_async
 
             check_for_updates_async()
         except ImportError:
@@ -111,10 +113,12 @@ class RuntimeService:
         if self._use_fn_key:
             print("Hotkey: FN key (double-tap=toggle)")
             print("Modes: FN=Direct transcription, FN+Ctrl=Translate to English")
-            if config.ENABLE_ADVANCED_MODES:
+            if self._app_config.enable_advanced_modes:
                 print("Advanced: FN+Alt=Reformulation, FN+Shift=Act on Text, FN+Space=Raw")
         else:
-            print(f"Hotkey: {config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}")
+            hmod = self._app_config.hotkey_modifier
+            hkey = self._app_config.hotkey_key
+            print(f"Hotkey: {hmod}+{hkey}")
             try:
                 self._keyboard.start()
             except ImportError as exc:
@@ -143,7 +147,9 @@ class RuntimeService:
         print("=" * 50 + "\n")
 
         hotkey_display = (
-            "FN" if self._use_fn_key else f"{config.HOTKEY_MODIFIER}+{config.HOTKEY_KEY}"
+            "FN"
+            if self._use_fn_key
+            else f"{self._app_config.hotkey_modifier}+{self._app_config.hotkey_key}"
         )
         self._notifications.notify("Dicton Ready", f"Press {hotkey_display}")
 
@@ -162,7 +168,7 @@ class RuntimeService:
                 on_quit=self.request_shutdown,
                 on_toggle_debug=self._toggle_debug,
                 log_path=self._log_path,
-                initial_debug=config.DEBUG,
+                initial_debug=self._debug,
             )
             self._session_service.add_state_observer(self._tray.on_state_change)
             self._tray.start()
@@ -170,11 +176,11 @@ class RuntimeService:
             logging.getLogger(__name__).debug("Tray init failed", exc_info=True)
 
     def _toggle_debug(self) -> bool:
-        config.DEBUG = not config.DEBUG
-        level = logging.DEBUG if config.DEBUG else logging.WARNING
+        self._debug = not self._debug
+        level = logging.DEBUG if self._debug else logging.WARNING
         logging.getLogger().setLevel(level)
-        print(f"Debug mode: {'ON' if config.DEBUG else 'OFF'}")
-        return config.DEBUG
+        print(f"Debug mode: {'ON' if self._debug else 'OFF'}")
+        return self._debug
 
     def shutdown(self) -> None:
         print("\nShutting down...")

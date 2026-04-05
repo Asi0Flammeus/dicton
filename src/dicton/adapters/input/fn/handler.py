@@ -16,8 +16,8 @@ import threading
 import time
 from collections.abc import Callable
 
+from ....core.processing_mode import ProcessingMode, advanced_modes_enabled
 from ....shared.platform_utils import IS_LINUX
-from ....shared.processing_mode import ProcessingMode, advanced_modes_enabled
 from .device_registry import build_device_fd_map, find_keyboard_devices
 from .parser import (
     KEY_LEFTALT,

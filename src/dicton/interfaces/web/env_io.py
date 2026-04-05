@@ -4,18 +4,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ...shared.config import Config
+from ...shared.app_paths import get_user_config_dir
 
 
 def get_env_path() -> Path:
     """Get the .env file path for writing (always user config dir)."""
-    return Config.CONFIG_DIR / ".env"
+    return get_user_config_dir() / ".env"
 
 
 def _find_env_file() -> Path | None:
     """Find .env file - prioritize user config over system config."""
     locations = [
-        Config.CONFIG_DIR / ".env",  # User config dir (~/.config/dicton/) - FIRST!
+        get_user_config_dir() / ".env",  # User config dir (~/.config/dicton/) - FIRST!
         Path.cwd() / ".env",  # Current working directory
         Path("/opt/dicton/.env"),  # System install (read-only fallback)
     ]

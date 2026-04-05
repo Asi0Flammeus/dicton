@@ -8,14 +8,14 @@ capability-oriented to keep the core decoupled.
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
 class AudioCapture(Protocol):
     """Capture audio for a recording session."""
 
-    def record(self):
+    def record(self) -> Any:
         """Record audio until stopped; returns audio buffer or None."""
 
     def stop(self) -> None:
@@ -43,7 +43,7 @@ class AudioSessionControl(Protocol):
 class STTService(Protocol):
     """Speech-to-text transcription service."""
 
-    def transcribe(self, audio) -> str | None:
+    def transcribe(self, audio: Any) -> str | None:
         """Transcribe audio and return text."""
 
 
@@ -54,7 +54,7 @@ class TextProcessor(Protocol):
     def process(
         self,
         text: str,
-        mode,
+        mode: Any,
         selected_text: str | None = None,
     ) -> str | None:
         """Process text based on mode."""
@@ -64,7 +64,7 @@ class TextProcessor(Protocol):
 class TextOutput(Protocol):
     """Outputs text to the active application."""
 
-    def output(self, text: str, mode, replace_selection: bool) -> None:
+    def output(self, text: str, mode: Any, replace_selection: bool) -> None:
         """Emit text to the active app."""
 
 
@@ -83,8 +83,8 @@ class MetricsSink(Protocol):
     def start_session(self) -> None:
         """Start a metrics session."""
 
-    def measure(self, name: str, **kwargs) -> AbstractContextManager[None]:
+    def measure(self, name: str, **kwargs: Any) -> AbstractContextManager[None]:
         """Return a context manager for timing a block."""
 
-    def end_session(self):
+    def end_session(self) -> object | None:
         """End the session and return a summary."""
