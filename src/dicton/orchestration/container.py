@@ -4,15 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..adapters.audio.capture_adapter import AudioCaptureAdapter
 from ..adapters.audio.chunk_manager import ChunkConfig, ChunkManager
 from ..adapters.audio.recognizer import SpeechRecognizer
 from ..adapters.audio.session_control import get_audio_session_control
-from ..adapters.audio.stt_adapter import STTAdapter
 from ..adapters.config.config_env import load_app_config
 from ..adapters.config.latency import get_latency_tracker
-from ..adapters.config.metrics import MetricsAdapter
-from ..adapters.config.text_processing import TextOutputAdapter, TextProcessorAdapter
 from ..adapters.input.hotkey_listener import HotkeyListener
 from ..adapters.llm.factory import get_llm_provider_with_fallback
 from ..adapters.output.clipboard_factory import get_clipboard
@@ -20,8 +16,7 @@ from ..adapters.output.factory import get_text_output
 from ..adapters.ui.notifications_factory import get_notification_service
 from ..adapters.ui.theme_constants import FLEXOKI_COLORS, get_animation_position, get_theme_colors
 from ..adapters.ui.visualizer_config import VisualizerConfig
-from ..core.config_model import AppConfig
-from ..core.controller import DictationController
+from ..shared.app_config import AppConfig
 from ..shared.app_paths import get_user_config_dir, get_user_data_dir
 from .runtime_service import RuntimeService
 from .session_service import SessionService
@@ -141,24 +136,15 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
 
     # === Wiring ===
     session_service = SessionService(
-        controller=None,
+        recognizer=recognizer,
+        chunk_manager=chunk_manager,
+        audio_control=audio_control,
         text_output=text_output,
         metrics=metrics,
         app_config=app_config,
         notification_service=notification_service,
         llm_provider=llm_provider,
         visualizer_factory=_build_visualizer_factory(app_config),
-    )
-    session_service.bind_controller(
-        DictationController(
-            audio_capture=AudioCaptureAdapter(recognizer, chunk_manager=chunk_manager),
-            audio_control=audio_control,
-            stt=STTAdapter(recognizer, chunk_manager=chunk_manager),
-            text_processor=TextProcessorAdapter(session_service.process_text),
-            text_output=TextOutputAdapter(session_service.output_result),
-            ui=notification_service,
-            metrics=MetricsAdapter(metrics),
-        )
     )
     hotkey_listener.on_toggle = session_service.toggle_basic_recording
 
