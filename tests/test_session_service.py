@@ -39,8 +39,9 @@ class _DummyMetrics:
 
 
 class _AppConfig:
-    def __init__(self):
+    def __init__(self, *, enable_advanced_modes: bool = False):
         self.debug = True
+        self.enable_advanced_modes = enable_advanced_modes
 
 
 def test_concurrent_starts_only_launch_one_session():
@@ -69,3 +70,37 @@ def test_concurrent_starts_only_launch_one_session():
     assert len(controller.sessions) == 1
     assert controller.sessions == [ProcessingMode.BASIC]
     assert service.recording is False
+
+
+def test_start_recording_rejects_advanced_mode_when_disabled():
+    controller = _DummyController()
+    service = SessionService(
+        controller=controller,
+        text_output=None,
+        metrics=_DummyMetrics(),
+        app_config=_AppConfig(enable_advanced_modes=False),
+        visualizer_factory=lambda: None,
+    )
+
+    service.start_recording(ProcessingMode.REFORMULATION)
+    assert service._record_thread is not None
+    service._record_thread.join(timeout=1.0)
+
+    assert controller.sessions == [ProcessingMode.BASIC]
+
+
+def test_start_recording_accepts_advanced_mode_when_enabled():
+    controller = _DummyController()
+    service = SessionService(
+        controller=controller,
+        text_output=None,
+        metrics=_DummyMetrics(),
+        app_config=_AppConfig(enable_advanced_modes=True),
+        visualizer_factory=lambda: None,
+    )
+
+    service.start_recording(ProcessingMode.REFORMULATION)
+    assert service._record_thread is not None
+    service._record_thread.join(timeout=1.0)
+
+    assert controller.sessions == [ProcessingMode.REFORMULATION]

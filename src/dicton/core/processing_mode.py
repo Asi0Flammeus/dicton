@@ -4,7 +4,6 @@ Each mode has a dedicated ring color (Flexoki palette) for visual feedback.
 See CLAUDE.md for the full color convention.
 """
 
-import os
 from dataclasses import dataclass
 from enum import Enum, auto
 
@@ -84,16 +83,11 @@ def get_mode_color(mode: ProcessingMode) -> str:
     return MODE_COLORS.get(mode, "orange")
 
 
-def advanced_modes_enabled() -> bool:
-    """Return whether advanced processing modes are exposed to the user."""
-    return os.getenv("ENABLE_ADVANCED_MODES", "false").lower() == "true"
-
-
-def is_mode_enabled(mode: ProcessingMode) -> bool:
+def is_mode_enabled(mode: ProcessingMode, enable_advanced_modes: bool) -> bool:
     """Return whether a processing mode is user-accessible."""
     if mode in {ProcessingMode.BASIC, ProcessingMode.TRANSLATION}:
         return True
-    return advanced_modes_enabled()
+    return enable_advanced_modes
 
 
 # Convenience alias kept for backward compatibility with ModeConfig.for_mode

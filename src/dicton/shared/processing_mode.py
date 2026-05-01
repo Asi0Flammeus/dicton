@@ -4,7 +4,6 @@ from ..core.processing_mode import *  # noqa: F401,F403
 from ..core.processing_mode import (  # noqa: F401
     ModeConfig,
     ProcessingMode,
-    advanced_modes_enabled,
     for_mode,
     get_mode_color,
     is_mode_enabled,

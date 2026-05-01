@@ -43,3 +43,43 @@ def test_toggle_callbacks_are_delivered_in_order():
     finally:
         allow_start_to_finish.set()
         handler.stop()
+
+
+def test_fn_mode_detection_blocks_advanced_modes_when_disabled():
+    handler = FnKeyHandler(enable_advanced_modes=False)
+
+    try:
+        handler._alt_pressed = True
+        assert handler._detect_mode() == ProcessingMode.BASIC
+
+        handler._alt_pressed = False
+        handler._space_pressed = True
+        assert handler._detect_mode() == ProcessingMode.BASIC
+
+        handler._space_pressed = False
+        handler._ctrl_pressed = True
+        handler._shift_pressed = True
+        assert handler._detect_mode() == ProcessingMode.TRANSLATION
+    finally:
+        handler.stop()
+
+
+def test_fn_mode_detection_routes_advanced_modes_when_enabled():
+    handler = FnKeyHandler(enable_advanced_modes=True)
+
+    try:
+        handler._alt_pressed = True
+        assert handler._detect_mode() == ProcessingMode.REFORMULATION
+
+        handler._alt_pressed = False
+        handler._space_pressed = True
+        assert handler._detect_mode() == ProcessingMode.RAW
+
+        handler._space_pressed = False
+        handler._ctrl_pressed = True
+        assert handler._detect_mode() == ProcessingMode.TRANSLATION
+
+        handler._shift_pressed = True
+        assert handler._detect_mode() == ProcessingMode.TRANSLATE_REFORMAT
+    finally:
+        handler.stop()
