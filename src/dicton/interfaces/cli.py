@@ -11,14 +11,14 @@ import warnings
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 warnings.filterwarnings("ignore")
 
+from ..adapters.config.config_env import load_app_config
 from ..orchestration.container import build_runtime_service
-from ..shared.config import config
 from ..shared.platform_utils import IS_WINDOWS
 
 
 def show_latency_report() -> None:
     """Show latency report from log file."""
-    from ..shared.latency_tracker import LatencyTracker
+    from ..adapters.config.latency import LatencyTracker
 
     tracker = LatencyTracker(enabled=True)
     count = tracker.load_from_log()
@@ -36,7 +36,7 @@ def show_latency_report() -> None:
 
 def clear_latency_log() -> None:
     """Clear the latency log file."""
-    from ..shared.latency_tracker import LatencyTracker
+    from ..adapters.config.latency import LatencyTracker
 
     tracker = LatencyTracker(enabled=True)
     tracker.clear_log()
@@ -44,6 +44,7 @@ def clear_latency_log() -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    app_cfg = load_app_config()
     epilog = """
 Hotkeys (default):
   FN (double-tap)  Toggle recording (direct transcription)
@@ -57,7 +58,7 @@ Examples:
   dicton --check-update   Check for new version
   dicton --clear-log      Clear latency history
 """
-    if config.ENABLE_ADVANCED_MODES:
+    if app_cfg.enable_advanced_modes:
         epilog = """
 Hotkeys (FN key mode):
   FN (double-tap)  Toggle recording (direct transcription)
@@ -118,7 +119,7 @@ def main() -> None:
         return
 
     if args.check_update:
-        from ..shared.update_checker import check_for_updates, print_update_notification
+        from ..adapters.config.update_checker import check_for_updates, print_update_notification
 
         print("Checking for updates...")
         update = check_for_updates(force=True)

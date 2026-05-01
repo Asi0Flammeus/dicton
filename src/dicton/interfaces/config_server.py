@@ -16,6 +16,7 @@ from __future__ import annotations
 import webbrowser
 from threading import Timer
 
+# Re-export kept for backward-compatibility with test monkeypatching.
 from ..shared.config import Config as Config  # noqa: F401
 
 # -- re-exports used by tests for monkeypatching -----------------------------

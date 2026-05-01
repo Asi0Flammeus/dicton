@@ -1,74 +1,96 @@
 """Env configuration adapter producing a structured AppConfig.
 
-Reads values from the legacy ``shared.config.Config`` singleton (which itself
-reads ``os.environ`` / ``.env`` files) and returns a frozen ``AppConfig``
-snapshot.  The legacy module is **not** removed yet — this adapter simply
-routes its values through the structured model so that the rest of the
-application can migrate incrementally.
+Reads all configuration values directly from ``os.environ``.  The dotenv
+loading is guaranteed by importing ``shared.app_paths`` (which triggers
+the ``shared.config`` module-level ``_load_env_files()`` via Python's
+import chain).  This adapter does **not** import the legacy
+``shared.config`` singleton—callers get a frozen ``AppConfig`` snapshot
+that can be threaded through the application without global mutable state.
 """
 
 from __future__ import annotations
 
+import os
+
 from ...core.config_model import AppConfig
-from ...shared.config import config as legacy_config
+
+
+def _env(key: str, default: str = "") -> str:
+    return os.getenv(key, default)
+
+
+def _env_lower(key: str, default: str = "") -> str:
+    return os.getenv(key, default).lower()
+
+
+def _env_bool(key: str, default: str = "false") -> bool:
+    return os.getenv(key, default).lower() == "true"
+
+
+def _env_float(key: str, default: str) -> float:
+    return float(os.getenv(key, default))
+
+
+def _env_int(key: str, default: str) -> int:
+    return int(os.getenv(key, default))
 
 
 def load_app_config() -> AppConfig:
-    """Build an ``AppConfig`` from the current legacy config state."""
+    """Build an ``AppConfig`` from the current ``os.environ`` state."""
     return AppConfig(
         # General
-        debug=legacy_config.DEBUG,
-        notifications_enabled=legacy_config.NOTIFICATIONS_ENABLED,
-        language=legacy_config.LANGUAGE,
+        debug=_env_bool("DEBUG", "false"),
+        notifications_enabled=_env_bool("NOTIFICATIONS_ENABLED", "false"),
+        language=_env("LANGUAGE", "auto"),
         # STT
-        stt_provider=legacy_config.STT_PROVIDER,
-        elevenlabs_api_key=legacy_config.ELEVENLABS_API_KEY,
-        elevenlabs_model=legacy_config.ELEVENLABS_MODEL,
-        mistral_api_key=legacy_config.MISTRAL_API_KEY,
-        mistral_stt_model=legacy_config.MISTRAL_STT_MODEL,
-        api_timeout=legacy_config.API_TIMEOUT,
-        stt_timeout=legacy_config.STT_TIMEOUT,
+        stt_provider=_env("STT_PROVIDER", "auto"),
+        elevenlabs_api_key=_env("ELEVENLABS_API_KEY"),
+        elevenlabs_model=_env("ELEVENLABS_MODEL", "scribe_v1"),
+        mistral_api_key=_env("MISTRAL_API_KEY"),
+        mistral_stt_model=_env("MISTRAL_STT_MODEL", "voxtral-mini-latest"),
+        api_timeout=_env_float("API_TIMEOUT", "30"),
+        stt_timeout=_env_float("STT_TIMEOUT", "120"),
         # LLM
-        llm_provider=legacy_config.LLM_PROVIDER,
-        gemini_api_key=legacy_config.GEMINI_API_KEY,
-        gemini_model=legacy_config.GEMINI_MODEL,
-        anthropic_api_key=legacy_config.ANTHROPIC_API_KEY,
-        anthropic_model=legacy_config.ANTHROPIC_MODEL,
+        llm_provider=_env_lower("LLM_PROVIDER", "gemini"),
+        gemini_api_key=_env("GEMINI_API_KEY"),
+        gemini_model=_env("GEMINI_MODEL", "gemini-2.5-flash-lite"),
+        anthropic_api_key=_env("ANTHROPIC_API_KEY"),
+        anthropic_model=_env("ANTHROPIC_MODEL", "claude-sonnet-4-20250514"),
         # Hotkey
-        hotkey_modifier=legacy_config.HOTKEY_MODIFIER,
-        hotkey_key=legacy_config.HOTKEY_KEY,
-        hotkey_base=legacy_config.HOTKEY_BASE,
-        custom_hotkey_value=legacy_config.CUSTOM_HOTKEY_VALUE,
-        hotkey_double_tap_window_ms=legacy_config.HOTKEY_DOUBLE_TAP_WINDOW_MS,
-        secondary_hotkey=legacy_config.SECONDARY_HOTKEY,
-        secondary_hotkey_translation=legacy_config.SECONDARY_HOTKEY_TRANSLATION,
-        secondary_hotkey_act_on_text=legacy_config.SECONDARY_HOTKEY_ACT_ON_TEXT,
+        hotkey_modifier=_env("HOTKEY_MODIFIER", "alt"),
+        hotkey_key=_env("HOTKEY_KEY", "g"),
+        hotkey_base=_env("HOTKEY_BASE", "fn"),
+        custom_hotkey_value=_env("CUSTOM_HOTKEY_VALUE", "alt+g"),
+        hotkey_double_tap_window_ms=_env_int("HOTKEY_DOUBLE_TAP_WINDOW_MS", "300"),
+        secondary_hotkey=_env_lower("SECONDARY_HOTKEY", "none"),
+        secondary_hotkey_translation=_env_lower("SECONDARY_HOTKEY_TRANSLATION", "none"),
+        secondary_hotkey_act_on_text=_env_lower("SECONDARY_HOTKEY_ACT_ON_TEXT", "none"),
         # Audio
-        sample_rate=legacy_config.SAMPLE_RATE,
-        chunk_size=legacy_config.CHUNK_SIZE,
-        rms_normalization=legacy_config.RMS_NORMALIZATION,
-        mic_device=legacy_config.MIC_DEVICE,
-        mute_playback_on_recording=legacy_config.MUTE_PLAYBACK_ON_RECORDING,
-        mute_backend=legacy_config.MUTE_BACKEND,
-        playback_mute_strategy=legacy_config.PLAYBACK_MUTE_STRATEGY,
+        sample_rate=16000,
+        chunk_size=1024,
+        rms_normalization=8000,
+        mic_device=_env("MIC_DEVICE", "auto"),
+        mute_playback_on_recording=_env_bool("MUTE_PLAYBACK_ON_RECORDING", "true"),
+        mute_backend=_env_lower("MUTE_BACKEND", "auto"),
+        playback_mute_strategy=_env_lower("PLAYBACK_MUTE_STRATEGY", "auto"),
         # Chunking
-        chunk_enabled=legacy_config.CHUNK_ENABLED,
-        chunk_min_s=legacy_config.CHUNK_MIN_S,
-        chunk_max_s=legacy_config.CHUNK_MAX_S,
-        chunk_overlap_s=legacy_config.CHUNK_OVERLAP_S,
-        chunk_silence_threshold=legacy_config.CHUNK_SILENCE_THRESHOLD,
-        chunk_silence_window_s=legacy_config.CHUNK_SILENCE_WINDOW_S,
+        chunk_enabled=_env_bool("CHUNK_ENABLED", "true"),
+        chunk_min_s=_env_float("CHUNK_MIN_S", "30"),
+        chunk_max_s=_env_float("CHUNK_MAX_S", "120"),
+        chunk_overlap_s=_env_float("CHUNK_OVERLAP_S", "2.0"),
+        chunk_silence_threshold=_env_float("CHUNK_SILENCE_THRESHOLD", "0.03"),
+        chunk_silence_window_s=_env_float("CHUNK_SILENCE_WINDOW_S", "0.3"),
         # Visualizer
-        theme_color=legacy_config.THEME_COLOR,
-        animation_position=legacy_config.ANIMATION_POSITION,
-        visualizer_style=legacy_config.VISUALIZER_STYLE,
-        visualizer_backend=legacy_config.VISUALIZER_BACKEND,
-        visualizer_opacity=legacy_config.VISUALIZER_OPACITY,
+        theme_color=_env_lower("THEME_COLOR", "orange"),
+        animation_position=_env_lower("ANIMATION_POSITION", "top-right"),
+        visualizer_style=_env_lower("VISUALIZER_STYLE", "toric"),
+        visualizer_backend=_env_lower("VISUALIZER_BACKEND", "pygame"),
+        visualizer_opacity=_env_float("VISUALIZER_OPACITY", "0.85"),
         # Text processing
-        filter_fillers=legacy_config.FILTER_FILLERS,
-        enable_reformulation=legacy_config.ENABLE_REFORMULATION,
-        enable_advanced_modes=legacy_config.ENABLE_ADVANCED_MODES,
-        paste_threshold_words=legacy_config.PASTE_THRESHOLD_WORDS,
-        clipboard_verify_delay_ms=legacy_config.CLIPBOARD_VERIFY_DELAY_MS,
-        clipboard_max_retries=legacy_config.CLIPBOARD_MAX_RETRIES,
+        filter_fillers=_env_bool("FILTER_FILLERS", "true"),
+        enable_reformulation=_env_bool("ENABLE_REFORMULATION", "false"),
+        enable_advanced_modes=_env_bool("ENABLE_ADVANCED_MODES", "false"),
+        paste_threshold_words=_env_int("PASTE_THRESHOLD_WORDS", "10"),
+        clipboard_verify_delay_ms=_env_int("CLIPBOARD_VERIFY_DELAY_MS", "50"),
+        clipboard_max_retries=_env_int("CLIPBOARD_MAX_RETRIES", "5"),
     )

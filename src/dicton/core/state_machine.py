@@ -51,8 +51,8 @@ _TRANSITIONS = {
 
 
 class SessionStateMachine:
-    def __init__(self):
-        self.state = SessionState.IDLE
+    def __init__(self) -> None:
+        self.state: SessionState = SessionState.IDLE
         self._observers: list[Callable[[SessionState], None]] = []
 
     def add_observer(self, callback: Callable[[SessionState], None]) -> None:
