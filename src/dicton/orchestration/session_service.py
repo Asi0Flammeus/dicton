@@ -73,7 +73,7 @@ class SessionService:
                 return  # Previous session still processing
             self._starting = True
 
-        if not is_mode_enabled(mode):
+        if not is_mode_enabled(mode, self._app_config.enable_advanced_modes):
             mode = ProcessingMode.BASIC
 
         try:
@@ -180,7 +180,7 @@ class SessionService:
         selected_text: str | None = None,
     ) -> str | None:
         """Process transcribed text based on the current mode."""
-        if not is_mode_enabled(mode):
+        if not is_mode_enabled(mode, self._app_config.enable_advanced_modes):
             mode = ProcessingMode.BASIC
 
         if mode in (ProcessingMode.BASIC, ProcessingMode.RAW):

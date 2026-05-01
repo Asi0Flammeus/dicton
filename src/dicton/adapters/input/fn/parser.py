@@ -159,7 +159,7 @@ def build_secondary_hotkeys(
     *,
     secondary_hotkey: str,
     secondary_hotkey_translation: str,
-    advanced_modes_enabled: bool,
+    enable_advanced_modes: bool,
 ) -> dict[int, ProcessingMode]:
     hotkeys: dict[int, ProcessingMode] = {}
 

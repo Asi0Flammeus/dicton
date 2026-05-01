@@ -16,7 +16,7 @@ import threading
 import time
 from collections.abc import Callable
 
-from ....core.processing_mode import ProcessingMode, advanced_modes_enabled
+from ....core.processing_mode import ProcessingMode
 from ....shared.platform_utils import IS_LINUX
 from .device_registry import build_device_fd_map, find_keyboard_devices
 from .parser import (
@@ -59,6 +59,7 @@ class FnKeyHandler:
         secondary_hotkey_translation: str = "none",
         hotkey_base: str = "fn",
         custom_hotkey_value: str = "alt+g",
+        enable_advanced_modes: bool = False,
     ):
         """Initialize FN key handler.
 
@@ -72,6 +73,7 @@ class FnKeyHandler:
             secondary_hotkey_translation: Secondary hotkey for translation mode.
             hotkey_base: Hotkey base type ("fn" or "custom").
             custom_hotkey_value: Custom hotkey specification (e.g. "alt+g").
+            enable_advanced_modes: Whether advanced processing modes are user-accessible.
         """
         self.on_start_recording = on_start_recording
         self.on_stop_recording = on_stop_recording
@@ -83,6 +85,7 @@ class FnKeyHandler:
         self._secondary_hotkey_translation_cfg = secondary_hotkey_translation
         self._hotkey_base = hotkey_base
         self._custom_hotkey_value_cfg = custom_hotkey_value
+        self._enable_advanced_modes = enable_advanced_modes
 
         # State machine
         self._state = HotkeyState.IDLE
@@ -158,7 +161,7 @@ class FnKeyHandler:
         self._secondary_hotkeys = build_secondary_hotkeys(
             secondary_hotkey=self._secondary_hotkey_cfg,
             secondary_hotkey_translation=self._secondary_hotkey_translation_cfg,
-            advanced_modes_enabled=advanced_modes_enabled(),
+            enable_advanced_modes=self._enable_advanced_modes,
         )
 
     def _parse_custom_hotkey(self):
@@ -653,13 +656,13 @@ class FnKeyHandler:
         - FN + Space → RAW (Yellow)
         - FN only → BASIC (Orange)
         """
-        if self._ctrl_pressed and self._shift_pressed and advanced_modes_enabled():
+        if self._ctrl_pressed and self._shift_pressed and self._enable_advanced_modes:
             return ProcessingMode.TRANSLATE_REFORMAT
         if self._ctrl_pressed:
             return ProcessingMode.TRANSLATION
-        if self._alt_pressed and advanced_modes_enabled():
+        if self._alt_pressed and self._enable_advanced_modes:
             return ProcessingMode.REFORMULATION
-        if self._space_pressed and advanced_modes_enabled():
+        if self._space_pressed and self._enable_advanced_modes:
             return ProcessingMode.RAW
         return ProcessingMode.BASIC
 

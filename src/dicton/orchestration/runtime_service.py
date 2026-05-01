@@ -64,6 +64,7 @@ class RuntimeService:
                 secondary_hotkey_translation=self._app_config.secondary_hotkey_translation,
                 hotkey_base=self._app_config.hotkey_base,
                 custom_hotkey_value=self._app_config.custom_hotkey_value,
+                enable_advanced_modes=self._app_config.enable_advanced_modes,
             )
             return self._fn_handler.start()
         except ImportError:
