@@ -1,28 +1,8 @@
-"""Core ports (interfaces) for Dicton.
-
-These protocols define the boundaries between the core orchestration
-and platform/vendor-specific adapters. They are intentionally small and
-capability-oriented to keep the core decoupled.
-"""
+"""Earned core ports for external runtime boundaries."""
 
 from __future__ import annotations
 
-from contextlib import AbstractContextManager
-from typing import Any, Protocol, runtime_checkable
-
-
-@runtime_checkable
-class AudioCapture(Protocol):
-    """Capture audio for a recording session."""
-
-    def record(self) -> Any:
-        """Record audio until stopped; returns audio buffer or None."""
-
-    def stop(self) -> None:
-        """Stop recording and proceed to processing."""
-
-    def cancel(self) -> None:
-        """Cancel recording and discard audio."""
+from typing import Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -40,32 +20,14 @@ class AudioSessionControl(Protocol):
 
 
 @runtime_checkable
-class STTService(Protocol):
-    """Speech-to-text transcription service."""
-
-    def transcribe(self, audio: Any) -> str | None:
-        """Transcribe audio and return text."""
-
-
-@runtime_checkable
-class TextProcessor(Protocol):
-    """Post-processing for transcribed text."""
-
-    def process(
-        self,
-        text: str,
-        mode: Any,
-        selected_text: str | None = None,
-    ) -> str | None:
-        """Process text based on mode."""
-
-
-@runtime_checkable
 class TextOutput(Protocol):
-    """Outputs text to the active application."""
+    """Insert text into the active application."""
 
-    def output(self, text: str, mode: Any) -> None:
-        """Emit text to the active app."""
+    def insert_text(self, text: str, delay_ms: int = 50) -> None:
+        """Insert text at cursor position."""
+
+    def paste_text(self, text: str) -> bool:
+        """Paste text via clipboard. Returns True on success."""
 
 
 @runtime_checkable
@@ -74,17 +36,3 @@ class UIFeedback(Protocol):
 
     def notify(self, title: str, message: str) -> None:
         """Display a notification."""
-
-
-@runtime_checkable
-class MetricsSink(Protocol):
-    """Latency/metrics tracking."""
-
-    def start_session(self) -> None:
-        """Start a metrics session."""
-
-    def measure(self, name: str, **kwargs: Any) -> AbstractContextManager[None]:
-        """Return a context manager for timing a block."""
-
-    def end_session(self) -> object | None:
-        """End the session and return a summary."""

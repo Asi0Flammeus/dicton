@@ -16,15 +16,7 @@ from dicton.adapters.output.fallback import PynputTextOutput
 from dicton.adapters.output.linux import LinuxTextOutput
 from dicton.adapters.output.macos import MacOSTextOutput
 from dicton.adapters.output.windows import WindowsTextOutput
-from dicton.core.ports import (
-    AudioCapture,
-    AudioSessionControl,
-    MetricsSink,
-    STTService,
-    TextOutput,
-    TextProcessor,
-    UIFeedback,
-)
+from dicton.core.ports import AudioSessionControl, TextOutput, UIFeedback
 from dicton.orchestration.session_service import SessionService
 
 # ---------------------------------------------------------------------------
@@ -87,77 +79,13 @@ def test_output_result_uses_correct_insert_text_kwarg():
 
 
 # ---------------------------------------------------------------------------
-# 3. Core port protocols are runtime-checkable and adapters satisfy them
+# 3. Core port protocols are runtime-checkable and concrete boundaries match
 # ---------------------------------------------------------------------------
 
 
-def test_text_output_adapter_satisfies_core_port():
-    """TextOutputAdapter must satisfy the core TextOutput protocol."""
-    from dicton.adapters.config.text_processing import TextOutputAdapter
-
-    adapter = TextOutputAdapter(lambda text, mode: None)
-    assert isinstance(adapter, TextOutput)
-
-
-def test_text_processor_adapter_satisfies_core_port():
-    """TextProcessorAdapter must satisfy the core TextProcessor protocol."""
-    from dicton.adapters.config.text_processing import TextProcessorAdapter
-
-    adapter = TextProcessorAdapter(lambda text, mode, selected: text)
-    assert isinstance(adapter, TextProcessor)
-
-
-def test_metrics_adapter_satisfies_core_port():
-    """MetricsAdapter must satisfy the core MetricsSink protocol."""
-    from contextlib import nullcontext
-
-    from dicton.adapters.config.metrics import MetricsAdapter
-
-    class _FakeTracker:
-        def start_session(self):
-            pass
-
-        def measure(self, name, **kwargs):
-            return nullcontext()
-
-        def end_session(self):
-            return None
-
-    adapter = MetricsAdapter(_FakeTracker())
-    assert isinstance(adapter, MetricsSink)
-
-
-def test_audio_capture_adapter_satisfies_core_port():
-    """AudioCaptureAdapter must satisfy the core AudioCapture protocol."""
-    from dicton.adapters.audio.capture_adapter import AudioCaptureAdapter
-
-    class _FakeRecognizer:
-        def record(self, on_chunk=None):
-            return None
-
-        def stop(self):
-            pass
-
-        def cancel(self):
-            pass
-
-    adapter = AudioCaptureAdapter(_FakeRecognizer())
-    assert isinstance(adapter, AudioCapture)
-
-
-def test_stt_adapter_satisfies_core_port():
-    """STTAdapter must satisfy the core STTService protocol."""
-    from dicton.adapters.audio.stt_adapter import STTAdapter
-
-    class _FakeRecognizer:
-        def transcribe(self, audio):
-            return None
-
-        def filter_text(self, text):
-            return text
-
-    adapter = STTAdapter(_FakeRecognizer())
-    assert isinstance(adapter, STTService)
+def test_text_output_implementations_satisfy_core_port():
+    """The real OS output boundary must satisfy the core TextOutput protocol."""
+    assert issubclass(TextOutputABC, TextOutput)
 
 
 # ---------------------------------------------------------------------------
@@ -165,23 +93,21 @@ def test_stt_adapter_satisfies_core_port():
 # ---------------------------------------------------------------------------
 
 
-class _StubController:
-    """Minimal stand-in that satisfies bind_controller expectations."""
-
-    class _State:
-        def add_observer(self, cb):
-            pass
-
-    _state = _State()
-
-    def run_session(self, **kw):
-        return False, None
+class _StubRecognizer:
+    def record(self, on_chunk=None):
+        return b"audio"
 
     def stop(self):
         pass
 
     def cancel(self):
         pass
+
+    def transcribe(self, audio):
+        return "hello"
+
+    def filter_text(self, text):
+        return text
 
 
 class _StubTextOutput(TextOutputABC):
@@ -207,18 +133,18 @@ class _StubMetrics:
 
 class _StubConfig:
     debug = False
+    enable_advanced_modes = False
 
 
 def test_session_service_wires_without_error():
-    """SessionService + bind_controller must succeed with stub deps."""
+    """SessionService must succeed with stub deps."""
     svc = SessionService(
-        controller=None,
+        recognizer=_StubRecognizer(),
         text_output=_StubTextOutput(),
         metrics=_StubMetrics(),
         app_config=_StubConfig(),
         visualizer_factory=lambda: None,
     )
-    svc.bind_controller(_StubController())
 
     # Verify the output path is callable end-to-end (no TypeError)
     from dicton.shared.processing_mode import ProcessingMode
@@ -227,25 +153,21 @@ def test_session_service_wires_without_error():
 
 
 # ---------------------------------------------------------------------------
-# 5. All port protocols are runtime-checkable
+# 5. All retained port protocols are runtime-checkable
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
     "protocol",
     [
-        AudioCapture,
         AudioSessionControl,
-        STTService,
-        TextProcessor,
         TextOutput,
         UIFeedback,
-        MetricsSink,
     ],
     ids=lambda p: p.__name__,
 )
 def test_port_protocols_are_runtime_checkable(protocol):
-    """Every core port must be decorated with @runtime_checkable."""
+    """Every retained core port must be decorated with @runtime_checkable."""
     assert (
         hasattr(protocol, "__protocol_attrs__")
         or hasattr(protocol, "__abstractmethods__")

@@ -1,10 +1,4 @@
-"""Core configuration model (structured view).
-
-``AppConfig`` is a frozen dataclass that mirrors every runtime setting the
-core and orchestration layers need.  Adapters populate it (see
-``adapters.config.config_env``); consumers should read from here instead of
-reaching into ``shared.config`` directly.
-"""
+"""Structured runtime configuration snapshot."""
 
 from __future__ import annotations
 

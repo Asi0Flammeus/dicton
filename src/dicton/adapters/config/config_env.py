@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import os
 
-from ...core.config_model import AppConfig
+from ...shared.app_config import AppConfig
 
 
 def _env(key: str, default: str = "") -> str:
