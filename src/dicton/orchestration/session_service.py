@@ -22,7 +22,6 @@ class SessionService:
         text_output,
         metrics,
         app_config,
-        selection_reader=None,
         notification_service=None,
         llm_provider=None,
         visualizer_factory=None,
@@ -30,7 +29,6 @@ class SessionService:
         self._controller = controller
         self._text_output = text_output
         self._metrics = metrics
-        self._selection = selection_reader
         self._notifications = (
             notification_service if notification_service is not None else _NullNotifications()
         )
@@ -45,7 +43,6 @@ class SessionService:
         self._record_thread: threading.Thread | None = None
         self._current_mode = ProcessingMode.BASIC
         self._visualizer = None
-        self._selected_text: str | None = None
 
     def bind_controller(self, controller) -> None:
         """Attach the session pipeline controller after service construction."""
@@ -79,30 +76,16 @@ class SessionService:
         if not is_mode_enabled(mode):
             mode = ProcessingMode.BASIC
 
-        selected_text = None
-
         try:
-            if mode == ProcessingMode.ACT_ON_TEXT:
-                selected = self._capture_selection_for_act_on_text()
-                if not selected:
-                    return
-                selected_text = selected
-                print(
-                    f"📋 Selected: {selected[:50]}..."
-                    if len(selected) > 50
-                    else f"📋 Selected: {selected}"
-                )
-
             self._update_visualizer_color(mode)
 
             record_thread = threading.Thread(
                 target=self._record_and_transcribe,
-                args=(mode, selected_text),
+                args=(mode,),
                 daemon=True,
             )
             with self._session_lock:
                 self._current_mode = mode
-                self._selected_text = selected_text
                 self._recording = True
                 self._record_thread = record_thread
                 self._starting = False
@@ -142,15 +125,10 @@ class SessionService:
         except Exception:
             pass
 
-    def _record_and_transcribe(
-        self,
-        mode: ProcessingMode,
-        selected_text: str | None,
-    ) -> None:
+    def _record_and_transcribe(self, mode: ProcessingMode) -> None:
         tracker = self._metrics
         mode_names = {
             ProcessingMode.BASIC: "Recording",
-            ProcessingMode.ACT_ON_TEXT: "Act on Text",
             ProcessingMode.REFORMULATION: "Reformulation",
             ProcessingMode.TRANSLATION: "Translation",
             ProcessingMode.TRANSLATE_REFORMAT: "Translate+Reformat",
@@ -161,14 +139,7 @@ class SessionService:
         viz = self._visualizer
 
         try:
-            if mode == ProcessingMode.ACT_ON_TEXT:
-                if not selected_text:
-                    print("⚠ No selection captured")
-                    return
-
-            session_ctx = SessionContext(
-                selected_text=selected_text,
-            )
+            session_ctx = SessionContext()
 
             def _pre_output() -> None:
                 if viz:
@@ -202,27 +173,6 @@ class SessionService:
             if viz:
                 viz.stop()
 
-    def _capture_selection_for_act_on_text(self) -> str | None:
-        if self._selection is None:
-            print("⚠ Selection reader not configured")
-            self._notifications.notify("⚠ Not Available", "Install xclip or wl-clipboard")
-            return None
-
-        if not self._selection.has_selection():
-            print("⚠ No text selected")
-            self._notifications.notify(
-                "⚠ No Selection", "Highlight text first, then press FN+Shift"
-            )
-            return None
-
-        selected = self._selection.get_selection()
-        if not selected:
-            print("⚠ Could not read selection")
-            self._notifications.notify("⚠ Selection Error", "Install xclip or wl-clipboard")
-            return None
-
-        return selected
-
     def process_text(
         self,
         text: str,
@@ -241,15 +191,13 @@ class SessionService:
             self._notifications.notify("⚠ LLM Not Available", "Configure LLM_PROVIDER")
             return text
 
-        from ..adapters.llm.prompts import act_on_text, reformulate, translate
+        from ..adapters.llm.prompts import reformulate, translate
 
         llm_kwargs = {
             "user_provider": self._app_config.llm_provider,
             "debug": self._app_config.debug,
         }
 
-        if mode == ProcessingMode.ACT_ON_TEXT and selected_text:
-            return act_on_text(selected_text, text, **llm_kwargs)
         if mode == ProcessingMode.REFORMULATION:
             if self._app_config.enable_reformulation:
                 return reformulate(text, **llm_kwargs)
@@ -264,21 +212,11 @@ class SessionService:
 
         return text
 
-    def output_result(
-        self,
-        text: str,
-        mode: ProcessingMode,
-        replace_selection: bool,
-    ) -> None:
+    def output_result(self, text: str, mode: ProcessingMode) -> None:
         """Emit processed text to the active application."""
         self._text_output.insert_text(text, delay_ms=50)
-
-        if mode == ProcessingMode.ACT_ON_TEXT:
-            print(f"✓ Replaced: {text[:50]}..." if len(text) > 50 else f"✓ {text}")
-            self._notifications.notify("✓ Text Replaced", text[:100])
-        else:
-            print(f"✓ {text[:50]}..." if len(text) > 50 else f"✓ {text}")
-            self._notifications.notify("✓ Done", text[:100])
+        print(f"✓ {text[:50]}..." if len(text) > 50 else f"✓ {text}")
+        self._notifications.notify("✓ Done", text[:100])
 
     def _filter_fillers_local(self, text: str) -> str:
         try:

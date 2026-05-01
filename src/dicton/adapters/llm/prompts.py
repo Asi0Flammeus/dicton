@@ -1,4 +1,4 @@
-"""LLM-powered text operations: act_on_text, reformulate, translate."""
+"""LLM-powered text operations: reformulate, translate."""
 
 from __future__ import annotations
 
@@ -38,46 +38,6 @@ def _call(
         print(f"All LLM providers failed. Last error: {last_error}")
 
     return None
-
-
-def act_on_text(
-    selected_text: str,
-    instruction: str,
-    *,
-    user_provider: str = "auto",
-    debug: bool = False,
-) -> str | None:
-    """Apply a voice instruction to selected text using LLM.
-
-    Args:
-        selected_text: The text the user has selected.
-        instruction: The voice instruction (e.g., "make this more formal").
-        user_provider: Preferred LLM provider name.
-        debug: Enable debug output.
-
-    Returns:
-        The modified text, or None on error.
-    """
-    if not selected_text or not instruction:
-        return None
-
-    prompt = f"""You are a text manipulation assistant. Apply the user's instruction to the provided text.
-
-IMPORTANT RULES:
-1. Return ONLY the modified text, no explanations or commentary
-2. Preserve the original formatting (paragraphs, line breaks, etc.) unless the instruction requires changing it
-3. Maintain the original language unless translation is requested
-4. Apply the instruction precisely as stated
-
-SELECTED TEXT:
-{selected_text}
-
-USER INSTRUCTION:
-{instruction}
-
-MODIFIED TEXT:"""
-
-    return _call(prompt, user_provider=user_provider, debug=debug)
 
 
 def reformulate(

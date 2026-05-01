@@ -13,7 +13,6 @@ def test_basic_and_translation_enabled_by_default(clean_env, monkeypatch):
     assert processing_mode.is_mode_enabled(processing_mode.ProcessingMode.BASIC) is True
     assert processing_mode.is_mode_enabled(processing_mode.ProcessingMode.TRANSLATION) is True
     assert processing_mode.is_mode_enabled(processing_mode.ProcessingMode.REFORMULATION) is False
-    assert processing_mode.is_mode_enabled(processing_mode.ProcessingMode.ACT_ON_TEXT) is False
 
 
 def test_advanced_modes_can_be_reenabled(clean_env, monkeypatch):
@@ -26,4 +25,4 @@ def test_advanced_modes_can_be_reenabled(clean_env, monkeypatch):
     importlib.reload(processing_mode)
 
     assert processing_mode.is_mode_enabled(processing_mode.ProcessingMode.REFORMULATION) is True
-    assert processing_mode.is_mode_enabled(processing_mode.ProcessingMode.ACT_ON_TEXT) is True
+    assert processing_mode.is_mode_enabled(processing_mode.ProcessingMode.RAW) is True

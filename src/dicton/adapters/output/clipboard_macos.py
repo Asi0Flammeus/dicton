@@ -1,21 +1,14 @@
-"""macOS selection reader via pbpaste/pbcopy."""
+"""macOS clipboard via pbpaste/pbcopy."""
 
 from __future__ import annotations
 
 import subprocess
 
-from .selection_base import SelectionReader
+from .clipboard_base import Clipboard
 
 
-class MacOSSelectionReader(SelectionReader):
-    """Selection/clipboard via pbpaste/pbcopy (macOS).
-
-    macOS has no PRIMARY selection concept — get_selection() returns
-    clipboard content (the closest equivalent).
-    """
-
-    def get_selection(self) -> str | None:
-        return self.get_clipboard()
+class MacOSClipboard(Clipboard):
+    """Clipboard via pbpaste/pbcopy (macOS)."""
 
     def get_clipboard(self) -> str | None:
         try:

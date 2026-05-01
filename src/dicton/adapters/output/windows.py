@@ -28,9 +28,6 @@ class WindowsTextOutput(TextOutput):
             self._pynput_fallback.insert_text(text, delay_ms)
 
     def paste_text(self, text: str) -> bool:
-        return self.replace_selection(text)
-
-    def replace_selection(self, text: str) -> bool:
         try:
             import pyperclip
 
@@ -40,7 +37,7 @@ class WindowsTextOutput(TextOutput):
             pyperclip.copy(text)
 
             if not self._verify_clipboard(text, pyperclip.paste):
-                print("⚠ Clipboard verification failed for Windows selection replace")
+                print("⚠ Clipboard verification failed for Windows paste")
                 return False
 
             ctrl.press(key_cls.ctrl)
@@ -53,5 +50,5 @@ class WindowsTextOutput(TextOutput):
             print("⚠ pyperclip not installed for Windows clipboard")
             return False
         except Exception as e:
-            print(f"⚠ Replace selection error: {e}")
+            print(f"⚠ Paste error: {e}")
             return False

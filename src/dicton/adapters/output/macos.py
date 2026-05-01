@@ -19,9 +19,6 @@ class MacOSTextOutput(TextOutput):
         self._pynput_fallback.insert_text(text, delay_ms)
 
     def paste_text(self, text: str) -> bool:
-        return self.replace_selection(text)
-
-    def replace_selection(self, text: str) -> bool:
         try:
             process = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE, text=True)
             process.communicate(input=text, timeout=2.0)

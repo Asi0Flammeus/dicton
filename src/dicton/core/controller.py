@@ -165,11 +165,7 @@ class DictationController:
 
             # Output result
             with tracker.measure("text_output"):
-                self._text_output.output(
-                    result,
-                    mode,
-                    replace_selection=session.selected_text is not None,
-                )
+                self._text_output.output(result, mode)
 
             self._state.transition(SessionEvent.OUTPUT_DONE)
             return True, tracker.end_session()

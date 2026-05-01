@@ -24,5 +24,5 @@ class TextOutputAdapter:
     def __init__(self, output_fn) -> None:
         self._output_fn = output_fn
 
-    def output(self, text: str, mode, replace_selection: bool) -> None:
-        self._output_fn(text, mode, replace_selection)
+    def output(self, text: str, mode) -> None:
+        self._output_fn(text, mode)

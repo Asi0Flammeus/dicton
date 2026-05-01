@@ -31,7 +31,6 @@ _DEFAULTS: dict[str, str] = {
     "CUSTOM_HOTKEY_VALUE": "alt+g",
     "SECONDARY_HOTKEY": "none",
     "SECONDARY_HOTKEY_TRANSLATION": "none",
-    "SECONDARY_HOTKEY_ACT_ON_TEXT": "none",
     "PLAYBACK_MUTE_STRATEGY": "auto",
     "MUTE_BACKEND": "auto",
 }
@@ -57,7 +56,6 @@ CONFIG_FIELD_MAP = {
     "custom_hotkey_value": "CUSTOM_HOTKEY_VALUE",
     "secondary_hotkey": "SECONDARY_HOTKEY",
     "secondary_hotkey_translation": "SECONDARY_HOTKEY_TRANSLATION",
-    "secondary_hotkey_act_on_text": "SECONDARY_HOTKEY_ACT_ON_TEXT",
     "mute_playback_on_recording": "MUTE_PLAYBACK_ON_RECORDING",
     "playback_mute_strategy": "PLAYBACK_MUTE_STRATEGY",
     "mute_backend": "MUTE_BACKEND",
@@ -132,9 +130,6 @@ def get_current_config() -> dict[str, Any]:
         "secondary_hotkey": env_vars.get("SECONDARY_HOTKEY", _default("SECONDARY_HOTKEY")),
         "secondary_hotkey_translation": env_vars.get(
             "SECONDARY_HOTKEY_TRANSLATION", _default("SECONDARY_HOTKEY_TRANSLATION")
-        ),
-        "secondary_hotkey_act_on_text": env_vars.get(
-            "SECONDARY_HOTKEY_ACT_ON_TEXT", _default("SECONDARY_HOTKEY_ACT_ON_TEXT")
         ),
         "mute_playback_on_recording": (
             env_vars.get("MUTE_PLAYBACK_ON_RECORDING", "true").lower() == "true"

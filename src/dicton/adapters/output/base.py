@@ -28,10 +28,6 @@ class TextOutput(ABC):
     def paste_text(self, text: str) -> bool:
         """Paste text via clipboard. Returns True on success."""
 
-    @abstractmethod
-    def replace_selection(self, text: str) -> bool:
-        """Replace current selection with text. Returns True on success."""
-
     def _verify_clipboard(self, expected_text: str, get_clipboard_fn) -> bool:
         """Poll until clipboard matches expected_text or max retries exceeded.
 

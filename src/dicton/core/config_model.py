@@ -42,7 +42,6 @@ class AppConfig:
     hotkey_double_tap_window_ms: int
     secondary_hotkey: str
     secondary_hotkey_translation: str
-    secondary_hotkey_act_on_text: str
 
     # -- Audio ------------------------------------------------------------
     sample_rate: int

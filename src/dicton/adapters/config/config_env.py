@@ -64,7 +64,6 @@ def load_app_config() -> AppConfig:
         hotkey_double_tap_window_ms=_env_int("HOTKEY_DOUBLE_TAP_WINDOW_MS", "300"),
         secondary_hotkey=_env_lower("SECONDARY_HOTKEY", "none"),
         secondary_hotkey_translation=_env_lower("SECONDARY_HOTKEY_TRANSLATION", "none"),
-        secondary_hotkey_act_on_text=_env_lower("SECONDARY_HOTKEY_ACT_ON_TEXT", "none"),
         # Audio
         sample_rate=16000,
         chunk_size=1024,

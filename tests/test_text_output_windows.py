@@ -50,7 +50,7 @@ def test_insert_text_falls_back_when_pyautogui_missing(output):
     fallback.assert_called_once()
 
 
-def test_replace_selection_copies_to_clipboard_and_pastes(output, _mock_pyperclip):
+def test_paste_text_copies_to_clipboard_and_pastes(output, _mock_pyperclip):
     mock_key_cls = MagicMock()
     mock_ctrl = MagicMock()
     with patch.object(
@@ -64,13 +64,13 @@ def test_replace_selection_copies_to_clipboard_and_pastes(output, _mock_pypercli
             return_value=mock_ctrl,
         ):
             with patch.object(output, "_verify_clipboard", return_value=True):
-                result = output.replace_selection("replaced")
+                result = output.paste_text("pasted")
 
     assert result is True
-    _mock_pyperclip.copy.assert_called_once_with("replaced")
+    _mock_pyperclip.copy.assert_called_once_with("pasted")
 
 
-def test_replace_selection_returns_false_when_clipboard_verify_fails(output, _mock_pyperclip):
+def test_paste_text_returns_false_when_clipboard_verify_fails(output, _mock_pyperclip):
     mock_key_cls = MagicMock()
     mock_ctrl = MagicMock()
     with patch.object(
@@ -84,6 +84,6 @@ def test_replace_selection_returns_false_when_clipboard_verify_fails(output, _mo
             return_value=mock_ctrl,
         ):
             with patch.object(output, "_verify_clipboard", return_value=False):
-                result = output.replace_selection("replaced")
+                result = output.paste_text("pasted")
 
     assert result is False

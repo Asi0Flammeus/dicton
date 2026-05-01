@@ -13,7 +13,7 @@ class LinuxTextOutput(TextOutput):
 
     def __init__(
         self,
-        selection_reader=None,
+        clipboard=None,
         *,
         paste_threshold_words: int = 10,
         debug: bool = False,
@@ -25,7 +25,7 @@ class LinuxTextOutput(TextOutput):
             clipboard_verify_delay_ms=clipboard_verify_delay_ms,
             clipboard_max_retries=clipboard_max_retries,
         )
-        self._selection = selection_reader
+        self._clipboard = clipboard
         self._paste_threshold_words = paste_threshold_words
         self._pynput_fallback = PynputTextOutput()
 
@@ -58,14 +58,14 @@ class LinuxTextOutput(TextOutput):
             self._pynput_fallback.insert_text(text, delay_ms)
 
     def paste_text(self, text: str) -> bool:
-        if self._selection is None:
+        if self._clipboard is None:
             return False
         try:
-            if not self._selection.set_clipboard(text):
+            if not self._clipboard.set_clipboard(text):
                 print("⚠ Failed to set clipboard, falling back to streaming")
                 return False
 
-            if not self._verify_clipboard(text, self._selection.get_clipboard):
+            if not self._verify_clipboard(text, self._clipboard.get_clipboard):
                 print("⚠ Clipboard verification failed, falling back to streaming")
                 return False
 
@@ -81,29 +81,4 @@ class LinuxTextOutput(TextOutput):
             return False
         except Exception as e:
             print(f"⚠ Paste error: {e}, falling back to streaming")
-            return False
-
-    def replace_selection(self, text: str) -> bool:
-        if self._selection is None:
-            return False
-        try:
-            if not self._selection.set_clipboard(text):
-                return False
-
-            if not self._verify_clipboard(text, self._selection.get_clipboard):
-                print("⚠ Clipboard verification failed for selection replace")
-                return False
-
-            subprocess.run(
-                ["xdotool", "key", "--clearmodifiers", "ctrl+v"],
-                timeout=10,
-                check=False,
-            )
-            return True
-
-        except FileNotFoundError:
-            print("⚠ xdotool not found for selection replace")
-            return False
-        except Exception as e:
-            print(f"⚠ Replace selection error: {e}")
             return False
