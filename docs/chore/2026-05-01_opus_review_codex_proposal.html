@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Opus reviews Codex — Dicton architecture deepening</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500&family=Inter:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --color-bg: #ebe3d2;
+    --color-paper: #f3ecdd;
+    --color-paper-2: #ede3d2;
+    --color-ink: #2b2217;
+    --color-sub: #6b5d45;
+    --color-rule: #c9bea4;
+    --color-rule-soft: #d8cdb4;
+    --color-accent: #a14a28;
+    --color-accent-2: #3d5a3d;
+    --color-accent-3: #c5492a;
+    --paper-bg:
+      repeating-linear-gradient(0deg, rgba(90, 70, 40, 0.018) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at 30% 20%, rgba(180, 140, 80, 0.10), transparent 50%);
+    --font-serif: 'Fraunces', 'Tiempos Headline', Georgia, serif;
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'DM Mono', 'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background-color: var(--color-bg);
+    background-image: var(--paper-bg);
+    background-attachment: fixed;
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 15.5px;
+    line-height: 1.65;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+
+  ::selection { background: var(--color-accent); color: var(--color-paper); }
+
+  /* ── Eyebrow label ── */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .eyebrow--green { color: var(--color-accent-2); }
+  .eyebrow--sub { color: var(--color-sub); }
+  .eyebrow .dot {
+    width: 8px; height: 8px; background: currentColor;
+    image-rendering: pixelated; display: inline-block;
+  }
+
+  /* ── Masthead ── */
+  header.masthead {
+    padding: 64px 0 32px;
+    border-bottom: 1px solid var(--color-rule);
+  }
+  h1.lede {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-style: italic;
+    font-size: clamp(2.4rem, 5.8vw, 4.4rem);
+    letter-spacing: -0.03em;
+    line-height: 1.02;
+    margin: 18px 0 22px;
+    max-width: 920px;
+    font-variation-settings: 'SOFT' 50, 'opsz' 144;
+  }
+  h1.lede em { font-style: normal; color: var(--color-accent); }
+  .sub {
+    color: var(--color-sub);
+    font-size: 17px;
+    max-width: 760px;
+    margin: 0;
+  }
+  .meta-row {
+    margin-top: 32px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--color-sub);
+    letter-spacing: 0.05em;
+  }
+  .meta-row span {
+    padding: 6px 12px;
+    background: var(--color-paper);
+    border: 1px solid var(--color-rule);
+  }
+
+  /* ── Sticky TOC ── */
+  nav.toc {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(235, 227, 210, 0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--color-rule);
+    padding: 14px 0;
+  }
+  nav.toc .wrap {
+    display: flex; gap: 22px; flex-wrap: wrap;
+    font-family: var(--font-mono); font-size: 12px;
+    letter-spacing: 0.04em;
+  }
+  nav.toc a { text-decoration: none; color: var(--color-sub); }
+  nav.toc a:hover { color: var(--color-accent); }
+  nav.toc .n { color: var(--color-accent); margin-right: 6px; }
+
+  /* ── Sections ── */
+  section { padding: 56px 0 24px; border-bottom: 1px dashed var(--color-rule); }
+  section:last-of-type { border-bottom: none; }
+
+  h2 {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-style: italic;
+    font-size: clamp(1.8rem, 3.4vw, 2.6rem);
+    letter-spacing: -0.025em;
+    line-height: 1.1;
+    margin: 8px 0 22px;
+    font-variation-settings: 'SOFT' 50, 'opsz' 144;
+  }
+  h2 em { font-style: normal; color: var(--color-accent); }
+  h3 {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-size: 1.35rem;
+    letter-spacing: -0.02em;
+    margin: 28px 0 10px;
+  }
+
+  p { margin: 0 0 16px; max-width: 75ch; }
+
+  code, kbd {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--color-paper);
+    padding: 1px 6px;
+    border: 1px dashed var(--color-rule);
+    color: var(--color-accent);
+  }
+
+  /* ── Numbers band ── */
+  .numbers-band {
+    display: grid;
+    grid-template-columns: 1fr;
+    background: var(--color-paper);
+    border-top: 1px solid var(--color-rule);
+    border-bottom: 1px solid var(--color-rule);
+    margin: 28px 0 8px;
+  }
+  .numbers-band__cell {
+    padding: 28px 24px;
+    border-top: 1px solid var(--color-rule-soft);
+  }
+  .numbers-band__cell:first-child { border-top: none; }
+  .numbers-band__head { display: flex; align-items: center; gap: 10px; }
+  .numbers-band__value {
+    font-family: var(--font-serif);
+    font-weight: 500;
+    font-size: 2.6rem;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    margin-top: 8px;
+    font-variation-settings: 'SOFT' 50, 'opsz' 144;
+  }
+  .numbers-band__value em { font-style: normal; color: var(--color-accent); }
+  .numbers-band__label {
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--color-sub);
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+  }
+  @media (min-width: 640px) {
+    .numbers-band { grid-template-columns: repeat(2, 1fr); }
+    .numbers-band__cell:nth-child(-n+2) { border-top: none; }
+    .numbers-band__cell:nth-child(2n+1) { border-right: 1px solid var(--color-rule-soft); }
+  }
+  @media (min-width: 960px) {
+    .numbers-band { grid-template-columns: repeat(4, 1fr); }
+    .numbers-band__cell { border-top: none; border-right: 1px solid var(--color-rule-soft); }
+    .numbers-band__cell:last-child { border-right: none; }
+  }
+
+  /* ── Corner pixel card ── */
+  .corner-card {
+    border: 2px solid var(--color-ink);
+    background: var(--color-paper);
+    position: relative;
+    padding: 28px 26px;
+  }
+  .corner-card::before,
+  .corner-card::after,
+  .corner-card > .cc__br,
+  .corner-card > .cc__bl {
+    content: '';
+    position: absolute;
+    width: 14px; height: 14px;
+    image-rendering: pixelated;
+  }
+  .corner-card::before { top: -8px; left: -8px; background: var(--color-accent); }
+  .corner-card::after { top: -8px; right: -8px; background: var(--color-accent-2); }
+  .corner-card > .cc__bl { bottom: -8px; left: -8px; background: var(--color-accent-2); }
+  .corner-card > .cc__br { bottom: -8px; right: -8px; background: var(--color-accent); }
+
+  /* ── Mapping table ── */
+  .map-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin: 24px 0;
+  }
+  @media (min-width: 800px) {
+    .map-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      border: 1px solid var(--color-rule);
+      background: var(--color-paper);
+    }
+  }
+  .map-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    border-top: 1px solid var(--color-rule-soft);
+    background: var(--color-paper);
+  }
+  @media (min-width: 800px) {
+    .map-row {
+      grid-template-columns: 80px 1fr 1fr 90px;
+      grid-column: 1 / -1;
+      border: none;
+      border-bottom: 1px solid var(--color-rule-soft);
+    }
+    .map-row:last-child { border-bottom: none; }
+  }
+  .map-row__cell { padding: 18px 20px; border-right: 1px solid var(--color-rule-soft); }
+  .map-row__cell:last-child { border-right: none; }
+  .map-row--head {
+    background: var(--color-ink);
+    color: var(--color-paper);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .map-row--head .map-row__cell { border-right: 1px solid rgba(243, 236, 221, 0.18); }
+  .map-row--head .map-row__cell:last-child { border-right: none; }
+  .map-row__id {
+    font-family: var(--font-mono);
+    font-weight: 500;
+    color: var(--color-accent);
+  }
+  .map-row__opus { color: var(--color-ink); }
+  .map-row__codex { color: var(--color-ink); }
+  .map-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 8px;
+    display: inline-block;
+    border: 1px solid currentColor;
+  }
+  .map-tag--match { color: var(--color-accent-2); }
+  .map-tag--codex { color: var(--color-accent); }
+  .map-tag--opus { color: #6b3a8e; }
+
+  /* ── Verdict / call-out ── */
+  .pull {
+    font-family: var(--font-serif);
+    font-style: italic;
+    font-weight: 500;
+    font-size: clamp(1.4rem, 2.6vw, 2rem);
+    line-height: 1.25;
+    letter-spacing: -0.02em;
+    margin: 32px 0;
+    padding: 24px 28px;
+    border-left: 4px solid var(--color-accent);
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-variation-settings: 'SOFT' 50, 'opsz' 144;
+    max-width: none;
+  }
+  .pull em { color: var(--color-accent); font-style: normal; }
+
+  /* ── Code blocks ── */
+  pre {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    background: var(--color-ink);
+    color: #e6dcc4;
+    padding: 18px 22px;
+    border: 1px solid var(--color-ink);
+    overflow-x: auto;
+    line-height: 1.55;
+    margin: 18px 0;
+  }
+  pre .c { color: #b89a72; font-style: italic; }
+  pre .k { color: #f0a878; }
+  pre .s { color: #b3c89a; }
+  pre .n { color: #d4c6a8; }
+  pre .ok { color: #b3c89a; }
+  pre .bad { color: #e08a7a; }
+
+  /* ── Verdict columns ── */
+  .verdict-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 22px;
+    margin: 24px 0;
+  }
+  @media (min-width: 800px) {
+    .verdict-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  .scoreboard {
+    background: var(--color-ink);
+    color: var(--color-paper);
+    padding: 36px 28px;
+    margin: 28px 0;
+  }
+  .scoreboard h3 { color: var(--color-paper); margin-top: 0; }
+  .scoreboard .eyebrow { color: #d4a87a; }
+  .scoreboard table {
+    width: 100%; border-collapse: collapse; margin-top: 18px;
+    font-family: var(--font-mono); font-size: 13px;
+  }
+  .scoreboard th, .scoreboard td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(212, 198, 168, 0.18);
+    text-align: left;
+  }
+  .scoreboard th {
+    font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: #d4a87a; font-weight: 500;
+  }
+  .scoreboard td.score { color: #b3c89a; font-weight: 500; }
+  .scoreboard td.score--neg { color: #e08a7a; }
+
+  ul.tight { padding-left: 20px; margin: 8px 0 16px; }
+  ul.tight li { margin-bottom: 6px; }
+
+  /* ── Footer ── */
+  footer.colophon {
+    padding: 56px 0 80px;
+    color: var(--color-sub);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-align: center;
+  }
+  footer.colophon .rule {
+    width: 80px; height: 2px;
+    background: var(--color-accent);
+    margin: 0 auto 18px;
+  }
+
+  hr.section-rule {
+    border: none;
+    border-top: 1px solid var(--color-rule);
+    margin: 36px 0;
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow"><span class="dot"></span>Opus reviews Codex · 2026-05-01</div>
+    <h1 class="lede">Two passes at the same codebase, <em>one real bug found</em>.</h1>
+    <p class="sub">
+      Codex and Opus independently audited Dicton for shallow modules and deepening opportunities.
+      They converged on five out of six candidates. They diverged on one — and Codex's unique find is the most consequential item in either report.
+    </p>
+    <div class="meta-row">
+      <span>codebase · dicton @ main</span>
+      <span>codex · 6 candidates</span>
+      <span>opus · 7 candidates</span>
+      <span>method · ousterhout · deletion test</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="wrap">
+    <a href="#scoreboard"><span class="n">01</span>Scoreboard</a>
+    <a href="#mapping"><span class="n">02</span>Mapping</a>
+    <a href="#bug"><span class="n">03</span>The bug Codex caught</a>
+    <a href="#opus-only"><span class="n">04</span>What Opus added</a>
+    <a href="#agreement"><span class="n">05</span>Where they agree</a>
+    <a href="#framing"><span class="n">06</span>Framing</a>
+    <a href="#verdict"><span class="n">07</span>Verdict</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<!-- ─── SCOREBOARD ─────────────────────────────────────── -->
+<section id="scoreboard">
+  <div class="eyebrow"><span class="dot"></span>01 · Scoreboard</div>
+  <h2>The numbers, before the <em>argument</em>.</h2>
+
+  <div class="numbers-band">
+    <div class="numbers-band__cell">
+      <div class="numbers-band__head"><div class="eyebrow eyebrow--sub">codex</div></div>
+      <div class="numbers-band__value"><em>6</em></div>
+      <div class="numbers-band__label">candidates · 1 unique find</div>
+    </div>
+    <div class="numbers-band__cell">
+      <div class="numbers-band__head"><div class="eyebrow eyebrow--sub">opus</div></div>
+      <div class="numbers-band__value"><em>7</em></div>
+      <div class="numbers-band__label">candidates · 2 unique finds</div>
+    </div>
+    <div class="numbers-band__cell">
+      <div class="numbers-band__head"><div class="eyebrow eyebrow--green">overlap</div></div>
+      <div class="numbers-band__value">5</div>
+      <div class="numbers-band__label">candidates appear in both</div>
+    </div>
+    <div class="numbers-band__cell">
+      <div class="numbers-band__head"><div class="eyebrow">behaviour bug</div></div>
+      <div class="numbers-band__value"><em>1</em></div>
+      <div class="numbers-band__label">caught by codex · missed by opus</div>
+    </div>
+  </div>
+
+  <div class="scoreboard">
+    <div class="eyebrow"><span class="dot"></span>category · category · category</div>
+    <h3>How they line up, point by point.</h3>
+    <table>
+      <thead>
+        <tr><th>dimension</th><th>codex</th><th>opus</th><th>edge</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>candidate count</td><td>6</td><td>7</td><td>tie</td></tr>
+        <tr><td>real behaviour bug found</td><td class="score">yes — selection drop</td><td class="score--neg">no</td><td class="score">codex</td></tr>
+        <tr><td>dependency-rule violation cited</td><td class="score--neg">no</td><td class="score">core/processing_mode reads os.getenv</td><td class="score">opus</td></tr>
+        <tr><td>concrete file:line evidence</td><td>files only</td><td class="score">file:line</td><td>opus</td></tr>
+        <tr><td>recommends starting point</td><td class="score">output adapter (bug-driven)</td><td>controller + core (architecture-driven)</td><td class="score">codex</td></tr>
+        <tr><td>vocabulary discipline (deep/shallow/seam)</td><td class="score">strong</td><td class="score">strong</td><td>tie</td></tr>
+        <tr><td>asks "which posture?" — leaves design open</td><td>no — prescribes</td><td class="score">yes — two postures, grilling</td><td>opus</td></tr>
+        <tr><td>flags shim/compat-island deletion</td><td>partial</td><td class="score">explicit list of 4 + delete plan</td><td>opus</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ─── MAPPING ────────────────────────────────────────── -->
+<section id="mapping">
+  <div class="eyebrow"><span class="dot"></span>02 · Mapping</div>
+  <h2>Side by side, where each candidate <em>lands</em>.</h2>
+
+  <p>Five of six Codex candidates have a near-equivalent in Opus's list. Two of seven Opus candidates have no match in Codex.</p>
+
+  <div class="map-grid">
+    <div class="map-row map-row--head">
+      <div class="map-row__cell">id</div>
+      <div class="map-row__cell">codex says</div>
+      <div class="map-row__cell">opus says</div>
+      <div class="map-row__cell">verdict</div>
+    </div>
+
+    <div class="map-row">
+      <div class="map-row__cell map-row__id">A</div>
+      <div class="map-row__cell map-row__codex"><strong>#1</strong> · Active text target — <code>TextOutput.replace_selection</code> ignored, likely behaviour bug.</div>
+      <div class="map-row__cell map-row__opus">— <em>not raised</em></div>
+      <div class="map-row__cell"><span class="map-tag map-tag--codex">codex only</span></div>
+    </div>
+
+    <div class="map-row">
+      <div class="map-row__cell map-row__id">B</div>
+      <div class="map-row__cell map-row__codex"><strong>#2</strong> · False split between <code>AudioCapture</code> and <code>STTService</code> — recognizer god-object.</div>
+      <div class="map-row__cell map-row__opus"><strong>#6</strong> · Split <code>SpeechRecognizer</code> into <code>MicrophoneCapture</code> + <code>STTProvider</code> + <code>TranscriptionFilter</code>.</div>
+      <div class="map-row__cell"><span class="map-tag map-tag--match">match</span></div>
+    </div>
+
+    <div class="map-row">
+      <div class="map-row__cell map-row__id">C</div>
+      <div class="map-row__cell map-row__codex"><strong>#3</strong> · Dictation session module — controller ↔ service split, state machine leaks.</div>
+      <div class="map-row__cell map-row__opus"><strong>#1</strong> · Controller ↔ session ouroboros — five port adapters wrap the caller's own bound methods.</div>
+      <div class="map-row__cell"><span class="map-tag map-tag--match">match</span></div>
+    </div>
+
+    <div class="map-row">
+      <div class="map-row__cell map-row__id">D</div>
+      <div class="map-row__cell map-row__codex"><strong>#4</strong> · Configuration module — duplicated schema across 4 files.</div>
+      <div class="map-row__cell map-row__opus"><strong>#2</strong> · <code>AppConfig</code> as single source · delete <code>shared/config.py</code> + 4 shims.</div>
+      <div class="map-row__cell"><span class="map-tag map-tag--match">match</span></div>
+    </div>
+
+    <div class="map-row">
+      <div class="map-row__cell map-row__id">E</div>
+      <div class="map-row__cell map-row__codex"><strong>#5</strong> · FN/custom hotkey — <code>state_machine.py</code> is just an enum.</div>
+      <div class="map-row__cell map-row__opus"><strong>#3</strong> · Real <code>HotkeyStateMachine</code>; listener loop becomes thin I/O.</div>
+      <div class="map-row__cell"><span class="map-tag map-tag--match">match</span></div>
+    </div>
+
+    <div class="map-row">
+      <div class="map-row__cell map-row__id">F</div>
+      <div class="map-row__cell map-row__codex"><strong>#6</strong> · LLM text action — <code>SessionService</code> receives provider, prompts re-resolve via factory.</div>
+      <div class="map-row__cell map-row__opus"><strong>#4</strong> · <code>prompts.py</code> duplicates fallback chain · move dispatch into <code>TextActions</code>.</div>
+      <div class="map-row__cell"><span class="map-tag map-tag--match">match</span></div>
+    </div>
+
+    <div class="map-row">
+      <div class="map-row__cell map-row__id">G</div>
+      <div class="map-row__cell map-row__codex">— <em>not raised</em></div>
+      <div class="map-row__cell map-row__opus"><strong>#5</strong> · <code>core/processing_mode.py:104</code> reads <code>os.getenv</code> · clean dependency-rule violation.</div>
+      <div class="map-row__cell"><span class="map-tag map-tag--opus">opus only</span></div>
+    </div>
+
+    <div class="map-row">
+      <div class="map-row__cell map-row__id">H</div>
+      <div class="map-row__cell map-row__codex">— <em>not raised</em></div>
+      <div class="map-row__cell map-row__opus"><strong>#7</strong> · <code>adapters/config/</code> is a junk drawer · naming-only, low priority.</div>
+      <div class="map-row__cell"><span class="map-tag map-tag--opus">opus only</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── THE BUG CODEX CAUGHT ───────────────────────────── -->
+<section id="bug">
+  <div class="eyebrow"><span class="dot"></span>03 · The bug Codex caught</div>
+  <h2>The <em>real</em> finding: selected text is never replaced.</h2>
+
+  <p>
+    Opus framed the controller↔service callback chain as architectural theatre.
+    Codex looked at the same chain and noticed something Opus missed: <strong>the <code>replace_selection</code> flag travels all the way from the port interface to <code>SessionService.output_result</code>, and is then silently dropped.</strong>
+    <code>ACT_ON_TEXT</code> mode notifies the user "Text Replaced" — but the underlying <code>insert_text</code> call inserts at the cursor instead of replacing the selection.
+  </p>
+
+  <div class="corner-card">
+    <span class="cc__bl"></span><span class="cc__br"></span>
+    <div class="eyebrow"><span class="dot"></span>trace · the dropped flag</div>
+<pre><span class="c"># core/ports.py:64-68 — interface promises replacement</span>
+<span class="k">class</span> <span class="n">TextOutput</span>(Protocol):
+    <span class="k">def</span> <span class="n">output</span>(self, text: str, mode, replace_selection: <span class="n">bool</span>) -&gt; None: ...
+
+<span class="c"># adapters/config/text_processing.py:27 — flag is passed through</span>
+<span class="k">def</span> <span class="n">output</span>(self, text, mode, replace_selection: <span class="n">bool</span>) -&gt; None:
+    self._output_fn(text, mode, replace_selection)   <span class="ok">✓ forwarded</span>
+
+<span class="c"># orchestration/session_service.py:267-281 — flag is dropped</span>
+<span class="k">def</span> <span class="n">output_result</span>(self, text, mode, replace_selection: <span class="n">bool</span>) -&gt; None:
+    self._text_output.insert_text(text, delay_ms=50)     <span class="bad">✗ replace_selection unused</span>
+    <span class="k">if</span> mode == ProcessingMode.ACT_ON_TEXT:
+        self._notifications.notify(<span class="s">"✓ Text Replaced"</span>, text[:100])  <span class="bad">✗ lies to the user</span></pre>
+  </div>
+
+  <div class="pull">
+    Codex's #1 isn't an architectural opinion. It's a <em>behaviour</em> bug surfaced through architectural review — exactly what shallow seams are supposed to hide, and exactly what the deletion test is supposed to expose.
+  </div>
+
+  <p>This single finding shifts the priority order. Codex's recommendation to start with the output module is correct: it's the only candidate where deepening the seam is also <em>fixing user-visible behaviour</em>, not just improving testability.</p>
+</section>
+
+<!-- ─── WHAT OPUS ADDED ───────────────────────────────── -->
+<section id="opus-only">
+  <div class="eyebrow"><span class="dot"></span>04 · What Opus added</div>
+  <h2>Two findings Codex didn't surface.</h2>
+
+  <div class="verdict-grid">
+    <div class="corner-card">
+      <span class="cc__bl"></span><span class="cc__br"></span>
+      <div class="eyebrow"><span class="dot"></span>opus only · #5</div>
+      <h3 style="margin-top:14px">Core reads <code>os.environ</code> directly</h3>
+      <p>
+        <code>core/processing_mode.py:104</code> calls <code>os.getenv("ENABLE_ADVANCED_MODES", ...)</code>.
+        The refactor plan's dependency table forbids exactly this — and the violation propagates: <code>is_mode_enabled</code> is called from <code>SessionService.start_recording</code> and <code>SessionService.process_text</code>, so a core function reaches around the <code>app_config</code> injection that orchestration carefully threads through.
+      </p>
+      <p>
+        Small change, large symbolic value: an <code>import os</code> ban in <code>core/</code> becomes enforceable. Catches future regressions automatically.
+      </p>
+    </div>
+
+    <div class="corner-card">
+      <span class="cc__bl"></span><span class="cc__br"></span>
+      <div class="eyebrow"><span class="dot"></span>opus only · #7</div>
+      <h3 style="margin-top:14px"><code>adapters/config/</code> is a junk drawer</h3>
+      <p>
+        Five files, none about configuration: <code>latency.py</code> (metrics), <code>metrics.py</code> (port adapter), <code>text_processing.py</code> (port adapters), <code>update_checker.py</code> (ops), <code>config_env.py</code> (settings loader).
+      </p>
+      <p>
+        Naming-only, low priority. Skip unless candidate D (config) lands — that re-homing happens for free as a side effect.
+      </p>
+    </div>
+  </div>
+
+  <p>Opus also went one level deeper on candidate D, naming the four <code>shared/*.py</code> compat shims by file and counting the ~5 test imports that block their deletion.</p>
+</section>
+
+<!-- ─── WHERE THEY AGREE ───────────────────────────────── -->
+<section id="agreement">
+  <div class="eyebrow"><span class="dot"></span>05 · Where they agree</div>
+  <h2>Five candidates, two paths, <em>same conclusion</em>.</h2>
+
+  <p>
+    Five candidates appear in both reports with materially the same diagnosis.
+    The convergence is striking because the two passes were independent — same vocabulary (Ousterhout, deletion test, seams), same suspect modules, same root cause.
+  </p>
+
+  <ul class="tight">
+    <li><strong>Recording / STT pipeline</strong> · both flag <code>SpeechRecognizer</code> as a god-object whose two-adapter split (<code>AudioCaptureAdapter</code> + <code>STTAdapter</code>) couples chunk lifecycle across an artificial seam.</li>
+    <li><strong>Session / controller</strong> · both flag the controller-vs-service split as fake separation. Opus is more specific about the mechanism (bound-method adapters); Codex is more specific about the symptom (state observer reaches into <code>_state</code>).</li>
+    <li><strong>Configuration</strong> · both flag the four-way duplication (<code>AppConfig</code>, <code>config_env</code>, <code>shared/config</code>, <code>config_logic._DEFAULTS</code> + <code>CONFIG_FIELD_MAP</code>).</li>
+    <li><strong>FN handler</strong> · both flag the same trap: <code>state_machine.py</code> is 26 lines of enum, the real transition logic stayed in the 813-line handler.</li>
+    <li><strong>LLM dispatch</strong> · both flag the broken seam: <code>SessionService</code> receives a provider, then <code>prompts.py</code> resolves its own provider chain via the factory cache.</li>
+  </ul>
+
+  <div class="pull">
+    When two independent passes converge on the same five seams, the seams are real. <em>The remaining question is sequencing</em>, not detection.
+  </div>
+</section>
+
+<!-- ─── FRAMING DIFFERENCES ───────────────────────────── -->
+<section id="framing">
+  <div class="eyebrow"><span class="dot"></span>06 · Framing</div>
+  <h2>Same findings, different <em>postures</em>.</h2>
+
+  <div class="verdict-grid">
+    <div class="corner-card">
+      <span class="cc__bl"></span><span class="cc__br"></span>
+      <div class="eyebrow"><span class="dot"></span>codex</div>
+      <h3 style="margin-top:14px">Bug-driven, prescriptive</h3>
+      <p>
+        Codex prescribes a single direction for each candidate ("deepen the X module"). The recommended starting point is bug-driven: pick the candidate where the shallow seam is most likely hiding incorrect behaviour, fix that first, ship something visible.
+      </p>
+      <p>
+        Strength: actionable. Weakness: doesn't surface the <em>posture choice</em> behind a refactor (e.g. for the controller/service split, "deepen one module" doesn't say <em>which one</em>).
+      </p>
+    </div>
+
+    <div class="corner-card">
+      <span class="cc__bl"></span><span class="cc__br"></span>
+      <div class="eyebrow"><span class="dot"></span>opus</div>
+      <h3 style="margin-top:14px">Architecture-driven, optionful</h3>
+      <p>
+        Opus presents two postures for the controller/service question ("collapse" vs "push policy into the controller") and asks the user to pick. Recommends starting with the <em>conceptual</em> question — what does "core" mean here? — because it shapes the downstream candidates.
+      </p>
+      <p>
+        Strength: forces the user to own the design call. Weakness: optional postures can stall the work if the user wants prescription.
+      </p>
+    </div>
+  </div>
+
+  <p>
+    Both framings have their place. Codex is the right voice when shipping the next PR. Opus is the right voice when the question is "what shape do we want this codebase to have in six months?" — the architecture-refactor-plan question.
+  </p>
+</section>
+
+<!-- ─── VERDICT ────────────────────────────────────────── -->
+<section id="verdict">
+  <div class="eyebrow"><span class="dot"></span>07 · Verdict</div>
+  <h2>Synthesised <em>recommendation</em>.</h2>
+
+  <p>
+    Stop treating these as competing proposals. They are the same audit with different emphases. The right move is to merge:
+  </p>
+
+  <ol>
+    <li>
+      <strong>Ship Codex's #1 first</strong> (the <code>replace_selection</code> drop). It's a behaviour bug, the blast radius is one mode, and the test asserts user-visible behaviour through the port interface — exactly the kind of test the deepened seam unlocks.
+    </li>
+    <li>
+      <strong>Then take Opus's #5</strong> (move <code>os.getenv</code> out of <code>core/</code>). One-line change, enables an <code>import os</code> ban as an architecture test in CI.
+    </li>
+    <li>
+      <strong>Then take the joint #4 / Opus #2</strong> (config consolidation). High leverage, broad migration, but the path is now clear: <code>AppConfig</code> wins, <code>shared/config.py</code> dies, the four shims with five test imports get deleted in one PR.
+    </li>
+    <li>
+      <strong>Then take the joint #6 / Opus #4</strong> (LLM dispatch). Localised, contained blast radius, makes <code>prompts.py</code> testable without SDK.
+    </li>
+    <li>
+      <strong>Then the joint #3 / Opus #1</strong> (controller / session). This is where Opus's "two postures" framing matters — pick (a) collapse or (b) push policy in, then execute.
+    </li>
+    <li>
+      <strong>Then the joint #2 / Opus #6</strong> (recording pipeline). Latency-critical, do it once tests around it are stronger.
+    </li>
+    <li>
+      <strong>Last, the joint #5 / Opus #3</strong> (FN handler). Highest concrete pain, lowest reversibility — do it after the smaller wins build confidence.
+    </li>
+  </ol>
+
+  <div class="pull">
+    Codex caught the bug. Opus caught the dependency-rule violation. <em>The codebase is in better shape with both reports than with either alone.</em>
+  </div>
+
+  <hr class="section-rule" />
+
+  <h3>One observation worth keeping</h3>
+  <p>
+    Both audits, independently, surfaced the same meta-pattern: <strong>extraction was performed at the file level but not at the responsibility level</strong>. <code>state_machine.py</code> is the canonical example, but <code>capture_adapter.py</code>, <code>stt_adapter.py</code>, <code>text_processing.py</code>, and the four <code>shared/*</code> shims all share the shape — a file moved, a name created, a responsibility unchanged.
+  </p>
+  <p>
+    A second pass through every refactor PR asking "which module <em>owns</em> this decision now?" — rather than "which module <em>contains</em> this code now?" — would catch most of these in code review.
+  </p>
+</section>
+
+</main>
+
+<footer class="colophon">
+  <div class="rule"></div>
+  <div>opus 4.7 · review of codex proposal · 2026-05-01</div>
+  <div style="margin-top:6px">theme · alysis.cat — fraunces · inter · dm mono · cream paper · burnt orange</div>
+</footer>
+
+</body>
+</html>

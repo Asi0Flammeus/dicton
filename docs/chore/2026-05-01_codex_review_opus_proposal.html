@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Codex Review of Opus Architecture Proposal — Dicton</title>
+  <meta name="description" content="Comparison between Codex and Opus architectural deepening proposals for Dicton." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400,50;0,9..144,500,50;0,9..144,600,50;1,9..144,400,50;1,9..144,500,50;1,9..144,600,50&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --color-bg: #ebe3d2;
+      --color-paper: #f3ecdd;
+      --color-ink: #2b2217;
+      --color-sub: #6b5d45;
+      --color-rule: #c9bea4;
+      --color-accent: #a14a28;
+      --color-accent-2: #3d5a3d;
+      --color-dark-text: #d4c6a8;
+      --color-dark-text-muted: #b5a88a;
+      --paper-bg: repeating-linear-gradient(0deg, rgba(90, 70, 40, 0.018) 0 1px, transparent 1px 3px), radial-gradient(ellipse at 30% 20%, rgba(180, 140, 80, 0.11), transparent 52%);
+      --font-serif: 'Fraunces', Georgia, serif;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'DM Mono', 'JetBrains Mono', ui-monospace, monospace;
+      --shadow: 0 24px 80px rgba(43, 34, 23, 0.12);
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: var(--font-sans);
+      color: var(--color-ink);
+      background: var(--color-bg);
+      background-image: var(--paper-bg);
+      line-height: 1.62;
+    }
+
+    ::selection { background: var(--color-accent); color: var(--color-paper); }
+
+    .page {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 32px 20px 80px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: center;
+      padding: 18px 0 36px;
+      border-bottom: 1px solid var(--color-rule);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--color-sub);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--color-accent);
+      font-weight: 500;
+    }
+
+    .pixel {
+      width: 14px;
+      height: 14px;
+      background: var(--color-accent);
+      box-shadow: 7px 7px 0 var(--color-accent-2), 14px 0 0 var(--color-ink);
+      image-rendering: pixelated;
+      flex: 0 0 auto;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(280px, .8fr);
+      gap: 48px;
+      padding: 74px 0 58px;
+      align-items: end;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--color-accent);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+
+    h1, h2, h3 {
+      font-family: var(--font-serif);
+      font-variation-settings: 'SOFT' 50, 'opsz' 144;
+      letter-spacing: -0.035em;
+      line-height: 1.04;
+      margin: 0;
+      font-weight: 500;
+    }
+
+    h1 {
+      font-size: clamp(48px, 8vw, 104px);
+      max-width: 920px;
+    }
+
+    h1 em, h2 em {
+      font-style: italic;
+      color: var(--color-accent);
+    }
+
+    .lede {
+      margin: 24px 0 0;
+      max-width: 760px;
+      color: var(--color-sub);
+      font-size: clamp(17px, 2vw, 21px);
+    }
+
+    .verdict-card {
+      position: relative;
+      background: var(--color-paper);
+      border: 2px solid var(--color-ink);
+      padding: 28px;
+      box-shadow: var(--shadow);
+    }
+    .verdict-card::before,
+    .verdict-card::after,
+    .corner-bl,
+    .corner-br {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      image-rendering: pixelated;
+    }
+    .verdict-card::before { top: -8px; left: -8px; background: var(--color-accent); }
+    .verdict-card::after { top: -8px; right: -8px; background: var(--color-accent-2); }
+    .corner-bl { bottom: -8px; left: -8px; background: var(--color-accent-2); }
+    .corner-br { bottom: -8px; right: -8px; background: var(--color-accent); }
+
+    .score {
+      font-family: var(--font-serif);
+      font-size: clamp(62px, 8vw, 96px);
+      line-height: .9;
+      letter-spacing: -.06em;
+      margin: 8px 0 12px;
+    }
+
+    .score span { color: var(--color-accent); }
+    .score-label {
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: .14em;
+      color: var(--color-sub);
+      font-size: 12px;
+    }
+
+    .summary {
+      margin-top: 20px;
+      font-size: 15px;
+      color: var(--color-sub);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      background: var(--color-paper);
+      border: 1px solid var(--color-rule);
+      margin: 8px 0 54px;
+    }
+    .metric {
+      padding: 26px 24px;
+      border-right: 1px solid var(--color-rule);
+    }
+    .metric:last-child { border-right: 0; }
+    .metric-value {
+      font-family: var(--font-serif);
+      font-size: clamp(34px, 4vw, 56px);
+      line-height: 1;
+      letter-spacing: -.04em;
+    }
+    .metric-label {
+      margin-top: 10px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--color-sub);
+    }
+
+    section {
+      padding: 58px 0;
+      border-top: 1px solid var(--color-rule);
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 40px;
+      margin-bottom: 30px;
+    }
+    h2 { font-size: clamp(34px, 5vw, 64px); }
+    .section-copy { color: var(--color-sub); max-width: 780px; margin-top: 16px; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+
+    .panel {
+      background: rgba(243, 236, 221, .72);
+      border: 1px solid var(--color-rule);
+      padding: 24px;
+    }
+    .panel.dark {
+      background: var(--color-ink);
+      color: var(--color-dark-text);
+      border-color: var(--color-ink);
+    }
+    .panel.dark p, .panel.dark li { color: var(--color-dark-text-muted); }
+
+    h3 {
+      font-size: clamp(24px, 3vw, 36px);
+      margin-bottom: 14px;
+      letter-spacing: -.025em;
+    }
+
+    p { margin: 0 0 14px; }
+    ul { margin: 0; padding-left: 20px; }
+    li { margin: 8px 0; }
+    strong { font-weight: 700; }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      padding: 7px 9px;
+      border: 1px solid var(--color-rule);
+      color: var(--color-sub);
+      background: rgba(243, 236, 221, .55);
+      margin-bottom: 14px;
+    }
+    .tag.good { color: var(--color-accent-2); }
+    .tag.warn { color: var(--color-accent); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--color-paper);
+      border: 1px solid var(--color-rule);
+      overflow: hidden;
+    }
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      padding: 16px 14px;
+      border-bottom: 1px solid var(--color-rule);
+      font-size: 14px;
+    }
+    th {
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: .12em;
+      font-size: 11px;
+      color: var(--color-accent);
+      background: rgba(161, 74, 40, .06);
+    }
+    tr:last-child td { border-bottom: 0; }
+    td:first-child { font-weight: 700; }
+
+    .callout {
+      border-left: 6px solid var(--color-accent);
+      background: var(--color-paper);
+      padding: 22px 24px;
+      margin: 26px 0;
+      font-size: 18px;
+    }
+
+    .ranking {
+      counter-reset: rank;
+      display: grid;
+      gap: 12px;
+    }
+    .rank-item {
+      counter-increment: rank;
+      display: grid;
+      grid-template-columns: 66px 1fr;
+      gap: 18px;
+      align-items: start;
+      padding: 18px;
+      background: var(--color-paper);
+      border: 1px solid var(--color-rule);
+    }
+    .rank-item::before {
+      content: counter(rank, decimal-leading-zero);
+      font-family: var(--font-serif);
+      color: var(--color-accent);
+      font-size: 38px;
+      line-height: 1;
+    }
+    .rank-title { font-weight: 700; margin-bottom: 3px; }
+    .rank-desc { color: var(--color-sub); font-size: 14px; }
+
+    .footer-note {
+      margin-top: 64px;
+      padding-top: 22px;
+      border-top: 1px solid var(--color-rule);
+      font-family: var(--font-mono);
+      color: var(--color-sub);
+      font-size: 12px;
+    }
+
+    @media (max-width: 920px) {
+      .hero, .section-head, .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: 1fr 1fr; }
+      .metric:nth-child(2) { border-right: 0; }
+      .metric:nth-child(-n+2) { border-bottom: 1px solid var(--color-rule); }
+    }
+    @media (max-width: 620px) {
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .metrics { grid-template-columns: 1fr; }
+      .metric { border-right: 0; border-bottom: 1px solid var(--color-rule); }
+      .metric:last-child { border-bottom: 0; }
+      th, td { display: block; width: 100%; }
+      th { display: none; }
+      td { border-bottom: 0; padding: 10px 14px; }
+      tr { display: block; border-bottom: 1px solid var(--color-rule); padding: 8px 0; }
+      tr:last-child { border-bottom: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand"><span class="pixel" aria-hidden="true"></span> Dicton Architecture Review</div>
+      <div>Codex ↔ Opus · 2026-05-01</div>
+    </header>
+
+    <section class="hero" aria-labelledby="title">
+      <div>
+        <div class="eyebrow"><span class="pixel" aria-hidden="true"></span> Proposal comparison</div>
+        <h1 id="title">Opus is <em>close</em> — but it optimizes a different slice.</h1>
+        <p class="lede">Both reviews diagnose the same architectural disease: file-level extraction happened faster than responsibility-level deepening. The disagreement is not “what is wrong”, but “which seam should be cut first”.</p>
+      </div>
+      <aside class="verdict-card">
+        <span class="corner-bl"></span><span class="corner-br"></span>
+        <div class="score-label">Closeness score</div>
+        <div class="score"><span>84</span>%</div>
+        <p class="summary"><strong>High convergence on diagnosis.</strong> Medium divergence on priority. Opus is more aggressive around core/orchestration cleanup; Codex is more bug-first around active text output.</p>
+      </aside>
+    </section>
+
+    <div class="metrics" aria-label="comparison metrics">
+      <div class="metric">
+        <div class="metric-value">5/6</div>
+        <div class="metric-label">Codex candidates substantially overlap with Opus</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">2</div>
+        <div class="metric-label">Strong Opus-only additions</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">1</div>
+        <div class="metric-label">Codex-only bug-shaped priority</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">A-</div>
+        <div class="metric-label">Overall architectural signal quality</div>
+      </div>
+    </div>
+
+    <section>
+      <div class="section-head">
+        <div class="eyebrow">Executive verdict</div>
+        <div>
+          <h2>Same map, different first move.</h2>
+          <p class="section-copy">Opus and Codex converge on the core pattern: many modules are adapters in shape but not in responsibility. The strongest shared diagnosis is that Dicton has several hypothetical seams: one adapter, one implementation, no real behavioral variability, and low Locality.</p>
+        </div>
+      </div>
+
+      <div class="grid-3">
+        <article class="panel">
+          <div class="tag good">Where Opus is stronger</div>
+          <h3>It names the callback ouroboros.</h3>
+          <p>Opus is sharper on the `SessionService` → `DictationController` → `SessionService` callback loop. My proposal saw the session split, but Opus exposes the exact construction smell in `container.py`.</p>
+        </article>
+        <article class="panel">
+          <div class="tag good">Where Codex is sharper</div>
+          <h3>It isolates the output bug.</h3>
+          <p>My highest-priority candidate — active text target replacement — is more concrete. Opus folds it into Candidate 1, but does not foreground that `replace_selection` is currently passed and then ignored.</p>
+        </article>
+        <article class="panel">
+          <div class="tag warn">Main caution</div>
+          <h3>Do not over-delete adapters.</h3>
+          <p>Opus sometimes reads “one adapter” as “delete it”. One adapter means a hypothetical seam, yes — but the response can be to deepen, collapse, or keep as a future-proof test surface. Deletion is not automatically the right move.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div class="eyebrow">Candidate mapping</div>
+        <div>
+          <h2>How the proposals line up.</h2>
+          <p class="section-copy">The proposals are not competitors; they are two cuts through the same architecture. Opus tends to group by architectural layer. Codex tends to group by user-visible behavior and test seam.</p>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Codex point</th>
+            <th>Closest Opus point</th>
+            <th>Closeness</th>
+            <th>Difference</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Active text target module</td>
+            <td>Candidate 1 — Controller ↔ SessionService ouroboros</td>
+            <td>Partial</td>
+            <td>Opus sees the adapter/callback problem but does not isolate the selected-text replacement bug as its own first-class module.</td>
+          </tr>
+          <tr>
+            <td>Audio capture / STT false split</td>
+            <td>Candidate 6 — Split `SpeechRecognizer`</td>
+            <td>Very high</td>
+            <td>Same diagnosis. Opus is more concrete about the target split: `MicrophoneCapture`, STT provider chain, `TranscriptionFilter`.</td>
+          </tr>
+          <tr>
+            <td>Dictation session lifecycle module</td>
+            <td>Candidate 1 — Collapse or deepen controller/session service</td>
+            <td>Very high</td>
+            <td>Opus is more decisive and frames the actual design fork: collapse the controller, or push policy into it.</td>
+          </tr>
+          <tr>
+            <td>Configuration module single source of truth</td>
+            <td>Candidate 2 — Make `AppConfig` source of truth</td>
+            <td>Very high</td>
+            <td>Same point. Opus adds deletion of `shared/config.py` and compatibility shims as an explicit endpoint.</td>
+          </tr>
+          <tr>
+            <td>FN/custom hotkey module</td>
+            <td>Candidate 3 — Make `HotkeyStateMachine` real</td>
+            <td>Very high</td>
+            <td>Same point. Opus gives the cleanest target interface: `on_event(event_kind, time_now) -> Action`.</td>
+          </tr>
+          <tr>
+            <td>LLM text action module</td>
+            <td>Candidate 4 — `prompts.py` should hold prompts only</td>
+            <td>Very high</td>
+            <td>Same broken seam. Opus phrases the fix more crisply: prompt templates pure, dispatch in a constructed `TextActions` use-case.</td>
+          </tr>
+          <tr>
+            <td>No Codex equivalent</td>
+            <td>Candidate 5 — Stop reading `os.environ` from core</td>
+            <td>Opus-only</td>
+            <td>Opus catches a precise architecture violation I missed. This is a small, high-symbolic-value cleanup.</td>
+          </tr>
+          <tr>
+            <td>No Codex equivalent</td>
+            <td>Candidate 7 — `adapters/config/` junk drawer</td>
+            <td>Opus-only</td>
+            <td>Mostly naming/ownership cleanup. Correct, but lower priority unless done as a side effect of config refactor.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div class="eyebrow">Agreement</div>
+        <div>
+          <h2>The shared diagnosis is strong.</h2>
+          <p class="section-copy">The two proposals agree on the structural shape of the problem. They differ mainly in surgical order.</p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <article class="panel dark">
+          <h3>Shared pattern</h3>
+          <p>Extraction has produced files and protocol-looking seams, but ownership often stayed where it was. That creates shallow modules: interfaces that callers must understand almost as deeply as the implementation.</p>
+          <ul>
+            <li>`TextProcessorAdapter` and `TextOutputAdapter` wrap bound methods of the caller.</li>
+            <li>`AudioCaptureAdapter` and `STTAdapter` both wrap the same recognizer and split chunk lifecycle.</li>
+            <li>`prompts.py` bypasses injected provider state and redoes fallback.</li>
+            <li>`state_machine.py` names a state machine but does not own transitions.</li>
+          </ul>
+        </article>
+        <article class="panel">
+          <h3>Shared end state</h3>
+          <p>Both proposals want fewer hypothetical seams and deeper modules:</p>
+          <ul>
+            <li>one owner for dictation session policy,</li>
+            <li>one owner for settings schema/defaults/persistence,</li>
+            <li>one owner for LLM text actions,</li>
+            <li>one pure owner for hotkey state transitions,</li>
+            <li>one coherent recording/transcription pipeline.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div class="eyebrow">Divergence</div>
+        <div>
+          <h2>The disagreement is about sequencing.</h2>
+          <p class="section-copy">Opus prioritizes architectural cleanup around core/orchestration. Codex prioritizes a behavior-shaped seam that likely hides an actual defect.</p>
+        </div>
+      </div>
+
+      <div class="callout">
+        <strong>My main disagreement:</strong> Opus should not start by asking “collapse controller or push policy into controller?” before fixing the output interface lie. The `replace_selection` flag is already an architectural promise. It should either be honored or removed. That is the smallest high-signal slice.
+      </div>
+
+      <div class="grid-2">
+        <article class="panel">
+          <div class="tag warn">Opus bias</div>
+          <h3>Architectural purity first.</h3>
+          <p>Opus wants to settle what “core” means, then reorganize surrounding modules. That is intellectually clean, but it risks turning the first step into a broad design debate.</p>
+        </article>
+        <article class="panel">
+          <div class="tag warn">Codex bias</div>
+          <h3>Bug-shaped vertical slice first.</h3>
+          <p>Codex starts from a concrete behavioral contradiction: `replace_selection` exists but is ignored. That produces a smaller first refactor and an immediate regression test.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div class="eyebrow">What Opus adds</div>
+        <div>
+          <h2>Two points should be imported into the plan.</h2>
+          <p class="section-copy">Opus catches issues that my first proposal either underweighted or missed.</p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <article class="panel">
+          <h3>1. `core/processing_mode.py` reads `os.environ`.</h3>
+          <p>This violates the intended dependency rule. The fix is small: pass `enable_advanced_modes` from `AppConfig`, or move enablement policy out of core. This is worth doing early because it makes architecture tests sharper.</p>
+        </article>
+        <article class="panel">
+          <h3>2. The controller/service callback loop is the real smell.</h3>
+          <p>My session candidate described responsibility interleaving. Opus names the mechanism: `SessionService` calls `DictationController`, which calls back into `SessionService` through adapters. That is the cleanest evidence that the seam is hypothetical.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div class="eyebrow">Synthesized plan</div>
+        <div>
+          <h2>The merged priority order I would execute.</h2>
+          <p class="section-copy">This order preserves Opus’s architecture insight while keeping the first slice small, testable, and user-visible.</p>
+        </div>
+      </div>
+
+      <div class="ranking">
+        <div class="rank-item">
+          <div>
+            <div class="rank-title">Fix/deepen active text output.</div>
+            <div class="rank-desc">Honor `replace_selection` or remove it. Create a regression test around `ACT_ON_TEXT` replacing selected text. This gives immediate leverage and validates the output seam.</div>
+          </div>
+        </div>
+        <div class="rank-item">
+          <div>
+            <div class="rank-title">Remove `os.environ` from core.</div>
+            <div class="rank-desc">Small symbolic cleanup. Thread `AppConfig.enable_advanced_modes` into mode enablement or move policy to orchestration.</div>
+          </div>
+        </div>
+        <div class="rank-item">
+          <div>
+            <div class="rank-title">Resolve `SessionService` ↔ `DictationController` ownership.</div>
+            <div class="rank-desc">Use Opus’s design fork: collapse the controller into the session module, or push policy fully into the controller. Do not keep the callback ouroboros.</div>
+          </div>
+        </div>
+        <div class="rank-item">
+          <div>
+            <div class="rank-title">Make `TextActions` real.</div>
+            <div class="rank-desc">Make prompts pure and run actions through an injected provider/fallback object. This is a contained, high-confidence seam repair.</div>
+          </div>
+        </div>
+        <div class="rank-item">
+          <div>
+            <div class="rank-title">Make `AppConfig` the single source of truth.</div>
+            <div class="rank-desc">Unify defaults, env parsing, UI field metadata, persistence, and invalidation. Delete legacy config shims only after tests stop depending on them.</div>
+          </div>
+        </div>
+        <div class="rank-item">
+          <div>
+            <div class="rank-title">Split `SpeechRecognizer` / recording pipeline.</div>
+            <div class="rank-desc">Separate microphone capture, STT dispatch, chunk lifecycle, and transcription filtering. This is important but more runtime-sensitive.</div>
+          </div>
+        </div>
+        <div class="rank-item">
+          <div>
+            <div class="rank-title">Make `HotkeyStateMachine` real.</div>
+            <div class="rank-desc">Extract pure transition logic from evdev/pyudev/select plumbing. Do when touching FN behavior or after session ownership is clearer.</div>
+          </div>
+        </div>
+        <div class="rank-item">
+          <div>
+            <div class="rank-title">Clean up `adapters/config/` naming as fallout.</div>
+            <div class="rank-desc">Correct, but not worth a standalone churn PR unless configuration or metrics modules are already moving.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <div class="eyebrow">Final read</div>
+        <div>
+          <h2>How close is Opus?</h2>
+          <p class="section-copy">Close enough that the two proposals should be merged, not debated. Opus has the better architectural naming for the controller/session/config issues. Codex has the better first slice because it starts from a concrete behavior contradiction.</p>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <article class="panel dark">
+          <h3>Verdict</h3>
+          <p><strong>Opus proposal quality: high.</strong> It is aligned with my findings and adds two useful candidates. Its main weakness is breadth: the top recommendation may trigger a larger design conversation before Dicton gets a concrete seam improvement.</p>
+        </article>
+        <article class="panel">
+          <h3>Recommended next action</h3>
+          <p>Write a tiny refactor issue for active text output, and append two Opus-derived guardrails: no env reads in core, and no new bound-method pass-through adapters unless the seam has a named reason to exist.</p>
+        </article>
+      </div>
+    </section>
+
+    <p class="footer-note">Theme adapted from ../alysis/alysis.cat tokens: cream paper, warm accent, artisan serif display, monospace labels, pixel corner details.</p>
+  </main>
+</body>
+</html>
