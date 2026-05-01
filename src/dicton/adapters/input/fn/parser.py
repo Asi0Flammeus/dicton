@@ -159,7 +159,6 @@ def build_secondary_hotkeys(
     *,
     secondary_hotkey: str,
     secondary_hotkey_translation: str,
-    secondary_hotkey_act_on_text: str,
     advanced_modes_enabled: bool,
 ) -> dict[int, ProcessingMode]:
     hotkeys: dict[int, ProcessingMode] = {}
@@ -171,11 +170,6 @@ def build_secondary_hotkeys(
     keycode = SECONDARY_HOTKEY_MAP.get(secondary_hotkey_translation)
     if keycode:
         hotkeys[keycode] = ProcessingMode.TRANSLATION
-
-    if advanced_modes_enabled:
-        keycode = SECONDARY_HOTKEY_MAP.get(secondary_hotkey_act_on_text)
-        if keycode:
-            hotkeys[keycode] = ProcessingMode.ACT_ON_TEXT
 
     return hotkeys
 

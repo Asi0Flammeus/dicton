@@ -1,35 +1,17 @@
-"""X11 selection reader via xclip."""
+"""X11 clipboard via xclip."""
 
 from __future__ import annotations
 
 import subprocess
 
-from .selection_base import SelectionReader
+from .clipboard_base import Clipboard
 
 
-class X11SelectionReader(SelectionReader):
-    """Selection/clipboard via xclip (X11 and XWayland)."""
+class X11Clipboard(Clipboard):
+    """Clipboard via xclip (X11 and XWayland)."""
 
     def __init__(self, *, debug: bool = False) -> None:
         self._debug = debug
-
-    def get_selection(self) -> str | None:
-        try:
-            result = subprocess.run(
-                ["xclip", "-selection", "primary", "-o"],
-                capture_output=True,
-                text=True,
-                timeout=2.0,
-            )
-            if result.returncode == 0 and result.stdout:
-                return result.stdout.strip()
-            return None
-        except FileNotFoundError:
-            if self._debug:
-                print("xclip not installed. Install with: sudo apt install xclip")
-            return None
-        except (subprocess.TimeoutExpired, Exception):
-            return None
 
     def get_clipboard(self) -> str | None:
         try:

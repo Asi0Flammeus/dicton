@@ -1,19 +1,12 @@
-"""Windows selection reader via pyperclip."""
+"""Windows clipboard via pyperclip."""
 
 from __future__ import annotations
 
-from .selection_base import SelectionReader
+from .clipboard_base import Clipboard
 
 
-class WindowsSelectionReader(SelectionReader):
-    """Selection/clipboard via pyperclip (Windows).
-
-    Windows has no PRIMARY selection concept — get_selection() returns
-    clipboard content (the closest equivalent).
-    """
-
-    def get_selection(self) -> str | None:
-        return self.get_clipboard()
+class WindowsClipboard(Clipboard):
+    """Clipboard via pyperclip (Windows)."""
 
     def get_clipboard(self) -> str | None:
         try:

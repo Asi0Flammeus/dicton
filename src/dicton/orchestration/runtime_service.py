@@ -62,7 +62,6 @@ class RuntimeService:
                 debug=self._debug,
                 secondary_hotkey=self._app_config.secondary_hotkey,
                 secondary_hotkey_translation=self._app_config.secondary_hotkey_translation,
-                secondary_hotkey_act_on_text=self._app_config.secondary_hotkey_act_on_text,
                 hotkey_base=self._app_config.hotkey_base,
                 custom_hotkey_value=self._app_config.custom_hotkey_value,
             )
@@ -114,7 +113,7 @@ class RuntimeService:
             print("Hotkey: FN key (double-tap=toggle)")
             print("Modes: FN=Direct transcription, FN+Ctrl=Translate to English")
             if self._app_config.enable_advanced_modes:
-                print("Advanced: FN+Alt=Reformulation, FN+Shift=Act on Text, FN+Space=Raw")
+                print("Advanced: FN+Alt=Reformulation, FN+Space=Raw")
         else:
             hmod = self._app_config.hotkey_modifier
             hkey = self._app_config.hotkey_key

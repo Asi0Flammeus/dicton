@@ -50,7 +50,7 @@ _TEXT_OUTPUT_CLASSES = [
     PynputTextOutput,
 ]
 
-_TEXT_OUTPUT_METHODS = ["insert_text", "paste_text", "replace_selection"]
+_TEXT_OUTPUT_METHODS = ["insert_text", "paste_text"]
 
 
 @pytest.mark.parametrize("cls", _TEXT_OUTPUT_CLASSES, ids=lambda c: c.__name__)
@@ -95,7 +95,7 @@ def test_text_output_adapter_satisfies_core_port():
     """TextOutputAdapter must satisfy the core TextOutput protocol."""
     from dicton.adapters.config.text_processing import TextOutputAdapter
 
-    adapter = TextOutputAdapter(lambda text, mode, replace: None)
+    adapter = TextOutputAdapter(lambda text, mode: None)
     assert isinstance(adapter, TextOutput)
 
 
@@ -191,9 +191,6 @@ class _StubTextOutput(TextOutputABC):
     def paste_text(self, text):
         return False
 
-    def replace_selection(self, text):
-        return False
-
 
 class _StubMetrics:
     def start_session(self):
@@ -226,7 +223,7 @@ def test_session_service_wires_without_error():
     # Verify the output path is callable end-to-end (no TypeError)
     from dicton.shared.processing_mode import ProcessingMode
 
-    svc.output_result("hello", ProcessingMode.BASIC, replace_selection=False)
+    svc.output_result("hello", ProcessingMode.BASIC)
 
 
 # ---------------------------------------------------------------------------

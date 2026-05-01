@@ -851,16 +851,6 @@
                     <input type="hidden" id="secondary_hotkey_translation" value="none">
                 </div>
 
-                <!-- Act on Text Mode Hotkey -->
-                <div class="form-group">
-                    <label>Act on Text Mode (Voice command on selected text)</label>
-                    <div class="hotkey-input-row">
-                        <div class="hotkey-value" id="secondary-hotkey-act-value">Not set</div>
-                        <button class="btn btn-secondary" onclick="captureSecondaryHotkey('act')">Change</button>
-                        <button class="btn btn-secondary" onclick="clearSecondaryHotkey('act')">Clear</button>
-                    </div>
-                    <input type="hidden" id="secondary_hotkey_act_on_text" value="none">
-                </div>
             </div>
 
             <div class="section">
@@ -1371,7 +1361,6 @@
             document.getElementById('custom_hotkey_value').value = cfg.custom_hotkey_value || 'alt+g';
             document.getElementById('secondary_hotkey').value = cfg.secondary_hotkey || 'none';
             document.getElementById('secondary_hotkey_translation').value = cfg.secondary_hotkey_translation || 'none';
-            document.getElementById('secondary_hotkey_act_on_text').value = cfg.secondary_hotkey_act_on_text || 'none';
 
             // Update color selection
             document.querySelectorAll('.color-option').forEach(el => {
@@ -1402,8 +1391,7 @@
                 mute_backend: document.getElementById('mute_backend').value,
                 custom_hotkey_value: document.getElementById('custom_hotkey_value').value || 'alt+g',
                 secondary_hotkey: document.getElementById('secondary_hotkey').value || 'none',
-                secondary_hotkey_translation: document.getElementById('secondary_hotkey_translation').value || 'none',
-                secondary_hotkey_act_on_text: document.getElementById('secondary_hotkey_act_on_text').value || 'none'
+                secondary_hotkey_translation: document.getElementById('secondary_hotkey_translation').value || 'none'
             };
 
             // Only include API keys if they were changed (not masked)
@@ -1428,8 +1416,7 @@
                 console.log('Saving config:', data);
                 console.log('Secondary hotkeys:', {
                     basic: data.secondary_hotkey,
-                    translation: data.secondary_hotkey_translation,
-                    act: data.secondary_hotkey_act_on_text
+                    translation: data.secondary_hotkey_translation
                 });
                 const res = await fetch(API_BASE + '/api/config', {
                     method: 'POST',
@@ -1443,8 +1430,7 @@
                     console.log('Reloaded config from server:', reloaded);
                     console.log('Reloaded secondary hotkeys:', {
                         basic: reloaded.secondary_hotkey,
-                        translation: reloaded.secondary_hotkey_translation,
-                        act: reloaded.secondary_hotkey_act_on_text
+                        translation: reloaded.secondary_hotkey_translation
                     });
                     loadConfig(); // Reload to update statuses
                 } else {
@@ -1664,8 +1650,7 @@
 
             const modeLabels = {
                 'basic': 'Basic Mode',
-                'translation': 'Translation Mode',
-                'act': 'Act on Text Mode'
+                'translation': 'Translation Mode'
             };
 
             document.getElementById('modal-title').textContent = 'Capture ' + modeLabels[mode] + ' Hotkey';
@@ -1681,13 +1666,11 @@
         function clearSecondaryHotkey(mode) {
             const inputMap = {
                 'basic': 'secondary_hotkey',
-                'translation': 'secondary_hotkey_translation',
-                'act': 'secondary_hotkey_act_on_text'
+                'translation': 'secondary_hotkey_translation'
             };
             const displayMap = {
                 'basic': 'secondary-hotkey-basic-value',
-                'translation': 'secondary-hotkey-translation-value',
-                'act': 'secondary-hotkey-act-value'
+                'translation': 'secondary-hotkey-translation-value'
             };
 
             document.getElementById(inputMap[mode]).value = 'none';
@@ -1715,20 +1698,14 @@
             // Get current values for all secondary hotkeys
             const secondaryBasic = document.getElementById('secondary_hotkey').value || 'none';
             const secondaryTranslation = document.getElementById('secondary_hotkey_translation').value || 'none';
-            const secondaryAct = document.getElementById('secondary_hotkey_act_on_text').value || 'none';
 
             const conflicts = [];
 
             // Check conflicts between secondary hotkeys
             if (targetMode === 'secondary-basic') {
                 if (newKey === secondaryTranslation && newKey !== 'none') conflicts.push('Translation mode');
-                if (newKey === secondaryAct && newKey !== 'none') conflicts.push('Act on Text mode');
             } else if (targetMode === 'secondary-translation') {
                 if (newKey === secondaryBasic && newKey !== 'none') conflicts.push('Basic mode');
-                if (newKey === secondaryAct && newKey !== 'none') conflicts.push('Act on Text mode');
-            } else if (targetMode === 'secondary-act') {
-                if (newKey === secondaryBasic && newKey !== 'none') conflicts.push('Basic mode');
-                if (newKey === secondaryTranslation && newKey !== 'none') conflicts.push('Translation mode');
             }
 
             return conflicts;
@@ -1754,9 +1731,6 @@
             } else if (captureMode === 'secondary-translation') {
                 document.getElementById('secondary_hotkey_translation').value = capturedKey;
                 document.getElementById('secondary-hotkey-translation-value').textContent = formatHotkeyDisplay(capturedKey);
-            } else if (captureMode === 'secondary-act') {
-                document.getElementById('secondary_hotkey_act_on_text').value = capturedKey;
-                document.getElementById('secondary-hotkey-act-value').textContent = formatHotkeyDisplay(capturedKey);
             }
 
             hideModal();
@@ -1845,14 +1819,11 @@
             // Secondary hotkeys - update display for all modes
             const secondaryBasic = document.getElementById('secondary_hotkey').value || 'none';
             const secondaryTranslation = document.getElementById('secondary_hotkey_translation').value || 'none';
-            const secondaryAct = document.getElementById('secondary_hotkey_act_on_text').value || 'none';
 
             document.getElementById('secondary-hotkey-basic-value').textContent =
                 secondaryBasic !== 'none' ? formatHotkeyDisplay(secondaryBasic) : 'Not set';
             document.getElementById('secondary-hotkey-translation-value').textContent =
                 secondaryTranslation !== 'none' ? formatHotkeyDisplay(secondaryTranslation) : 'Not set';
-            document.getElementById('secondary-hotkey-act-value').textContent =
-                secondaryAct !== 'none' ? formatHotkeyDisplay(secondaryAct) : 'Not set';
         }
 
         // Load config on page load

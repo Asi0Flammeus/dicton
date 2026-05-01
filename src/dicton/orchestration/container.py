@@ -15,8 +15,8 @@ from ..adapters.config.metrics import MetricsAdapter
 from ..adapters.config.text_processing import TextOutputAdapter, TextProcessorAdapter
 from ..adapters.input.hotkey_listener import HotkeyListener
 from ..adapters.llm.factory import get_llm_provider_with_fallback
+from ..adapters.output.clipboard_factory import get_clipboard
 from ..adapters.output.factory import get_text_output
-from ..adapters.output.selection_factory import get_selection_reader
 from ..adapters.ui.notifications_factory import get_notification_service
 from ..adapters.ui.theme_constants import FLEXOKI_COLORS, get_animation_position, get_theme_colors
 from ..adapters.ui.visualizer_config import VisualizerConfig
@@ -109,9 +109,9 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
         )
 
     # === Platform adapters ===
-    selection_reader = get_selection_reader(debug=app_config.debug)
+    clipboard = get_clipboard(debug=app_config.debug)
     text_output = get_text_output(
-        selection_reader,
+        clipboard,
         paste_threshold_words=app_config.paste_threshold_words,
         debug=app_config.debug,
         clipboard_verify_delay_ms=app_config.clipboard_verify_delay_ms,
@@ -145,7 +145,6 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
         text_output=text_output,
         metrics=metrics,
         app_config=app_config,
-        selection_reader=selection_reader,
         notification_service=notification_service,
         llm_provider=llm_provider,
         visualizer_factory=_build_visualizer_factory(app_config),

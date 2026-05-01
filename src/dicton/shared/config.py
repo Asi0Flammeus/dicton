@@ -126,11 +126,11 @@ class Config:
     # The primary provider will be used first, with fallback to the other if available
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
 
-    # Gemini API (for Act on Text, reformulation, translation)
+    # Gemini API (for reformulation and translation)
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 
-    # Anthropic API (alternative for Act on Text, reformulation, translation)
+    # Anthropic API (alternative for reformulation and translation)
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
     ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
 
@@ -170,9 +170,6 @@ class Config:
     SECONDARY_HOTKEY_TRANSLATION = os.getenv(
         "SECONDARY_HOTKEY_TRANSLATION", "none"
     ).lower()  # Translation mode
-    SECONDARY_HOTKEY_ACT_ON_TEXT = os.getenv(
-        "SECONDARY_HOTKEY_ACT_ON_TEXT", "none"
-    ).lower()  # Act on Text mode
 
     # Keep the default UI focused on direct dictation + translation.
     ENABLE_ADVANCED_MODES = os.getenv("ENABLE_ADVANCED_MODES", "false").lower() == "true"
@@ -277,7 +274,6 @@ class Config:
         cls.HOTKEY_DOUBLE_TAP_WINDOW_MS = int(os.getenv("HOTKEY_DOUBLE_TAP_WINDOW_MS", "300"))
         cls.SECONDARY_HOTKEY = os.getenv("SECONDARY_HOTKEY", "none").lower()
         cls.SECONDARY_HOTKEY_TRANSLATION = os.getenv("SECONDARY_HOTKEY_TRANSLATION", "none").lower()
-        cls.SECONDARY_HOTKEY_ACT_ON_TEXT = os.getenv("SECONDARY_HOTKEY_ACT_ON_TEXT", "none").lower()
         cls.ENABLE_ADVANCED_MODES = os.getenv("ENABLE_ADVANCED_MODES", "false").lower() == "true"
         cls.THEME_COLOR = os.getenv("THEME_COLOR", "orange").lower()
         cls.ANIMATION_POSITION = os.getenv("ANIMATION_POSITION", "top-right").lower()

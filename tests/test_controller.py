@@ -48,8 +48,8 @@ class _TextOutput(TextOutput):
     def __init__(self):
         self.calls = []
 
-    def output(self, text: str, mode, replace_selection: bool) -> None:
-        self.calls.append((text, replace_selection))
+    def output(self, text: str, mode) -> None:
+        self.calls.append((text, mode))
 
 
 class _UI(UIFeedback):

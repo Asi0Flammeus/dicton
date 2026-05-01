@@ -1,35 +1,17 @@
-"""Wayland selection reader via wl-paste/wl-copy."""
+"""Wayland clipboard via wl-paste/wl-copy."""
 
 from __future__ import annotations
 
 import subprocess
 
-from .selection_base import SelectionReader
+from .clipboard_base import Clipboard
 
 
-class WaylandSelectionReader(SelectionReader):
-    """Selection/clipboard via wl-paste/wl-copy (native Wayland)."""
+class WaylandClipboard(Clipboard):
+    """Clipboard via wl-paste/wl-copy (native Wayland)."""
 
     def __init__(self, *, debug: bool = False) -> None:
         self._debug = debug
-
-    def get_selection(self) -> str | None:
-        try:
-            result = subprocess.run(
-                ["wl-paste", "-p", "-n"],
-                capture_output=True,
-                text=True,
-                timeout=2.0,
-            )
-            if result.returncode == 0 and result.stdout:
-                return result.stdout.strip()
-            return None
-        except FileNotFoundError:
-            if self._debug:
-                print("wl-paste not found. Install with: sudo apt install wl-clipboard")
-            return None
-        except (subprocess.TimeoutExpired, Exception):
-            return None
 
     def get_clipboard(self) -> str | None:
         try:

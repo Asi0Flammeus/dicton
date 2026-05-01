@@ -8,7 +8,7 @@ import pytest
 
 
 @pytest.fixture()
-def selection_reader():
+def clipboard():
     reader = MagicMock()
     reader.set_clipboard.return_value = True
 
@@ -23,10 +23,10 @@ def selection_reader():
 
 
 @pytest.fixture()
-def output(selection_reader):
+def output(clipboard):
     from dicton.adapters.output.linux import LinuxTextOutput
 
-    return LinuxTextOutput(selection_reader=selection_reader, paste_threshold_words=0)
+    return LinuxTextOutput(clipboard=clipboard, paste_threshold_words=0)
 
 
 def test_insert_text_uses_xdotool(output):
@@ -53,43 +53,32 @@ def test_insert_text_falls_back_on_file_not_found(output):
     fallback.assert_called_once_with("hello", 50)
 
 
-def test_paste_text_sets_clipboard_and_triggers_xdotool(output, selection_reader):
+def test_paste_text_sets_clipboard_and_triggers_xdotool(output, clipboard):
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0)
         result = output.paste_text("hello world")
 
     assert result is True
-    selection_reader.set_clipboard.assert_called_once_with("hello world")
+    clipboard.set_clipboard.assert_called_once_with("hello world")
 
 
-def test_paste_text_returns_false_when_no_selection_reader(monkeypatch):
+def test_paste_text_returns_false_when_no_clipboard(monkeypatch):
     from dicton.adapters.output.linux import LinuxTextOutput
 
-    out = LinuxTextOutput(selection_reader=None)
+    out = LinuxTextOutput(clipboard=None)
     assert out.paste_text("text") is False
 
 
-def test_paste_text_returns_false_when_set_clipboard_fails(output, selection_reader):
-    selection_reader.set_clipboard.return_value = False
+def test_paste_text_returns_false_when_set_clipboard_fails(output, clipboard):
+    clipboard.set_clipboard.return_value = False
     result = output.paste_text("text")
     assert result is False
 
 
-def test_replace_selection_uses_ctrl_v(output, selection_reader):
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
-        result = output.replace_selection("replaced")
-
-    assert result is True
-    # Last subprocess call should be xdotool key ctrl+v (not ctrl+shift+v)
-    last_call_args = mock_run.call_args[0][0]
-    assert "ctrl+v" in last_call_args
-
-
-def test_paste_uses_ctrl_shift_v(selection_reader):
+def test_paste_uses_ctrl_shift_v(clipboard):
     from dicton.adapters.output.linux import LinuxTextOutput
 
-    paste_output = LinuxTextOutput(selection_reader=selection_reader, paste_threshold_words=1)
+    paste_output = LinuxTextOutput(clipboard=clipboard, paste_threshold_words=1)
     with patch("subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(returncode=0)
         paste_output.insert_text("long text here", delay_ms=10)

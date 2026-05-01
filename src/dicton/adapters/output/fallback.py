@@ -46,6 +46,3 @@ class PynputTextOutput(TextOutput):
 
     def paste_text(self, text: str) -> bool:
         return False
-
-    def replace_selection(self, text: str) -> bool:
-        return False

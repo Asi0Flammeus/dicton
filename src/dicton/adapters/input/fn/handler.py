@@ -57,7 +57,6 @@ class FnKeyHandler:
         debug: bool = False,
         secondary_hotkey: str = "none",
         secondary_hotkey_translation: str = "none",
-        secondary_hotkey_act_on_text: str = "none",
         hotkey_base: str = "fn",
         custom_hotkey_value: str = "alt+g",
     ):
@@ -71,7 +70,6 @@ class FnKeyHandler:
             debug: Enable debug logging.
             secondary_hotkey: Secondary hotkey for basic/reformulation mode.
             secondary_hotkey_translation: Secondary hotkey for translation mode.
-            secondary_hotkey_act_on_text: Secondary hotkey for act-on-text mode.
             hotkey_base: Hotkey base type ("fn" or "custom").
             custom_hotkey_value: Custom hotkey specification (e.g. "alt+g").
         """
@@ -83,7 +81,6 @@ class FnKeyHandler:
         self._debug = debug
         self._secondary_hotkey_cfg = secondary_hotkey
         self._secondary_hotkey_translation_cfg = secondary_hotkey_translation
-        self._secondary_hotkey_act_on_text_cfg = secondary_hotkey_act_on_text
         self._hotkey_base = hotkey_base
         self._custom_hotkey_value_cfg = custom_hotkey_value
 
@@ -156,12 +153,11 @@ class FnKeyHandler:
         """Build mapping of secondary hotkey keycodes to their processing modes."""
         if self._debug:
             print(
-                f"Secondary hotkey config: basic={self._secondary_hotkey_cfg}, translation={self._secondary_hotkey_translation_cfg}, act={self._secondary_hotkey_act_on_text_cfg}"
+                f"Secondary hotkey config: basic={self._secondary_hotkey_cfg}, translation={self._secondary_hotkey_translation_cfg}"
             )
         self._secondary_hotkeys = build_secondary_hotkeys(
             secondary_hotkey=self._secondary_hotkey_cfg,
             secondary_hotkey_translation=self._secondary_hotkey_translation_cfg,
-            secondary_hotkey_act_on_text=self._secondary_hotkey_act_on_text_cfg,
             advanced_modes_enabled=advanced_modes_enabled(),
         )
 
@@ -653,7 +649,6 @@ class FnKeyHandler:
         Priority order:
         - FN + Ctrl + Shift → TRANSLATE_REFORMAT (Cyan)
         - FN + Ctrl → TRANSLATION (Green)
-        - FN + Shift → ACT_ON_TEXT (Magenta)
         - FN + Alt → REFORMULATION (Purple)
         - FN + Space → RAW (Yellow)
         - FN only → BASIC (Orange)
@@ -662,8 +657,6 @@ class FnKeyHandler:
             return ProcessingMode.TRANSLATE_REFORMAT
         if self._ctrl_pressed:
             return ProcessingMode.TRANSLATION
-        if self._shift_pressed and advanced_modes_enabled():
-            return ProcessingMode.ACT_ON_TEXT
         if self._alt_pressed and advanced_modes_enabled():
             return ProcessingMode.REFORMULATION
         if self._space_pressed and advanced_modes_enabled():
