@@ -65,41 +65,40 @@ def reformulate(
     if language:
         language_instruction = f"The text is in {language}. Keep your output in the same language."
 
-    prompt = f"""You are a text cleanup assistant. Lightly reformulate the following transcribed speech.
+    prompt = f"""You are a structural text reformulator. The input has already been
+cleaned of filler words and STT artefacts upstream — focus on structure, not
+filler removal.
 
-IMPORTANT RULES:
-1. FIRST: Detect the language of the input text
-2. OUTPUT MUST BE IN THE SAME LANGUAGE as the input (French stays French, English stays English, etc.)
-3. Remove filler words (um, uh, like, you know, euh, genre, en fait, etc.)
-4. Fix minor grammar issues
-5. DO NOT change the meaning or tone
-6. DO NOT translate - keep the original language
-7. Preserve the speaker's voice and style
-8. Keep changes to the strict minimum to stay as close to the original
-9. Return ONLY the cleaned text, no explanations
-10. Convert spoken numbers to digits (e.g., "twenty-three" → "23", "three hundred" → "300", "vingt-trois" → "23")
-11. Format enumerated items as lists when the speaker introduces points sequentially. Use numbered lists (1. 2. 3.) when speaker uses ordinals like "first", "second", "premier", "deuxième", or bullet points for other enumerations
-12. If the input is empty, contains only static noise, or has no meaningful speech content, output exactly "None" with nothing else
-13. Interpret dictation commands and replace them with actual punctuation/formatting:
-    - "new line" / "à la ligne" → actual line break
-    - "new paragraph" / "nouveau paragraphe" → double line break
-    - "dash" / "tiret" → "-"
-    - "open parenthesis" / "ouvrir parenthèse" → "("
-    - "close parenthesis" / "fermer parenthèse" → ")"
-    - "open bracket" / "ouvrir crochet" → "["
-    - "close bracket" / "fermer crochet" → "]"
-    - "colon" / "deux points" → ":"
-    - "semicolon" / "point virgule" → ";"
-    - "comma" / "virgule" → ","
-    - "period" / "point final" → "."
-    - "question mark" / "point d'interrogation" → "?"
-    - "exclamation mark" / "point d'exclamation" → "!"
+RULES:
+1. OUTPUT MUST BE IN THE SAME LANGUAGE as the input. DO NOT translate.
+2. Preserve the speaker's voice, tone, and meaning. Keep changes minimal.
+3. Convert spoken numbers to digits (e.g., "twenty-three" → "23",
+   "vingt-trois" → "23").
+4. Format enumerated items as lists when the speaker introduces points
+   sequentially. Use numbered lists (1. 2. 3.) when speaker uses ordinals
+   like "first", "second", "premier", "deuxième"; bullet points otherwise.
+5. Interpret dictation commands and replace them with actual punctuation:
+   - "new line" / "à la ligne" → line break
+   - "new paragraph" / "nouveau paragraphe" → double line break
+   - "dash" / "tiret" → "-"
+   - "open parenthesis" / "ouvrir parenthèse" → "("
+   - "close parenthesis" / "fermer parenthèse" → ")"
+   - "open bracket" / "ouvrir crochet" → "["
+   - "close bracket" / "fermer crochet" → "]"
+   - "colon" / "deux points" → ":"
+   - "semicolon" / "point virgule" → ";"
+   - "comma" / "virgule" → ","
+   - "period" / "point final" → "."
+   - "question mark" / "point d'interrogation" → "?"
+   - "exclamation mark" / "point d'exclamation" → "!"
+6. If the input is empty or has no meaningful content, output exactly "None".
+7. Return ONLY the reformulated text, no explanations.
 {language_instruction}
 
-TEXT TO CLEAN:
+TEXT:
 {text}
 
-CLEANED TEXT (same language as input):"""
+REFORMULATED:"""
 
     result = _call(prompt, user_provider=user_provider, debug=debug)
     if result and result.strip().lower() == "none":
@@ -116,9 +115,8 @@ def translate(
 ) -> str | None:
     """Translate text to target language.
 
-    Uses explicit two-step process:
-    1. CLEAN: Remove all filler words (mandatory)
-    2. TRANSLATE: Translate the cleaned text
+    Filler removal is done upstream by the transcript cleaner; this prompt
+    focuses on translation only.
 
     Args:
         text: The text to translate.
@@ -132,54 +130,21 @@ def translate(
     if not text:
         return None
 
-    prompt = f"""You are a translator. Your task has TWO MANDATORY STEPS.
+    prompt = f"""You are a translator. Translate the input to {target_language}.
 
-═══════════════════════════════════════════════════════════════════════════════
-STEP 1 - CLEAN (MANDATORY): Remove ALL filler words before translating
-═══════════════════════════════════════════════════════════════════════════════
+The input has already been cleaned upstream (filler words and STT artefacts
+removed) — focus on producing an accurate, natural translation.
 
-You MUST remove every single instance of these filler words/phrases. This step is NOT optional.
-
-FRENCH FILLERS (remove all of these):
-- euh, heu, bah, bon, ben
-- genre, en fait, du coup, voilà, quoi
-- tu vois, tu sais, enfin, bref
-- donc voilà, c'est-à-dire, comment dire
-- ah, oh, ouais, hein, nan, mouais
-- donc, alors, en gros, style
-- j'veux dire, disons, enfin bref
-
-ENGLISH FILLERS (remove all of these):
-- um, uh, erm, hmm
-- like, you know, I mean
-- so, basically, actually
-- kind of, sort of, kinda, sorta
-- well, right, okay so
-- I guess, you see, let's see
-- and stuff, or whatever, or something
-
-Also fix in Step 1:
-- Grammar issues from speech
-- Convert spoken numbers to digits ("vingt-trois" → "23", "three hundred" → "300")
-- Interpret dictation commands (new line → actual line break, dash → "-", etc.)
-
-═══════════════════════════════════════════════════════════════════════════════
-STEP 2 - TRANSLATE: Translate the cleaned text to {target_language}
-═══════════════════════════════════════════════════════════════════════════════
-
-After cleaning, translate with these rules:
-- Provide an accurate, natural translation to {target_language}
-- Preserve the original tone and style
-- Format enumerated items as lists: numbered (1. 2. 3.) for ordinals, bullet points otherwise
-- Keep the translation close to the original meaning while being natural
-
-═══════════════════════════════════════════════════════════════════════════════
-OUTPUT RULES
-═══════════════════════════════════════════════════════════════════════════════
-
-- Return ONLY the final translated text, no explanations or step annotations
-- Do NOT include any filler words in your output
-- If the input is empty, contains only static noise, or has no meaningful speech content, output exactly "None"
+RULES:
+- Provide an accurate, natural translation to {target_language}.
+- Preserve the original tone and style.
+- Convert spoken numbers to digits where the input still has them spelled out.
+- Format enumerated items as lists: numbered (1. 2. 3.) for ordinals,
+  bullet points otherwise.
+- Interpret remaining dictation commands ("new line" → line break,
+  "dash" → "-", etc.).
+- Return ONLY the translated text, no explanations.
+- If the input is empty or has no meaningful content, output exactly "None".
 
 TEXT TO TRANSLATE:
 {text}

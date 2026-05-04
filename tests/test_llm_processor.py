@@ -84,48 +84,40 @@ class TestFillerWordLists:
 
 
 class TestTranslationPromptStructure:
-    """Test that the translation prompt has proper structure."""
+    """Test that the translation prompt has proper structure.
 
-    def test_prompt_has_two_steps(self):
-        """Verify the translate function prompt contains two-step structure."""
-        import inspect
+    Filler removal moved upstream to the transcript cleaner (see
+    ``adapters/llm/cleaner.py``); the translate prompt now focuses on
+    translation alone and is intentionally short.
+    """
 
-        from dicton.adapters.llm.prompts import translate
-
-        # Get the function source to verify prompt structure
-        source = inspect.getsource(translate)
-
-        assert "STEP 1" in source, "Should have STEP 1 in prompt"
-        assert "STEP 2" in source, "Should have STEP 2 in prompt"
-        assert "CLEAN" in source, "Should mention CLEAN in Step 1"
-        assert "TRANSLATE" in source, "Should mention TRANSLATE in Step 2"
-        assert "MANDATORY" in source, "Should emphasize MANDATORY"
-
-    def test_prompt_contains_french_fillers(self):
-        """Verify prompt mentions French filler examples."""
+    def test_prompt_targets_translation(self):
+        """Verify the translate function prompt is a translation prompt."""
         import inspect
 
         from dicton.adapters.llm.prompts import translate
 
         source = inspect.getsource(translate)
 
-        # Check for key French fillers
-        french_fillers_to_check = ["euh", "genre", "du coup", "voilà"]
-        for filler in french_fillers_to_check:
-            assert filler in source, f"Should mention French filler: {filler}"
+        assert "translator" in source.lower()
+        assert "translate" in source.lower()
+        assert "target_language" in source
 
-    def test_prompt_contains_english_fillers(self):
-        """Verify prompt mentions English filler examples."""
+    def test_prompt_no_longer_inlines_filler_lists(self):
+        """Filler stripping is now the cleaner's job; the translate prompt
+        must not inline language-specific filler lists."""
         import inspect
 
         from dicton.adapters.llm.prompts import translate
 
         source = inspect.getsource(translate)
 
-        # Check for key English fillers
-        english_fillers_to_check = ["um", "like", "you know", "basically"]
-        for filler in english_fillers_to_check:
-            assert filler in source, f"Should mention English filler: {filler}"
+        # The legacy inline filler vocabulary should be gone; filler removal
+        # now lives in adapters/llm/cleaner.py.
+        for legacy_marker in ("STEP 1", "STEP 2", "FRENCH FILLERS", "ENGLISH FILLERS"):
+            assert legacy_marker not in source, (
+                f"Translate prompt should not contain {legacy_marker!r} after cleaner extraction"
+            )
 
 
 class TestTranslationFillerRemoval:
