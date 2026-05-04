@@ -30,38 +30,22 @@ _DEFAULT_CLEANER_MODELS: dict[str, str] = {
 }
 
 
-_CLEANER_PROMPT_TEMPLATE = """You are a transcript cleaner. The input is raw speech-to-text output.
+_CLEANER_PROMPT_TEMPLATE = """Clean this speech-to-text transcript. Output ONLY the cleaned text.
 
-YOUR JOB:
-- Remove filler words and hesitation sounds in any language
-  (euh, heu, um, uh, like, you know, en fait, du coup, voilà, genre, bah, ben, hein, …).
-- Remove ALL bracketed or parenthesised non-speech annotations the STT may have
-  emitted: [bruit], [noise], [music], [silence], [inaudible], (rires), (laughs), …
-- Repair grammar and syntax so the output is a well-formed sentence (or several),
-  in the SAME language as the input.
-- Preserve faithfully WHAT was said: do not paraphrase, do not summarise, do not
-  add ideas, do not change the tone or register, do not translate.
-- Keep proper nouns, technical terms, code identifiers verbatim.
-- Light punctuation only (commas, periods, question marks). No reformatting into
-  lists, no markdown.
-- If the input is empty, only static, or has no meaningful speech, output
-  exactly: None
-{language_instruction}
-OUTPUT: only the cleaned text, nothing else.
+Rules:
+- Same language as input. Never translate.
+- Remove filler words (euh, um, like, du coup, genre, …) and bracketed
+  STT annotations ([bruit], [music], (rires), …).
+- Fix grammar/syntax. Keep meaning, tone, proper nouns, technical terms.
+- Light punctuation only.
+- If empty or meaningless: output exactly None.
 
 INPUT:
-{text}
-
-CLEANED:"""
+{text}"""
 
 
-def _build_prompt(text: str, language: str | None) -> str:
-    language_instruction = ""
-    if language and language.lower() != "auto":
-        language_instruction = (
-            f"\nThe input language is {language}. Keep the cleaned output in the same language.\n"
-        )
-    return _CLEANER_PROMPT_TEMPLATE.format(text=text, language_instruction=language_instruction)
+def _build_prompt(text: str, language: str | None) -> str:  # noqa: ARG001
+    return _CLEANER_PROMPT_TEMPLATE.format(text=text)
 
 
 def clean_transcript(

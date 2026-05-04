@@ -97,13 +97,17 @@ def test_empty_input_returns_none(patch_providers):
     assert providers["gemini"].calls == []
 
 
-def test_prompt_embeds_bracket_removal_rule(patch_providers):
+def test_prompt_embeds_critical_rules(patch_providers):
     providers = patch_providers({"gemini": _FakeProvider(result="ok")})
     clean_transcript("hello [bruit] world", language="fr")
     prompt, _model = providers["gemini"].calls[0]
+    # bracket-stripping rule
     assert "[bruit]" in prompt or "bracketed" in prompt.lower()
+    # filler-removal rule
     assert "filler" in prompt.lower()
-    assert "fr" in prompt.lower()
+    # language-preservation rule (the headline rule of the cleaner)
+    assert "same language" in prompt.lower()
+    assert "never translate" in prompt.lower()
 
 
 def test_default_model_for_primary_provider_is_provider_specific(patch_providers):
@@ -151,11 +155,8 @@ def test_auto_provider_ignores_model_override(patch_providers):
     assert providers["gemini"].calls[-1][1] == "gemini-flash-lite-latest"
 
 
-def test_build_prompt_includes_language_when_specified():
-    prompt = _build_prompt("hello", language="French")
-    assert "French" in prompt
-
-
-def test_build_prompt_omits_language_when_auto():
-    prompt = _build_prompt("hello", language="auto")
-    assert "auto" not in prompt.lower()
+def test_build_prompt_is_stable_regardless_of_language_arg():
+    """The prompt is intentionally language-agnostic — the 'same language as
+    input' rule does the work, so the optional language arg is a no-op."""
+    assert _build_prompt("hello", language="French") == _build_prompt("hello", language="auto")
+    assert _build_prompt("hello", language=None) == _build_prompt("hello", language="fr")
