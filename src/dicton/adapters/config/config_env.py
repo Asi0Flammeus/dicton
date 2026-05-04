@@ -87,7 +87,7 @@ def load_app_config() -> AppConfig:
         filter_fillers=_env_bool("FILTER_FILLERS", "true"),
         enable_reformulation=_env_bool("ENABLE_REFORMULATION", "false"),
         enable_advanced_modes=_env_bool("ENABLE_ADVANCED_MODES", "false"),
-        paste_threshold_words=_env_int("PASTE_THRESHOLD_WORDS", "10"),
+        paste_threshold_words=_env_int("PASTE_THRESHOLD_WORDS", "-1"),
         clipboard_verify_delay_ms=_env_int("CLIPBOARD_VERIFY_DELAY_MS", "50"),
         clipboard_max_retries=_env_int("CLIPBOARD_MAX_RETRIES", "5"),
         # Transcript cleaning

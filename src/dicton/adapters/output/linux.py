@@ -15,7 +15,7 @@ class LinuxTextOutput(TextOutput):
         self,
         clipboard=None,
         *,
-        paste_threshold_words: int = 10,
+        paste_threshold_words: int = -1,
         debug: bool = False,
         clipboard_verify_delay_ms: int = 50,
         clipboard_max_retries: int = 5,
