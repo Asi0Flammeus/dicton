@@ -13,6 +13,7 @@ STT text.  The literal string ``"None"`` is preserved as the LLM's
 from __future__ import annotations
 
 import logging
+import time
 
 from .factory import DEFAULT_FALLBACK_ORDER, _register_providers, get_llm_provider
 
@@ -109,25 +110,55 @@ def clean_transcript(
     prompt = _build_prompt(text, language)
 
     last_error: Exception | None = None
+    tried: list[str] = []
     for name in order:
         provider = get_llm_provider(name)
         if not provider.is_available():
+            tried.append(f"{name}:unavailable")
             continue
         if primary is not None and name == primary and primary_model_override:
             per_call_model = primary_model_override
         else:
             per_call_model = _DEFAULT_CLEANER_MODELS.get(name)
+        logger.info("transcript cleaner: trying %s (%s)", name, per_call_model or "<default>")
+        if debug:
+            print(f"🧹 transcript cleaner: {name} ({per_call_model or '<default>'})")
+        started = time.monotonic()
         try:
             result = provider.complete(prompt, model=per_call_model)
         except Exception as exc:  # noqa: BLE001
             last_error = exc
+            tried.append(f"{name}:error")
             if debug:
-                print(f"transcript cleaner: {name} failed, trying fallback: {exc}")
+                print(f"🧹 transcript cleaner: {name} failed, trying fallback: {exc}")
+            logger.warning("transcript cleaner %s raised: %s", name, exc)
             continue
+        elapsed_ms = (time.monotonic() - started) * 1000
         if result is None:
+            tried.append(f"{name}:no-result")
             continue
-        return result.strip()
+        cleaned = result.strip()
+        logger.info(
+            "transcript cleaner: %s/%s ok in %.0fms (%d→%d chars)",
+            name,
+            per_call_model or "<default>",
+            elapsed_ms,
+            len(text),
+            len(cleaned),
+        )
+        if debug:
+            print(
+                f"🧹 transcript cleaner: {name} ok in {elapsed_ms:.0f}ms "
+                f"({len(text)}→{len(cleaned)} chars)"
+            )
+        return cleaned
 
     if last_error is not None:
-        logger.warning("transcript cleaner failed on all providers: %s", last_error)
+        logger.warning(
+            "transcript cleaner failed on all providers (tried=%s): %s",
+            tried,
+            last_error,
+        )
+    else:
+        logger.info("transcript cleaner skipped: no provider available (tried=%s)", tried)
     return None

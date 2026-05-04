@@ -255,18 +255,28 @@ class SessionService:
                 self._finish_cancelled_session(tracker)
                 return
 
-            if (
-                text
-                and mode is not ProcessingMode.RAW
-                and getattr(self._app_config, "enable_transcript_cleaning", False)
-            ):
+            cleaning_enabled = getattr(self._app_config, "enable_transcript_cleaning", False)
+            if text and mode is not ProcessingMode.RAW and cleaning_enabled:
+                logger.info("transcript cleaning: running for mode=%s", mode.name)
                 with tracker.measure("transcript_cleaning"):
                     cleaned = self._clean_transcript(text)
-                if cleaned is not None:
+                if cleaned is None:
+                    logger.warning(
+                        "transcript cleaning: fail-open, keeping raw STT (%d chars)",
+                        len(text),
+                    )
+                    if self._app_config.debug:
+                        print("🧹 transcript cleaner unavailable — keeping raw STT")
+                else:
                     if cleaned.strip().lower() == "none":
+                        logger.info("transcript cleaning: LLM judged input meaningless")
                         text = ""
                     else:
                         text = cleaned
+            elif text and mode is ProcessingMode.RAW:
+                logger.info("transcript cleaning: skipped (RAW mode)")
+            elif text and not cleaning_enabled:
+                logger.info("transcript cleaning: skipped (disabled in config)")
 
             if not text:
                 self._notifications.notify("⚠ No speech", "Try again")
