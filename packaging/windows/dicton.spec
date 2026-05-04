@@ -29,6 +29,8 @@ hiddenimports = [
     "dicton.stt_mistral",
 ]
 hiddenimports += collect_submodules("pynput")
+hiddenimports += collect_submodules("pystray")
+hiddenimports += collect_submodules("PIL")
 
 
 a = Analysis(
@@ -56,6 +58,24 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+
+cli_exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name="dicton-cli",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -66,6 +86,7 @@ exe = EXE(
 
 coll = COLLECT(
     exe,
+    cli_exe,
     a.binaries,
     a.datas,
     strip=False,

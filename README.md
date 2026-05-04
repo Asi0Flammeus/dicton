@@ -55,11 +55,14 @@ sudo apt-get install -f
 
 ### Windows
 
-Download `dicton-windows-x64.zip` from the latest release.
+Download `DictonSetup-<version>-x64.exe` from the latest release.
 
-1. Unzip it.
-2. Open the extracted folder.
-3. Run `dicton.exe`.
+1. Double-click the installer.
+2. Keep “Start Dicton automatically when I sign in” enabled if you want daily dictation.
+3. Click Finish. The setup wizard opens in your browser.
+4. Add your speech-to-text API key and run the microphone/hotkey checks.
+
+A portable zip is also published for debugging/manual installs, but the installer is the recommended path for non-technical users.
 
 ## First Setup
 

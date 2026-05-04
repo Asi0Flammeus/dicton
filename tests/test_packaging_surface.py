@@ -174,6 +174,7 @@ def test_config_server_field_maps_cover_saved_configuration():
 
 def test_windows_packaging_files_exist():
     assert (ROOT / "packaging" / "windows" / "dicton.spec").exists()
+    assert (ROOT / "packaging" / "windows" / "dicton.iss").exists()
     assert (ROOT / "packaging" / "windows" / "pyinstaller_entry.py").exists()
     assert (ROOT / "scripts" / "build-windows.ps1").exists()
     assert (ROOT / "docs" / "windows-packaging.md").exists()
@@ -184,6 +185,18 @@ def test_windows_packaging_files_exist():
     assert '"assets/setup_ui.html"' in spec
     assert '"assets/config_ui.html"' in spec
     assert 'collect_submodules("pynput")' in spec
+    assert 'collect_submodules("pystray")' in spec
+    assert 'collect_submodules("PIL")' in spec
+    assert 'name="dicton"' in spec
+    assert "console=False" in spec
+    assert 'name="dicton-cli"' in spec
+    assert "console=True" in spec
+
+    installer = (ROOT / "packaging" / "windows" / "dicton.iss").read_text(encoding="utf-8")
+    assert "PrivilegesRequired=lowest" in installer
+    assert "{localappdata}\\Programs\\Dicton" in installer
+    assert "--config" in installer
+    assert "Software\\Microsoft\\Windows\\CurrentVersion\\Run" in installer
 
 
 def test_smoke_job_is_pr_or_schedule_only():
@@ -224,6 +237,10 @@ def test_release_workflow_present():
     assert "windows-package" in workflow
     assert "linux-package" in workflow
     assert "python-dist" in workflow
+    assert "choco install innosetup" in workflow
+    assert "DictonSetup-*-x64.exe" in workflow
+    assert "dicton-windows-portable-x64.zip" in workflow
+    assert r".\dist\dicton\dicton-cli.exe --version" in workflow
 
 
 def test_auto_tag_release_workflow_present():

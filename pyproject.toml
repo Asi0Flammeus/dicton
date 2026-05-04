@@ -82,6 +82,8 @@ notifications = [
 windows = [
     "pyautogui>=0.9.54",
     "pyperclip>=1.9.0",
+    "pystray>=0.19.5",
+    "pillow>=10.0.0",
 ]
 context-windows = [
     # Windows context detection

@@ -12,6 +12,7 @@ from pathlib import Path
 from .platform_utils import IS_LINUX, IS_MACOS, IS_WINDOWS
 
 APP_NAME = "Dicton"
+_WINDOWS_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 
 def get_launch_command() -> list[str]:
@@ -28,6 +29,8 @@ def get_launch_command() -> list[str]:
 
 def get_launch_command_string() -> str:
     """Return a shell-safe launch command."""
+    if IS_WINDOWS:
+        return " ".join(_quote_windows_arg(arg) for arg in get_launch_command())
     return shlex.join(get_launch_command())
 
 
@@ -64,7 +67,17 @@ def get_autostart_state() -> dict[str, str | bool]:
             "mode": "xdg-autostart",
         }
 
-    if IS_WINDOWS or IS_MACOS:
+    if IS_WINDOWS:
+        value = _read_windows_run_value()
+        expected = get_launch_command_string()
+        return {
+            "supported": True,
+            "enabled": value == expected,
+            "path": _WINDOWS_RUN_KEY,
+            "mode": "registry-run-key",
+        }
+
+    if IS_MACOS:
         return {
             "supported": False,
             "enabled": False,
@@ -82,11 +95,14 @@ def get_autostart_state() -> dict[str, str | bool]:
 
 def set_autostart(enabled: bool) -> dict[str, str | bool]:
     """Enable or disable autostart for the current user."""
+    if IS_WINDOWS:
+        return _set_windows_autostart(enabled)
+
     if not IS_LINUX:
         return {
             "supported": False,
             "ok": False,
-            "message": "Autostart management is currently implemented for Linux only.",
+            "message": "Autostart management is not implemented for this platform yet.",
         }
 
     autostart_file = get_linux_autostart_file()
@@ -107,6 +123,63 @@ def set_autostart(enabled: bool) -> dict[str, str | bool]:
         "message": "Autostart disabled.",
         "path": str(autostart_file),
     }
+
+
+def _quote_windows_arg(arg: str) -> str:
+    """Quote one Windows command-line argument for registry/shortcut use."""
+    return f'"{arg.replace(chr(34), chr(92) + chr(34))}"'
+
+
+def _read_windows_run_value() -> str | None:
+    """Return Dicton's HKCU Run value, if present."""
+    if not IS_WINDOWS:
+        return None
+
+    try:
+        import winreg
+
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _WINDOWS_RUN_KEY) as key:
+            value, _ = winreg.QueryValueEx(key, APP_NAME)
+            return str(value)
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return None
+
+
+def _set_windows_autostart(enabled: bool) -> dict[str, str | bool]:
+    """Enable or disable per-user Windows autostart via the HKCU Run key."""
+    try:
+        import winreg
+
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, _WINDOWS_RUN_KEY) as key:
+            if enabled:
+                value = get_launch_command_string()
+                winreg.SetValueEx(key, APP_NAME, 0, winreg.REG_SZ, value)
+                return {
+                    "supported": True,
+                    "ok": True,
+                    "message": "Dicton will start automatically when you sign in.",
+                    "path": _WINDOWS_RUN_KEY,
+                }
+
+            try:
+                winreg.DeleteValue(key, APP_NAME)
+            except FileNotFoundError:
+                pass
+            return {
+                "supported": True,
+                "ok": True,
+                "message": "Autostart disabled.",
+                "path": _WINDOWS_RUN_KEY,
+            }
+    except OSError as exc:
+        return {
+            "supported": True,
+            "ok": False,
+            "message": f"Failed to update Windows autostart: {exc}",
+            "path": _WINDOWS_RUN_KEY,
+        }
 
 
 def get_linux_autostart_file() -> Path:

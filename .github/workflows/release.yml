@@ -105,19 +105,25 @@ jobs:
         shell: bash
         run: pip install -e ".[windows,context-windows,notifications,llm,configui,mistral,packaging]"
 
-      - name: Build Windows bundle
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup -y --no-progress
+
+      - name: Build Windows installer and portable bundle
         shell: powershell
         run: .\scripts\build-windows.ps1
 
       - name: Smoke packaged executable
         shell: powershell
-        run: .\dist\dicton\dicton.exe --version
+        run: .\dist\dicton\dicton-cli.exe --version
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-package
-          path: dist/dicton-windows-x64.zip
+          path: |
+            dist/DictonSetup-*-x64.exe
+            dist/dicton-windows-portable-x64.zip
 
   publish-release:
     name: Publish Release

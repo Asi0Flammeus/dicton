@@ -37,7 +37,13 @@ def get_system_tray(
     if IS_WINDOWS:
         from .tray_windows import WindowsSystemTray
 
-        return WindowsSystemTray()
+        return WindowsSystemTray(
+            on_quit=on_quit,
+            on_toggle_debug=on_toggle_debug,
+            log_path=log_path,
+            config_port=config_port,
+            initial_debug=initial_debug,
+        )
     if IS_MACOS:
         from .tray_macos import MacOSSystemTray
 

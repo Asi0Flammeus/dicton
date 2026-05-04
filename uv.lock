@@ -468,6 +468,7 @@ all = [
     { name = "fastapi" },
     { name = "google-genai" },
     { name = "mistralai" },
+    { name = "pillow" },
     { name = "plyer" },
     { name = "psutil" },
     { name = "pyautogui" },
@@ -475,6 +476,7 @@ all = [
     { name = "pygobject" },
     { name = "pyinstaller" },
     { name = "pyperclip" },
+    { name = "pystray" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "python-xlib" },
@@ -543,8 +545,10 @@ vispy = [
     { name = "vispy" },
 ]
 windows = [
+    { name = "pillow" },
     { name = "pyautogui" },
     { name = "pyperclip" },
+    { name = "pystray" },
 ]
 xshape = [
     { name = "python-xlib" },
@@ -573,6 +577,8 @@ requires-dist = [
     { name = "mistralai", marker = "extra == 'linux'", specifier = ">=1.0.0" },
     { name = "mistralai", marker = "extra == 'mistral'", specifier = ">=1.0.0" },
     { name = "numpy", specifier = ">=1.24.0" },
+    { name = "pillow", marker = "extra == 'all'", specifier = ">=10.0.0" },
+    { name = "pillow", marker = "extra == 'windows'", specifier = ">=10.0.0" },
     { name = "plyer", marker = "extra == 'all'", specifier = ">=2.1.0" },
     { name = "plyer", marker = "extra == 'linux'", specifier = ">=2.1.0" },
     { name = "plyer", marker = "extra == 'notifications'", specifier = ">=2.1.0" },
@@ -594,6 +600,8 @@ requires-dist = [
     { name = "pynput", specifier = ">=1.7.7" },
     { name = "pyperclip", marker = "extra == 'all'", specifier = ">=1.9.0" },
     { name = "pyperclip", marker = "extra == 'windows'", specifier = ">=1.9.0" },
+    { name = "pystray", marker = "extra == 'all'", specifier = ">=0.19.5" },
+    { name = "pystray", marker = "extra == 'windows'", specifier = ">=0.19.5" },
     { name = "pytest", marker = "extra == 'all'", specifier = ">=7.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
     { name = "pytest-cov", marker = "extra == 'all'", specifier = ">=4.0.0" },
@@ -1976,6 +1984,20 @@ dependencies = [
     { name = "pillow", marker = "python_full_version < '3.12'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ee/f0/cb456ac4f1a73723d5b866933b7986f02bacea27516629c00f8e7da94c2d/pyscreeze-1.0.1.tar.gz", hash = "sha256:cf1662710f1b46aa5ff229ee23f367da9e20af4a78e6e365bee973cad0ead4be", size = 27826, upload-time = "2024-08-20T23:03:07.291Z" }
+
+[[package]]
+name = "pystray"
+version = "0.19.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pillow" },
+    { name = "pyobjc-framework-quartz", marker = "sys_platform == 'darwin'" },
+    { name = "python-xlib", marker = "sys_platform == 'linux'" },
+    { name = "six" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5c/64/927a4b9024196a4799eba0180e0ca31568426f258a4a5c90f87a97f51d28/pystray-0.19.5-py2.py3-none-any.whl", hash = "sha256:a0c2229d02cf87207297c22d86ffc57c86c227517b038c0d3c59df79295ac617", size = 49068, upload-time = "2023-09-17T13:44:26.872Z" },
+]
 
 [[package]]
 name = "pytest"
