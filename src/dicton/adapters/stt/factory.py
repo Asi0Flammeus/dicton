@@ -25,8 +25,10 @@ logger = logging.getLogger(__name__)
 _PROVIDER_REGISTRY: dict[str, type[STTProvider]] = {}
 _provider_cache: dict[str, STTProvider] = {}
 
-# Default fallback order when no provider specified
-DEFAULT_FALLBACK_ORDER = ["mistral", "elevenlabs"]
+# Default fallback order when no provider specified.
+# Groq Whisper Large v3 Turbo is fastest; Mistral Voxtral is the cheap fallback;
+# ElevenLabs is the legacy default.
+DEFAULT_FALLBACK_ORDER = ["groq", "mistral", "elevenlabs"]
 
 
 def _register_providers():
@@ -38,6 +40,14 @@ def _register_providers():
 
     if _PROVIDER_REGISTRY:
         return  # Already registered
+
+    # Register Groq provider (lowest latency when GROQ_API_KEY is set)
+    try:
+        from .groq import GroqSTTProvider
+
+        _PROVIDER_REGISTRY["groq"] = GroqSTTProvider
+    except ImportError:
+        logger.debug("Groq provider not available (missing groq package)")
 
     # Register Mistral provider
     try:

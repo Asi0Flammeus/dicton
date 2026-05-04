@@ -207,7 +207,11 @@ class Config:
     # (see adapters.stt.mistral.MistralSTTProvider.DEFAULT_MODEL); MISTRAL_STT_MODEL is ignored.
     MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
 
-    # STT Provider selection: "mistral", "elevenlabs", or "auto" (tries both)
+    # Groq STT (Whisper Large v3 Turbo). Model is pinned in code
+    # (see adapters.stt.groq.GroqSTTProvider.DEFAULT_MODEL); GROQ_STT_MODEL is ignored.
+    GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+
+    # STT Provider selection: "groq", "mistral", "elevenlabs", or "auto" (tries fallback order)
     STT_PROVIDER = os.getenv("STT_PROVIDER", "auto")
 
     # API timeout in seconds (prevents infinite hang if VPN blocks APIs)
@@ -300,10 +304,12 @@ class Config:
     # Set to 0 to always use streaming, or -1 to always use paste (default)
     PASTE_THRESHOLD_WORDS = int(os.getenv("PASTE_THRESHOLD_WORDS", "-1"))
 
-    # Clipboard timing settings (to prevent race conditions)
-    # Delay between clipboard verification attempts (ms)
+    # Clipboard timing settings — DEPRECATED.
+    # The verify-clipboard poll loop is disabled by default since Dicton 1.14.0
+    # (xclip is synchronous on selection ownership on plain X11). These knobs
+    # only take effect when the LinuxTextOutput ``verify_clipboard`` flag is
+    # opted in. Kept for back-compat with existing .env files.
     CLIPBOARD_VERIFY_DELAY_MS = int(os.getenv("CLIPBOARD_VERIFY_DELAY_MS", "50"))
-    # Max attempts to verify clipboard was set correctly before giving up
     CLIPBOARD_MAX_RETRIES = int(os.getenv("CLIPBOARD_MAX_RETRIES", "5"))
 
     DEBUG = os.getenv("DEBUG", "false").lower() == "true"
@@ -328,6 +334,7 @@ class Config:
         cls.ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
         cls.ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "scribe_v1")
         cls.MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
+        cls.GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
         cls.STT_PROVIDER = os.getenv("STT_PROVIDER", "auto")
         cls.API_TIMEOUT = float(os.getenv("API_TIMEOUT", "30"))
         cls.STT_TIMEOUT = float(os.getenv("STT_TIMEOUT", "120"))

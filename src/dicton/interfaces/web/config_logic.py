@@ -38,6 +38,7 @@ _DEFAULTS: dict[str, str] = {
 CONFIG_FIELD_MAP = {
     "stt_provider": "STT_PROVIDER",
     "mistral_api_key": "MISTRAL_API_KEY",
+    "groq_api_key": "GROQ_API_KEY",
     "elevenlabs_api_key": "ELEVENLABS_API_KEY",
     "gemini_api_key": "GEMINI_API_KEY",
     "anthropic_api_key": "ANTHROPIC_API_KEY",
@@ -99,6 +100,7 @@ def get_current_config() -> dict[str, Any]:
 
     # Get API keys with masking
     mistral_key = env_vars.get("MISTRAL_API_KEY", "")
+    groq_key = env_vars.get("GROQ_API_KEY", "")
     elevenlabs_key = env_vars.get("ELEVENLABS_API_KEY", "")
     gemini_key = env_vars.get("GEMINI_API_KEY", "")
     anthropic_key = env_vars.get("ANTHROPIC_API_KEY", "")
@@ -109,6 +111,8 @@ def get_current_config() -> dict[str, Any]:
         # API keys - masked values for display
         "mistral_api_key_set": bool(mistral_key),
         "mistral_api_key_masked": _mask_api_key(mistral_key),
+        "groq_api_key_set": bool(groq_key),
+        "groq_api_key_masked": _mask_api_key(groq_key),
         "elevenlabs_api_key_set": bool(elevenlabs_key),
         "elevenlabs_api_key_masked": _mask_api_key(elevenlabs_key),
         "gemini_api_key_set": bool(gemini_key),
@@ -194,16 +198,22 @@ def _get_env_bool(env_vars: dict[str, str], key: str, default: bool = False) -> 
 
 def _stt_status(env_vars: dict[str, str]) -> dict[str, Any]:
     selected = _get_env_string(env_vars, "STT_PROVIDER", _default("STT_PROVIDER")).lower()
+    has_groq = bool(_get_env_string(env_vars, "GROQ_API_KEY"))
     has_mistral = bool(_get_env_string(env_vars, "MISTRAL_API_KEY"))
     has_elevenlabs = bool(_get_env_string(env_vars, "ELEVENLABS_API_KEY"))
 
     available = []
+    if has_groq:
+        available.append("groq")
     if has_mistral:
         available.append("mistral")
     if has_elevenlabs:
         available.append("elevenlabs")
 
-    if selected == "mistral":
+    if selected == "groq":
+        ready = has_groq
+        detail = "Groq API key saved." if ready else "Add a Groq API key."
+    elif selected == "mistral":
         ready = has_mistral
         detail = "Mistral API key saved." if ready else "Add a Mistral API key."
     elif selected == "elevenlabs":
@@ -214,7 +224,7 @@ def _stt_status(env_vars: dict[str, str]) -> dict[str, Any]:
         if ready:
             detail = f"Auto mode can use: {', '.join(name.title() for name in available)}."
         else:
-            detail = "Add a Mistral or ElevenLabs API key."
+            detail = "Add a Groq, Mistral, or ElevenLabs API key."
 
     return {
         "ready": ready,
