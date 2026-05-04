@@ -85,6 +85,16 @@ class RuntimeService:
             return False
 
     def run(self) -> None:
+        # Fire prewarm threads as early as possible so the heavy imports
+        # (notably ~1.5 s for `google.genai`) and TCP+TLS handshakes finish
+        # in the background while the rest of the boot prints. By the time
+        # the user sees "Press hotkey to start", clients are warm and the
+        # FIRST dictation no longer pays cold-start cost.
+        try:
+            self._session_service.prewarm_providers()
+        except Exception:
+            pass
+
         print("\n" + "=" * 50)
         print("🚀 Dicton")
         print("=" * 50)

@@ -147,11 +147,21 @@ class SessionService:
         self._audio_control.cancel_recording()
         self._state.transition(SessionEvent.CANCEL)
 
-    def _prewarm_providers(self) -> None:
-        """Best-effort: open warm sockets to STT + LLM APIs in parallel.
+    def prewarm_providers(self) -> None:
+        """Best-effort: warm STT + main LLM + cleaner-LLM in parallel daemon threads.
 
-        Each call is wrapped — failures must never block recording start.
-        Both prewarms fire concurrently so the slowest bounds total time.
+        Each call is wrapped — failures must never block the caller. Three
+        concurrent threads so the slowest bounds total time. Public so the
+        runtime can also call it at daemon boot (not just at FN press).
+
+        - STT (Voxtral): opens N warm TCP sockets to api.mistral.ai.
+        - Main LLM (translate/reformulate, e.g. Anthropic if configured):
+          warms the configured provider.
+        - Cleaner LLM (always Gemini Flash-Lite by default): triggers the
+          ~1.5 s cold import of ``google.genai`` so the first dictation's
+          cleaner call doesn't pay it. Distinct from the main LLM because
+          users with ``LLM_PROVIDER=anthropic`` would otherwise leave
+          Gemini cold.
         """
 
         def _safe_call(target) -> None:
@@ -166,13 +176,30 @@ class SessionService:
             if callable(prewarm):
                 prewarm()
 
-        def _prewarm_llm() -> None:
+        def _prewarm_main_llm() -> None:
             prewarm = getattr(self._llm, "prewarm", None)
             if callable(prewarm):
                 prewarm()
 
+        def _prewarm_cleaner_llm() -> None:
+            cleaner_provider_name = getattr(
+                self._app_config, "transcript_cleaner_provider", "gemini"
+            )
+            if not cleaner_provider_name or cleaner_provider_name == "auto":
+                cleaner_provider_name = "gemini"
+            from ..adapters.llm.factory import get_llm_provider
+
+            cleaner_provider = get_llm_provider(cleaner_provider_name)
+            prewarm = getattr(cleaner_provider, "prewarm", None)
+            if callable(prewarm):
+                prewarm()
+
         threading.Thread(target=_safe_call, args=(_prewarm_stt,), daemon=True).start()
-        threading.Thread(target=_safe_call, args=(_prewarm_llm,), daemon=True).start()
+        threading.Thread(target=_safe_call, args=(_prewarm_main_llm,), daemon=True).start()
+        threading.Thread(target=_safe_call, args=(_prewarm_cleaner_llm,), daemon=True).start()
+
+    # Backwards-compatible alias for the old private name.
+    _prewarm_providers = prewarm_providers
 
     def _update_visualizer_color(self, mode: ProcessingMode) -> None:
         try:
