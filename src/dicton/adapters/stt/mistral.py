@@ -48,7 +48,9 @@ class MistralSTTProvider(STTProvider):
     """
 
     # Pinned in code; MISTRAL_STT_MODEL env var is intentionally ignored.
-    DEFAULT_MODEL = "voxtral-mini-transcribe-2602"
+    # voxtral-mini-2602 = Mini Transcribe V2 (Feb 2026). Note: voxtral-mini-latest
+    # still aliases to 2507, so the date suffix must be hard-coded to get V2.
+    DEFAULT_MODEL = "voxtral-mini-2602"
 
     def __init__(self, config: STTProviderConfig | None = None, *, debug: bool = False):
         """Initialize Mistral provider.
