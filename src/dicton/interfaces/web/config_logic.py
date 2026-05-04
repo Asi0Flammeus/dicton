@@ -59,6 +59,10 @@ CONFIG_FIELD_MAP = {
     "mute_playback_on_recording": "MUTE_PLAYBACK_ON_RECORDING",
     "playback_mute_strategy": "PLAYBACK_MUTE_STRATEGY",
     "mute_backend": "MUTE_BACKEND",
+    "enable_transcript_cleaning": "ENABLE_TRANSCRIPT_CLEANING",
+    "transcript_cleaner_provider": "TRANSCRIPT_CLEANER_PROVIDER",
+    "transcript_cleaner_model": "TRANSCRIPT_CLEANER_MODEL",
+    "transcript_cleaner_timeout_s": "TRANSCRIPT_CLEANER_TIMEOUT",
 }
 
 CONFIG_BOOL_FIELDS = {
@@ -67,6 +71,7 @@ CONFIG_BOOL_FIELDS = {
     "enable_reformulation",
     "debug",
     "mute_playback_on_recording",
+    "enable_transcript_cleaning",
 }
 CONFIG_STRING_FIELDS = set(CONFIG_FIELD_MAP) - CONFIG_BOOL_FIELDS
 
@@ -138,6 +143,14 @@ def get_current_config() -> dict[str, Any]:
             "PLAYBACK_MUTE_STRATEGY", _default("PLAYBACK_MUTE_STRATEGY")
         ),
         "mute_backend": env_vars.get("MUTE_BACKEND", _default("MUTE_BACKEND")),
+        # Transcript cleaning
+        "enable_transcript_cleaning": env_vars.get("ENABLE_TRANSCRIPT_CLEANING", "true").lower()
+        == "true",
+        "transcript_cleaner_provider": env_vars.get("TRANSCRIPT_CLEANER_PROVIDER", "gemini"),
+        "transcript_cleaner_model": env_vars.get(
+            "TRANSCRIPT_CLEANER_MODEL", "gemini-flash-lite-latest"
+        ),
+        "transcript_cleaner_timeout_s": env_vars.get("TRANSCRIPT_CLEANER_TIMEOUT", "8"),
     }
 
 

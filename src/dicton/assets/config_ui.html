@@ -758,6 +758,36 @@
             </div>
 
             <div class="section">
+                <div class="section-title">Transcript Cleaning <span style="opacity:.6;font-weight:normal">(advanced)</span></div>
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="enable_transcript_cleaning">
+                        <label class="checkbox-label">Enable LLM transcript cleaner</label>
+                    </div>
+                    <div class="hint">Runs a low-latency LLM pass before mode processing to remove filler words and STT bracket annotations. Fail-open: keeps raw STT if the cleaner is unreachable.</div>
+                </div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Cleaner provider</label>
+                        <select id="transcript_cleaner_provider">
+                            <option value="gemini">Gemini (recommended)</option>
+                            <option value="anthropic">Anthropic</option>
+                            <option value="auto">Auto</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Cleaner model</label>
+                        <input type="text" id="transcript_cleaner_model" placeholder="gemini-flash-lite-latest">
+                        <div class="hint">Pinned low-latency model. Gemini Flash-Lite recommended.</div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Cleaner timeout (s)</label>
+                    <input type="number" id="transcript_cleaner_timeout_s" min="1" max="60" step="1" placeholder="8">
+                </div>
+            </div>
+
+            <div class="section">
                 <div class="section-title">Audio Control</div>
                 <div class="form-group">
                     <div class="checkbox-group">
@@ -1357,6 +1387,11 @@
             document.getElementById('playback_mute_strategy').value = cfg.playback_mute_strategy || 'auto';
             document.getElementById('mute_backend').value = cfg.mute_backend || 'auto';
 
+            document.getElementById('enable_transcript_cleaning').checked = cfg.enable_transcript_cleaning !== false;
+            document.getElementById('transcript_cleaner_provider').value = cfg.transcript_cleaner_provider || 'gemini';
+            document.getElementById('transcript_cleaner_model').value = cfg.transcript_cleaner_model || 'gemini-flash-lite-latest';
+            document.getElementById('transcript_cleaner_timeout_s').value = cfg.transcript_cleaner_timeout_s || '8';
+
             // Hotkey settings
             document.getElementById('custom_hotkey_value').value = cfg.custom_hotkey_value || 'alt+g';
             document.getElementById('secondary_hotkey').value = cfg.secondary_hotkey || 'none';
@@ -1391,7 +1426,11 @@
                 mute_backend: document.getElementById('mute_backend').value,
                 custom_hotkey_value: document.getElementById('custom_hotkey_value').value || 'alt+g',
                 secondary_hotkey: document.getElementById('secondary_hotkey').value || 'none',
-                secondary_hotkey_translation: document.getElementById('secondary_hotkey_translation').value || 'none'
+                secondary_hotkey_translation: document.getElementById('secondary_hotkey_translation').value || 'none',
+                enable_transcript_cleaning: document.getElementById('enable_transcript_cleaning').checked,
+                transcript_cleaner_provider: document.getElementById('transcript_cleaner_provider').value || 'gemini',
+                transcript_cleaner_model: document.getElementById('transcript_cleaner_model').value || 'gemini-flash-lite-latest',
+                transcript_cleaner_timeout_s: document.getElementById('transcript_cleaner_timeout_s').value || '8'
             };
 
             // Only include API keys if they were changed (not masked)
