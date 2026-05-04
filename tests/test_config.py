@@ -340,3 +340,38 @@ class TestConfigMethods:
         # Should fallback to top-right
         assert x == 1920 - 100 - 10
         assert y == 0
+
+
+class TestTranscriptCleaningConfig:
+    """Test transcript cleaning AppConfig fields."""
+
+    def test_defaults(self, monkeypatch):
+        for var in (
+            "ENABLE_TRANSCRIPT_CLEANING",
+            "TRANSCRIPT_CLEANER_PROVIDER",
+            "TRANSCRIPT_CLEANER_MODEL",
+            "TRANSCRIPT_CLEANER_TIMEOUT",
+        ):
+            monkeypatch.delenv(var, raising=False)
+
+        from dicton.adapters.config.config_env import load_app_config
+
+        cfg = load_app_config()
+        assert cfg.enable_transcript_cleaning is True
+        assert cfg.transcript_cleaner_provider == "gemini"
+        assert cfg.transcript_cleaner_model == "gemini-flash-lite-latest"
+        assert cfg.transcript_cleaner_timeout_s == 8.0
+
+    def test_overrides(self, monkeypatch):
+        monkeypatch.setenv("ENABLE_TRANSCRIPT_CLEANING", "false")
+        monkeypatch.setenv("TRANSCRIPT_CLEANER_PROVIDER", "anthropic")
+        monkeypatch.setenv("TRANSCRIPT_CLEANER_MODEL", "claude-haiku-4-5-20251001")
+        monkeypatch.setenv("TRANSCRIPT_CLEANER_TIMEOUT", "12")
+
+        from dicton.adapters.config.config_env import load_app_config
+
+        cfg = load_app_config()
+        assert cfg.enable_transcript_cleaning is False
+        assert cfg.transcript_cleaner_provider == "anthropic"
+        assert cfg.transcript_cleaner_model == "claude-haiku-4-5-20251001"
+        assert cfg.transcript_cleaner_timeout_s == 12.0

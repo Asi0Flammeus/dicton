@@ -68,3 +68,9 @@ class AppConfig:
     paste_threshold_words: int
     clipboard_verify_delay_ms: int
     clipboard_max_retries: int
+
+    # -- Transcript cleaning ---------------------------------------------
+    enable_transcript_cleaning: bool
+    transcript_cleaner_provider: str
+    transcript_cleaner_model: str
+    transcript_cleaner_timeout_s: float
