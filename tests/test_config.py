@@ -161,7 +161,7 @@ class TestReloadConfig:
         assert config_module.Config.LLM_PROVIDER == "anthropic"
 
     def test_reload_updates_string_attrs(self, clean_env, monkeypatch):
-        """String attributes like GEMINI_MODEL are refreshed."""
+        """String attributes like LANGUAGE are refreshed."""
         import importlib
         import os
 
@@ -169,11 +169,9 @@ class TestReloadConfig:
 
         importlib.reload(config_module)
 
-        os.environ["GEMINI_MODEL"] = "gemini-2.0-flash"
         os.environ["LANGUAGE"] = "fr"
         config_module.Config.reload_config()
 
-        assert config_module.Config.GEMINI_MODEL == "gemini-2.0-flash"
         assert config_module.Config.LANGUAGE == "fr"
 
     def test_reload_updates_bool_attrs(self, clean_env, monkeypatch):

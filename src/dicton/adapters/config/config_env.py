@@ -47,13 +47,11 @@ def load_app_config() -> AppConfig:
         elevenlabs_api_key=_env("ELEVENLABS_API_KEY"),
         elevenlabs_model=_env("ELEVENLABS_MODEL", "scribe_v1"),
         mistral_api_key=_env("MISTRAL_API_KEY"),
-        mistral_stt_model=_env("MISTRAL_STT_MODEL", "voxtral-mini-latest"),
         api_timeout=_env_float("API_TIMEOUT", "30"),
         stt_timeout=_env_float("STT_TIMEOUT", "120"),
         # LLM
         llm_provider=_env_lower("LLM_PROVIDER", "gemini"),
         gemini_api_key=_env("GEMINI_API_KEY"),
-        gemini_model=_env("GEMINI_MODEL", "gemini-2.5-flash-lite"),
         anthropic_api_key=_env("ANTHROPIC_API_KEY"),
         anthropic_model=_env("ANTHROPIC_MODEL", "claude-sonnet-4-20250514"),
         # Hotkey

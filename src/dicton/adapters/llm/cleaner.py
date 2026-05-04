@@ -20,10 +20,11 @@ from .factory import DEFAULT_FALLBACK_ORDER, _register_providers, get_llm_provid
 logger = logging.getLogger(__name__)
 
 
-# Pinned low-latency cleaner model per provider. Used when the caller does
-# not pin one explicitly, and ALWAYS used for non-primary fallback providers
-# (so a Gemini→Anthropic fallback doesn't ship a Gemini model id to the
-# Anthropic SDK).
+# Pinned low-latency cleaner model per provider. Single source of truth for
+# cleaner model IDs — keep in sync with adapters.llm.gemini.DEFAULT_GEMINI_MODEL.
+# Used when the caller does not pin one explicitly, and ALWAYS used for
+# non-primary fallback providers (so a Gemini→Anthropic fallback doesn't ship
+# a Gemini model id to the Anthropic SDK).
 _DEFAULT_CLEANER_MODELS: dict[str, str] = {
     "gemini": "gemini-flash-lite-latest",
     "anthropic": "claude-haiku-4-5-20251001",

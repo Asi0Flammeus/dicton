@@ -33,14 +33,14 @@ class TestMistralProviderInit:
             provider = MistralSTTProvider()
             assert provider._config.api_key == "test_key"
 
-    def test_init_with_config(self):
-        """Test initialization with explicit config."""
+    def test_init_pins_default_model(self):
+        """Model is pinned in code; config-supplied model is overridden."""
         from dicton.adapters.stt.mistral import MistralSTTProvider
 
         config = STTProviderConfig(api_key="explicit_key", model="voxtral-custom")
         provider = MistralSTTProvider(config)
         assert provider._config.api_key == "explicit_key"
-        assert provider._config.model == "voxtral-custom"
+        assert provider._config.model == MistralSTTProvider.DEFAULT_MODEL
 
     def test_name_property(self):
         """Test provider name."""
@@ -88,10 +88,10 @@ class TestMistralAvailability:
         with patch.dict("sys.modules", {"mistralai": mock_mistral_module}):
             provider = MistralSTTProvider(STTProviderConfig(api_key="test_key"))
             assert provider.is_available() is True
-            mock_mistral_class.assert_called_once_with(
-                api_key="test_key",
-                timeout_ms=120000,
-            )
+            mock_mistral_class.assert_called_once()
+            kwargs = mock_mistral_class.call_args.kwargs
+            assert kwargs["api_key"] == "test_key"
+            assert kwargs["timeout_ms"] == 120000
 
     def test_timeout_env_var_override(self):
         """Test STT_TIMEOUT env var overrides default timeout."""
@@ -107,10 +107,10 @@ class TestMistralAvailability:
         ):
             provider = MistralSTTProvider(STTProviderConfig(api_key="test_key"))
             assert provider.is_available() is True
-            mock_mistral_class.assert_called_once_with(
-                api_key="test_key",
-                timeout_ms=60000,
-            )
+            mock_mistral_class.assert_called_once()
+            kwargs = mock_mistral_class.call_args.kwargs
+            assert kwargs["api_key"] == "test_key"
+            assert kwargs["timeout_ms"] == 60000
 
     def test_unavailable_when_sdk_missing(self):
         """Test provider is unavailable when SDK import fails."""

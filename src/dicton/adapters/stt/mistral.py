@@ -11,6 +11,7 @@ Key constraints:
 
 import hashlib
 import logging
+import threading
 import time
 import wave
 from collections.abc import Callable, Iterator
@@ -26,6 +27,14 @@ from .provider import (
 logger = logging.getLogger(__name__)
 
 
+# Number of warm sockets we keep parked in the httpx pool. Coupled with
+# chunk_manager.max_workers — bumping that to 2 should be paired with bumping
+# this constant. See reduce-latency.md §3.
+_PREWARM_POOL_SIZE = 2
+_KEEPALIVE_EXPIRY_S = 300.0
+_MISTRAL_BASE_URL = "https://api.mistral.ai"
+
+
 class MistralSTTProvider(STTProvider):
     """Mistral Voxtral batch transcription provider.
 
@@ -38,7 +47,8 @@ class MistralSTTProvider(STTProvider):
     Costs ~$0.001/min ($0.06/hr) vs $0.40/hr for ElevenLabs.
     """
 
-    DEFAULT_MODEL = "voxtral-mini-latest"
+    # Pinned in code; MISTRAL_STT_MODEL env var is intentionally ignored.
+    DEFAULT_MODEL = "voxtral-mini-transcribe-2602"
 
     def __init__(self, config: STTProviderConfig | None = None, *, debug: bool = False):
         """Initialize Mistral provider.
@@ -49,15 +59,12 @@ class MistralSTTProvider(STTProvider):
         """
         super().__init__(config)
         self._client = None
+        self._http_client = None  # httpx.Client backing the SDK; pooled.
         self._api_key_hash: str | None = None
         self._is_available = False
         self._debug = debug
 
-        # Use config model or fall back to environment/default
-        if not self._config.model:
-            import os
-
-            self._config.model = os.getenv("MISTRAL_STT_MODEL", self.DEFAULT_MODEL)
+        self._config.model = self.DEFAULT_MODEL
 
         # Get API key from config or environment
         if not self._config.api_key:
@@ -114,6 +121,7 @@ class MistralSTTProvider(STTProvider):
 
         # API key changed or first check - reinitialize client
         self._api_key_hash = current_hash
+        self._close_http_client()
         self._client = None
 
         try:
@@ -122,10 +130,14 @@ class MistralSTTProvider(STTProvider):
             except ImportError:
                 from mistralai.client import Mistral
 
-            self._client = Mistral(
-                api_key=self._config.api_key,
-                timeout_ms=int(self._config.timeout * 1000),
-            )
+            self._http_client = self._build_http_client()
+            kwargs = {
+                "api_key": self._config.api_key,
+                "timeout_ms": int(self._config.timeout * 1000),
+            }
+            if self._http_client is not None:
+                kwargs["client"] = self._http_client
+            self._client = Mistral(**kwargs)
             self._is_available = True
             return True
         except ImportError:
@@ -136,6 +148,54 @@ class MistralSTTProvider(STTProvider):
             logger.error(f"Failed to initialize Mistral client: {e}")
             self._is_available = False
             return False
+
+    def _build_http_client(self):
+        """Create a pooled httpx.Client for the Mistral SDK.
+
+        Returns ``None`` if httpx is unavailable; the SDK then falls back to
+        its own internal client (no pooling, but functional).
+        """
+        try:
+            import httpx
+        except ImportError:
+            return None
+        limits = httpx.Limits(
+            max_keepalive_connections=_PREWARM_POOL_SIZE,
+            max_connections=_PREWARM_POOL_SIZE * 2,
+            keepalive_expiry=_KEEPALIVE_EXPIRY_S,
+        )
+        timeout = httpx.Timeout(self._config.timeout)
+        return httpx.Client(limits=limits, timeout=timeout)
+
+    def _close_http_client(self) -> None:
+        if self._http_client is not None:
+            try:
+                self._http_client.close()
+            except Exception:
+                pass
+            self._http_client = None
+
+    def prewarm(self, n: int = _PREWARM_POOL_SIZE) -> None:
+        """Best-effort: open ``n`` warm sockets to the Mistral API.
+
+        Spawns daemon threads that issue cheap GETs against the API base URL
+        through the pooled httpx client. The transcribe call moments later
+        reuses these sockets and skips the TCP+TLS handshake. Silent on any
+        error; the daemon must keep running.
+        """
+        if self._http_client is None or n <= 0:
+            return
+
+        def _warm_one() -> None:
+            try:
+                # GET / — Mistral returns a 401/404, but the TLS handshake
+                # is what we're after; keepalive parks the socket in the pool.
+                self._http_client.get(_MISTRAL_BASE_URL + "/", timeout=5.0)
+            except Exception as exc:
+                logger.debug("mistral prewarm failed: %s", exc)
+
+        for _ in range(n):
+            threading.Thread(target=_warm_one, daemon=True).start()
 
     def _ensure_client(self) -> bool:
         """Ensure client is initialized with current API key.

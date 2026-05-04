@@ -17,14 +17,12 @@ class AppConfig:
     elevenlabs_api_key: str
     elevenlabs_model: str
     mistral_api_key: str
-    mistral_stt_model: str
     api_timeout: float
     stt_timeout: float
 
     # -- LLM --------------------------------------------------------------
     llm_provider: str
     gemini_api_key: str
-    gemini_model: str
     anthropic_api_key: str
     anthropic_model: str
 

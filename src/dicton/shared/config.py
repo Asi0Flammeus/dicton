@@ -126,9 +126,9 @@ class Config:
     # The primary provider will be used first, with fallback to the other if available
     LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
 
-    # Gemini API (for reformulation and translation)
+    # Gemini API (for reformulation and translation). Model is pinned in code
+    # (see adapters.llm.gemini.DEFAULT_GEMINI_MODEL); GEMINI_MODEL is ignored.
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 
     # Anthropic API (alternative for reformulation and translation)
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
@@ -137,9 +137,9 @@ class Config:
     # ElevenLabs STT model
     ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "scribe_v1")
 
-    # Mistral STT (alternative to ElevenLabs, ~85% cost savings)
+    # Mistral STT. Model is pinned in code
+    # (see adapters.stt.mistral.MistralSTTProvider.DEFAULT_MODEL); MISTRAL_STT_MODEL is ignored.
     MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
-    MISTRAL_STT_MODEL = os.getenv("MISTRAL_STT_MODEL", "voxtral-mini-latest")
 
     # STT Provider selection: "mistral", "elevenlabs", or "auto" (tries both)
     STT_PROVIDER = os.getenv("STT_PROVIDER", "auto")
@@ -258,12 +258,10 @@ class Config:
         cls.ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY", "")
         cls.LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
         cls.GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-        cls.GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
         cls.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
         cls.ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
         cls.ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "scribe_v1")
         cls.MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
-        cls.MISTRAL_STT_MODEL = os.getenv("MISTRAL_STT_MODEL", "voxtral-mini-latest")
         cls.STT_PROVIDER = os.getenv("STT_PROVIDER", "auto")
         cls.API_TIMEOUT = float(os.getenv("API_TIMEOUT", "30"))
         cls.STT_TIMEOUT = float(os.getenv("STT_TIMEOUT", "120"))

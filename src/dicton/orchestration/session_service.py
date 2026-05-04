@@ -92,6 +92,10 @@ class SessionService:
                 return  # Previous session still processing
             self._starting = True
 
+        # Fire-and-forget warm-up of STT + LLM HTTP connections so the
+        # transcribe/clean calls a few seconds later skip TCP+TLS handshakes.
+        self._prewarm_providers()
+
         if not is_mode_enabled(mode, self._app_config.enable_advanced_modes):
             mode = ProcessingMode.BASIC
 
@@ -142,6 +146,33 @@ class SessionService:
             self._chunk_manager.cancel()
         self._audio_control.cancel_recording()
         self._state.transition(SessionEvent.CANCEL)
+
+    def _prewarm_providers(self) -> None:
+        """Best-effort: open warm sockets to STT + LLM APIs in parallel.
+
+        Each call is wrapped — failures must never block recording start.
+        Both prewarms fire concurrently so the slowest bounds total time.
+        """
+
+        def _safe_call(target) -> None:
+            try:
+                target()
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("prewarm failed: %s", exc)
+
+        def _prewarm_stt() -> None:
+            stt = getattr(self._recognizer, "stt_provider", None)
+            prewarm = getattr(stt, "prewarm", None)
+            if callable(prewarm):
+                prewarm()
+
+        def _prewarm_llm() -> None:
+            prewarm = getattr(self._llm, "prewarm", None)
+            if callable(prewarm):
+                prewarm()
+
+        threading.Thread(target=_safe_call, args=(_prewarm_stt,), daemon=True).start()
+        threading.Thread(target=_safe_call, args=(_prewarm_llm,), daemon=True).start()
 
     def _update_visualizer_color(self, mode: ProcessingMode) -> None:
         try:
