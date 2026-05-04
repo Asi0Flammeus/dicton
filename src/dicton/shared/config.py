@@ -3,18 +3,66 @@
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 from .app_paths import get_user_config_dir, get_user_data_dir, get_user_env_path
 
+# Values to ignore when merging .env files — these are placeholders that the
+# setup wizard or .env.example may have written and that must NOT mask a real
+# value present in another .env file.
+_PLACEHOLDER_VALUES = frozenset(
+    {
+        "",
+        "test-key",
+        "your-api-key",
+        "your-key-here",
+        "<paste-your-key>",
+        "<your-key>",
+        "changeme",
+    }
+)
+
+
+def _is_placeholder(value: str | None) -> bool:
+    if value is None:
+        return True
+    return value.strip().lower() in _PLACEHOLDER_VALUES
+
+
+def _merge_env_file(env_path: Path, *, override: bool) -> bool:
+    """Inject keys from ``env_path`` into ``os.environ``, skipping placeholders.
+
+    - ``override=True``: a real (non-placeholder) value replaces an existing
+      value, even if it's already a real value (config-UI semantics).
+    - ``override=False``: only fills holes — keys absent or placeholder-valued
+      in ``os.environ`` get filled.
+    """
+    if not env_path.exists():
+        return False
+
+    parsed = dotenv_values(env_path)
+    for key, value in parsed.items():
+        if _is_placeholder(value):
+            continue
+        if override or _is_placeholder(os.environ.get(key)):
+            os.environ[key] = value  # type: ignore[assignment]
+    return True
+
 
 def _load_env_files():
-    """Load .env from multiple possible locations (first found wins).
+    """Load .env files in cascade.
 
-    Priority order:
-    1. User config dir - where dashboard saves settings
-    2. Current working directory - for development
-    3. System install (/opt/dicton/) - read-only defaults
+    Layered precedence (highest wins):
+      1. ``DICTON_ENV_FILE`` (explicit override) — load only this, exit.
+      2. ``~/.config/dicton/.env`` (where the dashboard saves) — high priority,
+         but placeholder values do NOT win over later sources.
+      3. ``$CWD/.env`` (development).
+      4. ``~/.env`` (user-wide secrets — common pattern). Acts as a fallback
+         filler so a placeholder in step 2 never masks a real key here.
+      5. ``/opt/dicton/.env`` (system install read-only defaults).
+
+    Placeholder values (``test-key``, empty, ``your-api-key``, …) are stripped
+    from every source — they cannot block a real value in a later source.
     """
     if os.getenv("DICTON_DISABLE_ENV_FILE_LOAD", "").lower() == "true":
         return None
@@ -27,20 +75,38 @@ def _load_env_files():
             return str(env_path)
         return None
 
-    locations = [
-        get_user_env_path(),  # User config dir - FIRST!
-        Path.cwd() / ".env",  # Current working directory
-        Path("/opt/dicton/.env"),  # System install (read-only fallback)
-    ]
+    loaded: list[str] = []
 
-    for env_path in locations:
-        if env_path.exists():
-            load_dotenv(env_path)
-            return str(env_path)
+    # 1. User config dir — highest precedence for non-placeholder values
+    dicton_env = get_user_env_path()
+    if _merge_env_file(dicton_env, override=True):
+        loaded.append(str(dicton_env))
 
-    # Fallback: let dotenv search normally
-    load_dotenv()
-    return None
+    # 2. CWD (dev), distinct from the above
+    cwd_env = Path.cwd() / ".env"
+    if cwd_env.resolve() != dicton_env.resolve() and _merge_env_file(cwd_env, override=True):
+        loaded.append(str(cwd_env))
+
+    # 3. User-wide ~/.env — fills any hole left by placeholders above
+    home_env = Path.home() / ".env"
+    if (
+        home_env.resolve() != dicton_env.resolve()
+        and home_env.resolve() != cwd_env.resolve()
+        and _merge_env_file(home_env, override=False)
+    ):
+        loaded.append(str(home_env))
+
+    # 4. System install fallback
+    sys_env = Path("/opt/dicton/.env")
+    if _merge_env_file(sys_env, override=False):
+        loaded.append(str(sys_env))
+
+    if not loaded:
+        # Last resort: let dotenv search normally
+        load_dotenv()
+        return None
+
+    return ", ".join(loaded)
 
 
 _loaded_env = _load_env_files()
@@ -231,8 +297,8 @@ class Config:
 
     # Paste threshold: texts with more words than this will use clipboard paste
     # instead of character-by-character streaming (faster for long dictations)
-    # Set to 0 to always use streaming, or -1 to always use paste
-    PASTE_THRESHOLD_WORDS = int(os.getenv("PASTE_THRESHOLD_WORDS", "10"))
+    # Set to 0 to always use streaming, or -1 to always use paste (default)
+    PASTE_THRESHOLD_WORDS = int(os.getenv("PASTE_THRESHOLD_WORDS", "-1"))
 
     # Clipboard timing settings (to prevent race conditions)
     # Delay between clipboard verification attempts (ms)
@@ -293,7 +359,7 @@ class Config:
         cls.LANGUAGE = os.getenv("LANGUAGE", "auto")
         cls.FILTER_FILLERS = os.getenv("FILTER_FILLERS", "true").lower() == "true"
         cls.ENABLE_REFORMULATION = os.getenv("ENABLE_REFORMULATION", "false").lower() == "true"
-        cls.PASTE_THRESHOLD_WORDS = int(os.getenv("PASTE_THRESHOLD_WORDS", "10"))
+        cls.PASTE_THRESHOLD_WORDS = int(os.getenv("PASTE_THRESHOLD_WORDS", "-1"))
         cls.CLIPBOARD_VERIFY_DELAY_MS = int(os.getenv("CLIPBOARD_VERIFY_DELAY_MS", "50"))
         cls.CLIPBOARD_MAX_RETRIES = int(os.getenv("CLIPBOARD_MAX_RETRIES", "5"))
         cls.DEBUG = os.getenv("DEBUG", "false").lower() == "true"
