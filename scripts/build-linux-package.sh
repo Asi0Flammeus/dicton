@@ -63,17 +63,49 @@ cat > "${STAGE_DIR}/DEBIAN/postinst" <<'EOF'
 #!/bin/sh
 set -e
 
+TARGET_USER="${SUDO_USER:-$(logname 2>/dev/null || echo '')}"
+
 # Check if the installing user is in the 'input' group
-SUDO_USER="${SUDO_USER:-$(logname 2>/dev/null || echo '')}"
-if [ -n "$SUDO_USER" ]; then
-    if ! groups "$SUDO_USER" 2>/dev/null | grep -qw input; then
+if [ -n "$TARGET_USER" ]; then
+    if ! groups "$TARGET_USER" 2>/dev/null | grep -qw input; then
         echo ""
         echo "╔══════════════════════════════════════════════════════════════╗"
         echo "║  Dicton needs access to /dev/input/* for hotkey detection.  ║"
-        echo "║  Run: sudo usermod -aG input $SUDO_USER                    ║"
+        echo "║  Run: sudo usermod -aG input $TARGET_USER                    ║"
         echo "║  Then log out and log back in for the change to take effect.║"
         echo "╚══════════════════════════════════════════════════════════════╝"
         echo ""
+    fi
+fi
+
+# Restart any running daemon. dpkg replaces the on-disk binary, but the
+# kernel keeps the previous binary mmap'd in the running process — without
+# this, users keep running the old code until they kill+respawn manually.
+if [ -n "$TARGET_USER" ] && [ "$TARGET_USER" != "root" ]; then
+    TARGET_UID="$(id -u "$TARGET_USER" 2>/dev/null || echo '')"
+    if [ -n "$TARGET_UID" ] && pgrep -u "$TARGET_USER" -f '/opt/dicton/dicton' >/dev/null 2>&1; then
+        echo "Restarting Dicton daemon..."
+        pkill -TERM -u "$TARGET_USER" -f '/opt/dicton/dicton' 2>/dev/null || true
+        # Wait up to 5s for graceful exit, then SIGKILL stragglers
+        i=0
+        while [ $i -lt 5 ] && pgrep -u "$TARGET_USER" -f '/opt/dicton/dicton' >/dev/null 2>&1; do
+            sleep 1
+            i=$((i + 1))
+        done
+        pkill -KILL -u "$TARGET_USER" -f '/opt/dicton/dicton' 2>/dev/null || true
+
+        # Respawn in the user's session. Try systemd --user first (uses the
+        # xdg-autostart-generated unit if the .desktop entry is enabled);
+        # fall back to a detached spawn if systemd path doesn't apply.
+        USER_ENV="XDG_RUNTIME_DIR=/run/user/$TARGET_UID DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$TARGET_UID/bus"
+        if runuser -u "$TARGET_USER" -- env $USER_ENV systemctl --user is-enabled app-dicton@autostart.service >/dev/null 2>&1; then
+            runuser -u "$TARGET_USER" -- env $USER_ENV systemctl --user restart app-dicton@autostart.service || true
+        else
+            # Best-effort detached spawn; relies on DISPLAY being set in the
+            # invoking shell. If missing, autostart will pick up at next login.
+            runuser -u "$TARGET_USER" -- env DISPLAY="${DISPLAY:-:0}" $USER_ENV \
+                setsid -f /opt/dicton/dicton </dev/null >/dev/null 2>&1 || true
+        fi
     fi
 fi
 EOF
