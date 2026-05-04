@@ -171,6 +171,25 @@ class SessionService:
             return self._recognizer.filter_text(result.text) if result.text else None
         return self._recognizer.transcribe(audio)
 
+    def _clean_transcript(self, text: str) -> str | None:
+        """Run the pre-output transcript cleaner. Fail-open by design."""
+        try:
+            from ..adapters.llm.cleaner import clean_transcript
+        except ImportError:
+            return None
+        try:
+            return clean_transcript(
+                text,
+                language=self._app_config.language,
+                user_provider=self._app_config.transcript_cleaner_provider,
+                model=self._app_config.transcript_cleaner_model,
+                timeout_s=self._app_config.transcript_cleaner_timeout_s,
+                debug=self._app_config.debug,
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("transcript cleaner crashed, falling back to raw STT: %s", exc)
+            return None
+
     def _audio_is_empty(self, audio) -> bool:
         if audio is None:
             return True
@@ -235,6 +254,19 @@ class SessionService:
             if self._cancel_token.cancelled:
                 self._finish_cancelled_session(tracker)
                 return
+
+            if (
+                text
+                and mode is not ProcessingMode.RAW
+                and getattr(self._app_config, "enable_transcript_cleaning", False)
+            ):
+                with tracker.measure("transcript_cleaning"):
+                    cleaned = self._clean_transcript(text)
+                if cleaned is not None:
+                    if cleaned.strip().lower() == "none":
+                        text = ""
+                    else:
+                        text = cleaned
 
             if not text:
                 self._notifications.notify("⚠ No speech", "Try again")

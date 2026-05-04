@@ -6,6 +6,8 @@ import threading
 import time
 from contextlib import nullcontext
 
+import pytest
+
 from dicton.core.processing_mode import ProcessingMode
 from dicton.core.state_machine import SessionState
 from dicton.orchestration.session_service import SessionService
@@ -35,11 +37,22 @@ class _Metrics:
 
 
 class _AppConfig:
-    def __init__(self, *, enable_advanced_modes: bool = False, debug: bool = False):
+    def __init__(
+        self,
+        *,
+        enable_advanced_modes: bool = False,
+        debug: bool = False,
+        enable_transcript_cleaning: bool = False,
+    ):
         self.debug = debug
         self.enable_advanced_modes = enable_advanced_modes
         self.enable_reformulation = False
         self.llm_provider = "gemini"
+        self.language = "auto"
+        self.enable_transcript_cleaning = enable_transcript_cleaning
+        self.transcript_cleaner_provider = "gemini"
+        self.transcript_cleaner_model = "gemini-flash-lite-latest"
+        self.transcript_cleaner_timeout_s = 8.0
 
 
 class _Recognizer:
@@ -292,6 +305,114 @@ def test_start_recording_rejects_advanced_mode_when_disabled():
     service._record_thread.join(timeout=1.0)
 
     assert service._current_mode is ProcessingMode.BASIC
+
+
+def test_transcript_cleaner_runs_when_enabled(monkeypatch):
+    metrics = _Metrics()
+    output = _TextOutput()
+    service = _build_service(
+        metrics=metrics,
+        text_output=output,
+        app_config=_AppConfig(enable_transcript_cleaning=True),
+    )
+
+    calls: list[str] = []
+
+    def _fake_clean(text, **kwargs):
+        calls.append(text)
+        return "cleaned hello"
+
+    monkeypatch.setattr("dicton.adapters.llm.cleaner.clean_transcript", _fake_clean)
+
+    service._record_and_transcribe(ProcessingMode.BASIC)
+
+    assert calls == ["hello"]
+    assert "transcript_cleaning" in metrics.measures
+    assert output.insertions == [("cleaned hello", 50)]
+
+
+def test_transcript_cleaner_skipped_in_raw_mode(monkeypatch):
+    metrics = _Metrics()
+    output = _TextOutput()
+    service = _build_service(
+        metrics=metrics,
+        text_output=output,
+        app_config=_AppConfig(
+            enable_advanced_modes=True,
+            enable_transcript_cleaning=True,
+        ),
+    )
+
+    calls: list[str] = []
+    monkeypatch.setattr(
+        "dicton.adapters.llm.cleaner.clean_transcript",
+        lambda text, **kwargs: calls.append(text) or "should-not-be-used",
+    )
+
+    service._record_and_transcribe(ProcessingMode.RAW)
+
+    assert calls == []
+    assert "transcript_cleaning" not in metrics.measures
+    assert output.insertions == [("hello", 50)]
+
+
+def test_transcript_cleaner_skipped_when_disabled(monkeypatch):
+    metrics = _Metrics()
+    output = _TextOutput()
+    service = _build_service(
+        metrics=metrics,
+        text_output=output,
+        app_config=_AppConfig(enable_transcript_cleaning=False),
+    )
+
+    monkeypatch.setattr(
+        "dicton.adapters.llm.cleaner.clean_transcript",
+        lambda text, **kwargs: pytest.fail("cleaner must not run"),
+    )
+
+    service._record_and_transcribe(ProcessingMode.BASIC)
+
+    assert "transcript_cleaning" not in metrics.measures
+    assert output.insertions == [("hello", 50)]
+
+
+def test_transcript_cleaner_failure_falls_open_to_raw_text(monkeypatch):
+    metrics = _Metrics()
+    output = _TextOutput()
+    service = _build_service(
+        metrics=metrics,
+        text_output=output,
+        app_config=_AppConfig(enable_transcript_cleaning=True),
+    )
+
+    monkeypatch.setattr(
+        "dicton.adapters.llm.cleaner.clean_transcript",
+        lambda text, **kwargs: None,
+    )
+
+    service._record_and_transcribe(ProcessingMode.BASIC)
+
+    assert output.insertions == [("hello", 50)]
+
+
+def test_transcript_cleaner_none_sentinel_treated_as_no_speech(monkeypatch):
+    metrics = _Metrics()
+    output = _TextOutput()
+    service = _build_service(
+        metrics=metrics,
+        text_output=output,
+        app_config=_AppConfig(enable_transcript_cleaning=True),
+    )
+
+    monkeypatch.setattr(
+        "dicton.adapters.llm.cleaner.clean_transcript",
+        lambda text, **kwargs: "None",
+    )
+
+    service._record_and_transcribe(ProcessingMode.BASIC)
+
+    assert output.insertions == []
+    assert service._state.state is SessionState.IDLE
 
 
 def test_start_recording_accepts_advanced_mode_when_enabled():
