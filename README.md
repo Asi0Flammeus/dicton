@@ -24,7 +24,7 @@ It is built for speed and low friction: press a hotkey, talk, release, and the t
 - It is fast. The app is optimized for short voice dictation.
 - It is simple. The default workflow is just “talk” or “translate to English”.
 - It works across apps. If you can type there, Dicton can usually type there too.
-- It has provider fallback. You can use Mistral or ElevenLabs for speech-to-text.
+- It has provider fallback. You can use Groq Whisper (lowest latency), Mistral Voxtral, or ElevenLabs for speech-to-text.
 
 ## Platforms
 
@@ -67,6 +67,7 @@ Dicton needs at least one speech-to-text API key.
 
 Use one of these:
 
+- `GROQ_API_KEY` (recommended — lowest latency via Whisper Large v3 Turbo)
 - `MISTRAL_API_KEY`
 - `ELEVENLABS_API_KEY`
 
