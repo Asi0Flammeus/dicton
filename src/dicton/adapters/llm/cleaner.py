@@ -19,6 +19,16 @@ from .factory import DEFAULT_FALLBACK_ORDER, _register_providers, get_llm_provid
 logger = logging.getLogger(__name__)
 
 
+# Pinned low-latency cleaner model per provider. Used when the caller does
+# not pin one explicitly, and ALWAYS used for non-primary fallback providers
+# (so a Gemini→Anthropic fallback doesn't ship a Gemini model id to the
+# Anthropic SDK).
+_DEFAULT_CLEANER_MODELS: dict[str, str] = {
+    "gemini": "gemini-flash-lite-latest",
+    "anthropic": "claude-haiku-4-5-20251001",
+}
+
+
 _CLEANER_PROMPT_TEMPLATE = """You are a transcript cleaner. The input is raw speech-to-text output.
 
 YOUR JOB:
@@ -58,11 +68,25 @@ def clean_transcript(
     *,
     language: str | None = None,
     user_provider: str = "gemini",
-    model: str | None = "gemini-flash-lite-latest",
+    model: str | None = None,
     timeout_s: float = 8.0,  # noqa: ARG001 - reserved for future per-call timeout wiring
     debug: bool = False,
 ) -> str | None:
     """Clean a raw STT transcript via a pinned low-latency LLM.
+
+    Model selection rules:
+
+    * ``user_provider`` (e.g. ``"gemini"``) selects the primary provider; the
+      fallback chain is ``[primary] + [other registered providers]``.
+    * ``model`` is an **explicit override for the primary provider only**. It
+      is intentionally NOT propagated to fallback providers — passing a
+      Gemini model id to the Anthropic SDK fails with a 400 error and the
+      cleaner would simply give up.
+    * For any non-primary fallback (and for the primary when ``model`` is
+      ``None``/empty), the cleaner uses the per-provider default from
+      :data:`_DEFAULT_CLEANER_MODELS`.
+    * ``user_provider="auto"`` ignores ``model`` and uses the per-provider
+      defaults across the whole chain.
 
     Returns the cleaned text on success, the literal string ``"None"`` if the
     LLM judges the input meaningless, or ``None`` on any failure (so the
@@ -75,10 +99,13 @@ def clean_transcript(
 
     user_provider = (user_provider or "auto").lower()
     if user_provider and user_provider != "auto":
+        primary: str | None = user_provider
         order = [user_provider] + [p for p in DEFAULT_FALLBACK_ORDER if p != user_provider]
     else:
+        primary = None
         order = list(DEFAULT_FALLBACK_ORDER)
 
+    primary_model_override = (model or "").strip() or None
     prompt = _build_prompt(text, language)
 
     last_error: Exception | None = None
@@ -86,8 +113,12 @@ def clean_transcript(
         provider = get_llm_provider(name)
         if not provider.is_available():
             continue
+        if primary is not None and name == primary and primary_model_override:
+            per_call_model = primary_model_override
+        else:
+            per_call_model = _DEFAULT_CLEANER_MODELS.get(name)
         try:
-            result = provider.complete(prompt, model=model)
+            result = provider.complete(prompt, model=per_call_model)
         except Exception as exc:  # noqa: BLE001
             last_error = exc
             if debug:

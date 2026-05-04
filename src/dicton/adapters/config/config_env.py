@@ -95,6 +95,6 @@ def load_app_config() -> AppConfig:
         # Transcript cleaning
         enable_transcript_cleaning=_env_bool("ENABLE_TRANSCRIPT_CLEANING", "true"),
         transcript_cleaner_provider=_env_lower("TRANSCRIPT_CLEANER_PROVIDER", "gemini"),
-        transcript_cleaner_model=_env("TRANSCRIPT_CLEANER_MODEL", "gemini-flash-lite-latest"),
+        transcript_cleaner_model=_env("TRANSCRIPT_CLEANER_MODEL", ""),
         transcript_cleaner_timeout_s=_env_float("TRANSCRIPT_CLEANER_TIMEOUT", "8"),
     )

@@ -359,7 +359,7 @@ class TestTranscriptCleaningConfig:
         cfg = load_app_config()
         assert cfg.enable_transcript_cleaning is True
         assert cfg.transcript_cleaner_provider == "gemini"
-        assert cfg.transcript_cleaner_model == "gemini-flash-lite-latest"
+        assert cfg.transcript_cleaner_model == ""
         assert cfg.transcript_cleaner_timeout_s == 8.0
 
     def test_overrides(self, monkeypatch):

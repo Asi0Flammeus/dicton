@@ -13,10 +13,12 @@ class _FakeProvider(LLMProvider):
     def __init__(
         self,
         *,
+        provider_name: str = "gemini",
         result: str | None = "cleaned text",
         available: bool = True,
         raise_on_call: Exception | None = None,
     ) -> None:
+        self._provider_name = provider_name
         self._result = result
         self._available = available
         self._raise = raise_on_call
@@ -24,7 +26,7 @@ class _FakeProvider(LLMProvider):
 
     @property
     def name(self) -> str:
-        return "fake"
+        return self._provider_name
 
     def is_available(self) -> bool:
         return self._available
@@ -37,75 +39,116 @@ class _FakeProvider(LLMProvider):
 
 
 @pytest.fixture
-def patch_provider(monkeypatch):
-    """Patch the cleaner to use a single fake provider in the fallback chain."""
+def patch_providers(monkeypatch):
+    """Patch the cleaner with a configurable provider registry.
 
-    def _patch(provider: LLMProvider, order: tuple[str, ...] = ("fake",)):
+    Pass a ``{provider_name: _FakeProvider}`` dict; the cleaner's
+    fallback order is set to the dict's key order so tests can control
+    which provider is primary and which is the fallback.
+    """
+
+    def _patch(providers: dict[str, _FakeProvider]):
         monkeypatch.setattr(
             "dicton.adapters.llm.cleaner.DEFAULT_FALLBACK_ORDER",
-            list(order),
+            list(providers.keys()),
         )
 
         def _get(name: str, use_cache: bool = True):
-            if name == "fake":
-                return provider
+            if name in providers:
+                return providers[name]
             from dicton.adapters.llm.provider import NullLLMProvider
 
             return NullLLMProvider()
 
         monkeypatch.setattr("dicton.adapters.llm.cleaner.get_llm_provider", _get)
-        # ``_register_providers`` is called inside clean_transcript; no-op it.
         monkeypatch.setattr("dicton.adapters.llm.cleaner._register_providers", lambda: None)
-        return provider
+        return providers
 
     yield _patch
-    # Reset cache so other tests don't see the fake.
     factory_module._provider_cache.clear()
 
 
-def test_happy_path_returns_provider_text(patch_provider):
-    fake = patch_provider(_FakeProvider(result="je voulais te dire bonjour."))
+def test_happy_path_returns_provider_text(patch_providers):
+    providers = patch_providers({"gemini": _FakeProvider(result="je voulais te dire bonjour.")})
     out = clean_transcript("euh, je voulais, euh, te dire bonjour")
     assert out == "je voulais te dire bonjour."
-    assert fake.calls, "provider should be called"
+    assert providers["gemini"].calls, "provider should be called"
 
 
-def test_fail_open_returns_none_on_exception(patch_provider):
-    patch_provider(_FakeProvider(raise_on_call=RuntimeError("boom")))
+def test_fail_open_returns_none_when_only_provider_raises(patch_providers):
+    patch_providers({"gemini": _FakeProvider(raise_on_call=RuntimeError("boom"))})
     assert clean_transcript("hello world") is None
 
 
-def test_provider_unavailable_returns_none(patch_provider):
-    patch_provider(_FakeProvider(available=False))
+def test_provider_unavailable_returns_none(patch_providers):
+    patch_providers({"gemini": _FakeProvider(available=False)})
     assert clean_transcript("hello world") is None
 
 
-def test_none_string_sentinel_propagates(patch_provider):
-    patch_provider(_FakeProvider(result="None"))
+def test_none_string_sentinel_propagates(patch_providers):
+    patch_providers({"gemini": _FakeProvider(result="None")})
     out = clean_transcript("...")
     assert out == "None"
 
 
-def test_empty_input_returns_none(patch_provider):
-    fake = patch_provider(_FakeProvider(result="should not be called"))
+def test_empty_input_returns_none(patch_providers):
+    providers = patch_providers({"gemini": _FakeProvider(result="should not be called")})
     assert clean_transcript("") is None
-    assert fake.calls == []
+    assert providers["gemini"].calls == []
 
 
-def test_prompt_embeds_bracket_removal_rule(patch_provider):
-    fake = patch_provider(_FakeProvider(result="ok"))
+def test_prompt_embeds_bracket_removal_rule(patch_providers):
+    providers = patch_providers({"gemini": _FakeProvider(result="ok")})
     clean_transcript("hello [bruit] world", language="fr")
-    prompt, _model = fake.calls[0]
+    prompt, _model = providers["gemini"].calls[0]
     assert "[bruit]" in prompt or "bracketed" in prompt.lower()
     assert "filler" in prompt.lower()
     assert "fr" in prompt.lower()
 
 
-def test_model_override_propagated_to_provider(patch_provider):
-    fake = patch_provider(_FakeProvider(result="ok"))
-    clean_transcript("hello", model="gemini-flash-lite-latest")
-    _prompt, model = fake.calls[0]
-    assert model == "gemini-flash-lite-latest"
+def test_default_model_for_primary_provider_is_provider_specific(patch_providers):
+    providers = patch_providers(
+        {
+            "gemini": _FakeProvider(provider_name="gemini", result="ok"),
+            "anthropic": _FakeProvider(provider_name="anthropic", result="ok"),
+        }
+    )
+
+    clean_transcript("hello", user_provider="gemini")
+    assert providers["gemini"].calls[-1][1] == "gemini-flash-lite-latest"
+
+    clean_transcript("hello", user_provider="anthropic")
+    assert providers["anthropic"].calls[-1][1] == "claude-haiku-4-5-20251001"
+
+
+def test_explicit_model_override_applies_only_to_primary(patch_providers):
+    providers = patch_providers(
+        {
+            "gemini": _FakeProvider(provider_name="gemini", available=False, result="unused"),
+            "anthropic": _FakeProvider(provider_name="anthropic", result="ok"),
+        }
+    )
+
+    out = clean_transcript("hello", user_provider="gemini", model="gemini-2.5-pro")
+    assert out == "ok"
+    # Primary (gemini) was unavailable, so override never reached it.
+    assert providers["gemini"].calls == []
+    # Fallback (anthropic) MUST receive its own provider-specific default,
+    # never the gemini model id.
+    assert providers["anthropic"].calls[-1][1] == "claude-haiku-4-5-20251001"
+
+
+def test_explicit_model_override_used_for_primary_when_available(patch_providers):
+    providers = patch_providers({"gemini": _FakeProvider(provider_name="gemini", result="ok")})
+    clean_transcript("hello", user_provider="gemini", model="gemini-2.5-pro")
+    assert providers["gemini"].calls[-1][1] == "gemini-2.5-pro"
+
+
+def test_auto_provider_ignores_model_override(patch_providers):
+    providers = patch_providers({"gemini": _FakeProvider(provider_name="gemini", result="ok")})
+    clean_transcript("hello", user_provider="auto", model="gemini-2.5-pro")
+    # auto -> no explicit primary, override is ignored, provider default wins
+    assert providers["gemini"].calls[-1][1] == "gemini-flash-lite-latest"
 
 
 def test_build_prompt_includes_language_when_specified():

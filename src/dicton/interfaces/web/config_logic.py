@@ -147,9 +147,7 @@ def get_current_config() -> dict[str, Any]:
         "enable_transcript_cleaning": env_vars.get("ENABLE_TRANSCRIPT_CLEANING", "true").lower()
         == "true",
         "transcript_cleaner_provider": env_vars.get("TRANSCRIPT_CLEANER_PROVIDER", "gemini"),
-        "transcript_cleaner_model": env_vars.get(
-            "TRANSCRIPT_CLEANER_MODEL", "gemini-flash-lite-latest"
-        ),
+        "transcript_cleaner_model": env_vars.get("TRANSCRIPT_CLEANER_MODEL", ""),
         "transcript_cleaner_timeout_s": env_vars.get("TRANSCRIPT_CLEANER_TIMEOUT", "8"),
     }
 
