@@ -18,8 +18,11 @@ class LLMProvider(ABC):
         """Return True if the provider has required credentials and dependencies."""
 
     @abstractmethod
-    def complete(self, prompt: str) -> str | None:
-        """Send prompt to the LLM and return the response text, or None on failure."""
+    def complete(self, prompt: str, *, model: str | None = None) -> str | None:
+        """Send prompt to the LLM and return the response text, or None on failure.
+
+        ``model`` overrides the provider's default model for this call only.
+        """
 
     def cleanup(self) -> None:  # noqa: B027
         """Release resources. Default is a no-op."""
@@ -35,5 +38,5 @@ class NullLLMProvider(LLMProvider):
     def is_available(self) -> bool:
         return False
 
-    def complete(self, prompt: str) -> str | None:
+    def complete(self, prompt: str, *, model: str | None = None) -> str | None:
         return None

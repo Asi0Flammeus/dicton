@@ -51,7 +51,7 @@ class GeminiLLMProvider(LLMProvider):
         except ImportError:
             return None
 
-    def complete(self, prompt: str) -> str | None:
+    def complete(self, prompt: str, *, model: str | None = None) -> str | None:
         client = self._get_client()
         if client is None:
             return None
@@ -60,7 +60,7 @@ class GeminiLLMProvider(LLMProvider):
             from google.genai import types
 
             response = client.models.generate_content(
-                model=self._model,
+                model=model or self._model,
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     http_options=types.HttpOptions(timeout=int(self._timeout * 1000)),

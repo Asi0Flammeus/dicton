@@ -120,6 +120,28 @@ def test_gemini_complete_returns_none_when_no_text(monkeypatch, gemini_env):
     assert result is None
 
 
+def test_gemini_complete_honours_model_override(gemini_env):
+    from dicton.adapters.llm.gemini import GeminiLLMProvider
+
+    mock_genai, mock_client = gemini_env
+    provider = GeminiLLMProvider(model="default-model")
+    provider.complete("Say hello", model="override-model")
+
+    args, kwargs = mock_client.models.generate_content.call_args
+    assert kwargs["model"] == "override-model"
+
+
+def test_gemini_complete_uses_default_model_when_no_override(gemini_env):
+    from dicton.adapters.llm.gemini import GeminiLLMProvider
+
+    mock_genai, mock_client = gemini_env
+    provider = GeminiLLMProvider(model="default-model")
+    provider.complete("Say hello")
+
+    args, kwargs = mock_client.models.generate_content.call_args
+    assert kwargs["model"] == "default-model"
+
+
 def test_gemini_cleanup_clears_client(gemini_env):
     from dicton.adapters.llm.gemini import GeminiLLMProvider
 
@@ -199,6 +221,28 @@ def test_anthropic_complete_returns_none_when_no_content(monkeypatch, anthropic_
     provider = AnthropicLLMProvider()
     result = provider.complete("Say hello")
     assert result is None
+
+
+def test_anthropic_complete_honours_model_override(anthropic_env):
+    from dicton.adapters.llm.anthropic import AnthropicLLMProvider
+
+    mock_module, mock_client = anthropic_env
+    provider = AnthropicLLMProvider(model="default-model")
+    provider.complete("Say hello", model="override-model")
+
+    args, kwargs = mock_client.messages.create.call_args
+    assert kwargs["model"] == "override-model"
+
+
+def test_anthropic_complete_uses_default_model_when_no_override(anthropic_env):
+    from dicton.adapters.llm.anthropic import AnthropicLLMProvider
+
+    mock_module, mock_client = anthropic_env
+    provider = AnthropicLLMProvider(model="default-model")
+    provider.complete("Say hello")
+
+    args, kwargs = mock_client.messages.create.call_args
+    assert kwargs["model"] == "default-model"
 
 
 def test_anthropic_cleanup_closes_client(anthropic_env):

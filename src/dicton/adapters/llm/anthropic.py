@@ -51,14 +51,14 @@ class AnthropicLLMProvider(LLMProvider):
         except ImportError:
             return None
 
-    def complete(self, prompt: str) -> str | None:
+    def complete(self, prompt: str, *, model: str | None = None) -> str | None:
         client = self._get_client()
         if client is None:
             return None
 
         try:
             message = client.messages.create(
-                model=self._model,
+                model=model or self._model,
                 max_tokens=4096,
                 messages=[{"role": "user", "content": prompt}],
                 timeout=self._timeout,
