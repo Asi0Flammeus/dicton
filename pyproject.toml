@@ -56,6 +56,10 @@ mistral = [
     # Mistral Voxtral STT provider (alternative to ElevenLabs)
     "mistralai>=1.0.0",
 ]
+groq = [
+    # Groq Cloud Whisper Large v3 Turbo STT provider (lowest latency)
+    "groq>=0.16.0",
+]
 llm = [
     "google-genai>=1.0.0",
     "anthropic>=0.40.0",
@@ -105,10 +109,10 @@ linux = [
     # Linux production: all Linux-specific features
     # Note: gtk excluded - requires system deps (libgirepository-2.0-dev) not available on all distros
     # Users wanting GTK backend can install separately: pip install dicton[gtk]
-    "dicton[fnkey,llm,xshape,notifications,configui,context-x11,mistral]",
+    "dicton[fnkey,llm,xshape,notifications,configui,context-x11,mistral,groq]",
 ]
 all = [
-    "dicton[vispy,gtk,fnkey,llm,xshape,notifications,windows,dev,packaging,configui,context-x11,context-wayland,context-windows,mistral]",
+    "dicton[vispy,gtk,fnkey,llm,xshape,notifications,windows,dev,packaging,configui,context-x11,context-wayland,context-windows,mistral,groq]",
 ]
 
 [project.scripts]

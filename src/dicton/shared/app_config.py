@@ -17,6 +17,7 @@ class AppConfig:
     elevenlabs_api_key: str
     elevenlabs_model: str
     mistral_api_key: str
+    groq_api_key: str
     api_timeout: float
     stt_timeout: float
 

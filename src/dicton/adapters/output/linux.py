@@ -19,7 +19,13 @@ class LinuxTextOutput(TextOutput):
         debug: bool = False,
         clipboard_verify_delay_ms: int = 50,
         clipboard_max_retries: int = 5,
+        verify_clipboard: bool = False,
     ):
+        # ``verify_clipboard`` is opt-in for installations where a clipboard
+        # manager (clipit, parcellite, …) intercepts X11 selections and races
+        # the paste. xclip is synchronous on selection ownership on plain X11,
+        # so verification is unnecessary by default and burned ~150-250ms per
+        # paste on the previous defaults.
         super().__init__(
             debug=debug,
             clipboard_verify_delay_ms=clipboard_verify_delay_ms,
@@ -27,6 +33,7 @@ class LinuxTextOutput(TextOutput):
         )
         self._clipboard = clipboard
         self._paste_threshold_words = paste_threshold_words
+        self._verify_clipboard_enabled = verify_clipboard
         self._pynput_fallback = PynputTextOutput()
 
     def insert_text(self, text: str, delay_ms: int = 50) -> None:
@@ -65,12 +72,14 @@ class LinuxTextOutput(TextOutput):
                 print("⚠ Failed to set clipboard, falling back to streaming")
                 return False
 
-            if not self._verify_clipboard(text, self._clipboard.get_clipboard):
+            if self._verify_clipboard_enabled and not self._verify_clipboard(
+                text, self._clipboard.get_clipboard
+            ):
                 print("⚠ Clipboard verification failed, falling back to streaming")
                 return False
 
             subprocess.run(
-                ["xdotool", "key", "--clearmodifiers", "ctrl+shift+v"],
+                ["xdotool", "key", "--clearmodifiers", "--delay", "0", "ctrl+shift+v"],
                 timeout=10,
                 check=False,
             )
