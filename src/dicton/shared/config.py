@@ -299,11 +299,6 @@ class Config:
     # When enabled, uses LLM for smarter cleanup. When disabled, uses local filler removal only.
     ENABLE_REFORMULATION = os.getenv("ENABLE_REFORMULATION", "false").lower() == "true"
 
-    # Paste threshold: texts with more words than this will use clipboard paste
-    # instead of character-by-character streaming (faster for long dictations)
-    # Set to 0 to always use streaming, or -1 to always use paste (default)
-    PASTE_THRESHOLD_WORDS = int(os.getenv("PASTE_THRESHOLD_WORDS", "-1"))
-
     # Clipboard timing settings — DEPRECATED.
     # The verify-clipboard poll loop is disabled by default since Dicton 1.14.0
     # (xclip is synchronous on selection ownership on plain X11). These knobs
@@ -366,7 +361,6 @@ class Config:
         cls.LANGUAGE = os.getenv("LANGUAGE", "auto")
         cls.FILTER_FILLERS = os.getenv("FILTER_FILLERS", "true").lower() == "true"
         cls.ENABLE_REFORMULATION = os.getenv("ENABLE_REFORMULATION", "false").lower() == "true"
-        cls.PASTE_THRESHOLD_WORDS = int(os.getenv("PASTE_THRESHOLD_WORDS", "-1"))
         cls.CLIPBOARD_VERIFY_DELAY_MS = int(os.getenv("CLIPBOARD_VERIFY_DELAY_MS", "50"))
         cls.CLIPBOARD_MAX_RETRIES = int(os.getenv("CLIPBOARD_MAX_RETRIES", "5"))
         cls.DEBUG = os.getenv("DEBUG", "false").lower() == "true"

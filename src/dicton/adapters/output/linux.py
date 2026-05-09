@@ -15,7 +15,6 @@ class LinuxTextOutput(TextOutput):
         self,
         clipboard=None,
         *,
-        paste_threshold_words: int = -1,
         debug: bool = False,
         clipboard_verify_delay_ms: int = 50,
         clipboard_max_retries: int = 5,
@@ -32,7 +31,6 @@ class LinuxTextOutput(TextOutput):
             clipboard_max_retries=clipboard_max_retries,
         )
         self._clipboard = clipboard
-        self._paste_threshold_words = paste_threshold_words
         self._verify_clipboard_enabled = verify_clipboard
         self._pynput_fallback = PynputTextOutput()
 
@@ -40,17 +38,16 @@ class LinuxTextOutput(TextOutput):
         if not text:
             return
 
-        word_count = len(text.split())
-        threshold = self._paste_threshold_words
-        use_paste = threshold == -1 or (threshold > 0 and word_count > threshold)
+        # Paste only — no word-count branching, no configurable threshold.
+        # If clipboard paste fails (no clipboard, xclip missing, X session
+        # broken), fall back to xdotool then pynput as a last-resort safety
+        # net so a dictation is never silently dropped. This fallback is not
+        # user-configurable.
+        if self.paste_text(text):
+            return
 
-        if use_paste:
-            if self._debug:
-                print(f"📋 Using paste for {word_count} words (threshold: {threshold})")
-            if self.paste_text(text):
-                return
-            if self._debug:
-                print("⚠ Paste failed, falling back to streaming")
+        if self._debug:
+            print("⚠ Paste failed, falling back to xdotool type")
 
         try:
             subprocess.run(
@@ -58,10 +55,10 @@ class LinuxTextOutput(TextOutput):
                 timeout=60,
             )
         except FileNotFoundError:
-            print("⚠ xdotool not found, using fallback method")
+            print("⚠ xdotool not found, using pynput fallback")
             self._pynput_fallback.insert_text(text, delay_ms)
         except Exception as e:
-            print(f"⚠ xdotool error: {e}, using fallback")
+            print(f"⚠ xdotool error: {e}, using pynput fallback")
             self._pynput_fallback.insert_text(text, delay_ms)
 
     def paste_text(self, text: str) -> bool:
