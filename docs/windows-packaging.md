@@ -7,8 +7,8 @@ This project now includes a first Windows packaging path based on PyInstaller.
 The Windows bundle is intended for the fallback desktop workflow:
 
 - `Alt+G` hotkey mode
-- Basic transcription
-- Translation to English
+- French basic transcription
+- French-to-English translation
 - Config UI via `dicton.exe --config-ui`
 - Experimental Windows context detection
 

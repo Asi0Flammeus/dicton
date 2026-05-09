@@ -101,13 +101,22 @@ def test_prompt_embeds_critical_rules(patch_providers):
     providers = patch_providers({"gemini": _FakeProvider(result="ok")})
     clean_transcript("hello [bruit] world", language="fr")
     prompt, _model = providers["gemini"].calls[0]
+    lower = prompt.lower()
     # bracket-stripping rule
-    assert "[bruit]" in prompt or "bracketed" in prompt.lower()
-    # filler-removal rule
-    assert "filler" in prompt.lower()
-    # language-preservation rule (the headline rule of the cleaner)
-    assert "same language" in prompt.lower()
-    assert "never translate" in prompt.lower()
+    assert "[bruit]" in prompt
+    # filler-removal rule (mention « tics de langage »)
+    assert "tics de langage" in lower
+    # language is hardcoded to French; never translate
+    assert "français" in lower
+    assert "ne traduis jamais" in lower
+    # no-summarisation rule (flagship: dictée must be transcribed in full)
+    assert "ne résume pas" in lower or "résume pas" in lower
+    # anglicism preservation
+    assert "anglicismes" in lower
+    # tu/vous preservation
+    assert "tutoiement" in lower and "vouvoiement" in lower
+    # inline orthographic correction rule (the « alysis avec un y » case)
+    assert "avec un y" in lower or "s'écrit" in lower
 
 
 def test_default_model_for_primary_provider_is_provider_specific(patch_providers):
@@ -156,7 +165,6 @@ def test_auto_provider_ignores_model_override(patch_providers):
 
 
 def test_build_prompt_is_stable_regardless_of_language_arg():
-    """The prompt is intentionally language-agnostic — the 'same language as
-    input' rule does the work, so the optional language arg is a no-op."""
-    assert _build_prompt("hello", language="French") == _build_prompt("hello", language="auto")
-    assert _build_prompt("hello", language=None) == _build_prompt("hello", language="fr")
+    """The cleaner is intentionally French-specific; the legacy language arg is a no-op."""
+    assert _build_prompt("bonjour", language="French") == _build_prompt("bonjour", language="auto")
+    assert _build_prompt("bonjour", language=None) == _build_prompt("bonjour", language="fr")

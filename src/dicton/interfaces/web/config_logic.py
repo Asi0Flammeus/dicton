@@ -27,7 +27,7 @@ _DEFAULTS: dict[str, str] = {
     "VISUALIZER_BACKEND": "pygame",
     "HOTKEY_BASE": "fn",
     "HOTKEY_DOUBLE_TAP_WINDOW_MS": "300",
-    "LANGUAGE": "auto",
+    "LANGUAGE": "fr",
     "CUSTOM_HOTKEY_VALUE": "alt+g",
     "SECONDARY_HOTKEY": "none",
     "SECONDARY_HOTKEY_TRANSLATION": "none",

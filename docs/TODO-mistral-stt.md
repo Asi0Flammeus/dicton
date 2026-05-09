@@ -25,7 +25,7 @@ Follow-up work, if needed later:
 - [ ] Verify transcription accuracy on sample audio
 - [ ] Compare latency vs ElevenLabs
 - [ ] Verify cost (check Mistral dashboard usage)
-- [ ] Test with different languages (EN, FR, DE, ES)
+- [ ] Test French dictation accuracy across accents and silence/noise conditions
 
 ---
 
@@ -61,13 +61,13 @@ client = Mistral(api_key=os.getenv("MISTRAL_API_KEY"))
 result = client.audio.transcriptions.complete(
     model="voxtral-mini-latest",
     file={"content": wav_buffer, "file_name": "audio.wav"},
-    # language="en",  # Optional: boost accuracy (incompatible with timestamps)
+    language="fr",  # Required: Dicton is French-first (incompatible with timestamps)
     # timestamp_granularities=["segment"]  # Optional: get timing info
 )
 
 # Access result
 text = result.text
-language = result.language  # Detected language
+language = result.language  # Provider-reported language (expected: French)
 # segments = result.segments  # If timestamps requested
 ```
 
@@ -76,7 +76,7 @@ language = result.language  # Detected language
 1. **No streaming**: Mistral only supports batch transcription
 2. **Duration limit**: ~15 minutes max per request
 3. **Timestamp/language conflict**: Cannot use both parameters together
-4. **Languages**: Best for EN, FR, DE, ES, PT, HI, NL, IT
+4. **Language**: Dicton forces French hints; multilingual dictation is intentionally out of scope
 
 ### Cost Calculation
 
@@ -90,7 +90,7 @@ language = result.language  # Detected language
 ## Acceptance Criteria
 
 - [ ] `STT_PROVIDER=mistral` enables Mistral transcription
-- [ ] Transcription accuracy comparable to ElevenLabs on major languages
+- [ ] French transcription accuracy comparable to ElevenLabs
 - [ ] Fallback to next provider on Mistral API errors
 - [ ] Configuration visible in dashboard
 - [ ] API key securely stored in `.env`

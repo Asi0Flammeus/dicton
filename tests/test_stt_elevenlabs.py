@@ -148,6 +148,7 @@ class TestElevenLabsTranscription:
         assert result.language == "en"
         assert result.is_final is True
         mock_client.speech_to_text.convert.assert_called_once()
+        assert mock_client.speech_to_text.convert.call_args.kwargs["language_code"] == "fra"
 
     def test_transcribe_handles_api_error(self, mock_provider):
         """Test transcribe handles API errors gracefully."""
@@ -176,8 +177,9 @@ class TestElevenLabsTranscription:
         assert result is not None
         assert result.text == "Test"
 
-        # Verify API was called
+        # Verify API was called with the French language hint
         mock_client.speech_to_text.convert.assert_called_once()
+        assert mock_client.speech_to_text.convert.call_args.kwargs["language_code"] == "fra"
 
     def test_transcribe_with_word_timestamps(self, mock_provider):
         """Test transcription extracts word timestamps."""

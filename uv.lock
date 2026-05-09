@@ -467,6 +467,7 @@ all = [
     { name = "evdev" },
     { name = "fastapi" },
     { name = "google-genai" },
+    { name = "groq" },
     { name = "mistralai" },
     { name = "plyer" },
     { name = "psutil" },
@@ -510,6 +511,9 @@ fnkey = [
     { name = "evdev" },
     { name = "pyudev" },
 ]
+groq = [
+    { name = "groq" },
+]
 gtk = [
     { name = "pygobject" },
 ]
@@ -518,6 +522,7 @@ linux = [
     { name = "evdev" },
     { name = "fastapi" },
     { name = "google-genai" },
+    { name = "groq" },
     { name = "mistralai" },
     { name = "plyer" },
     { name = "psutil" },
@@ -569,6 +574,9 @@ requires-dist = [
     { name = "google-genai", marker = "extra == 'all'", specifier = ">=1.0.0" },
     { name = "google-genai", marker = "extra == 'linux'", specifier = ">=1.0.0" },
     { name = "google-genai", marker = "extra == 'llm'", specifier = ">=1.0.0" },
+    { name = "groq", marker = "extra == 'all'", specifier = ">=0.16.0" },
+    { name = "groq", marker = "extra == 'groq'", specifier = ">=0.16.0" },
+    { name = "groq", marker = "extra == 'linux'", specifier = ">=0.16.0" },
     { name = "mistralai", marker = "extra == 'all'", specifier = ">=1.0.0" },
     { name = "mistralai", marker = "extra == 'linux'", specifier = ">=1.0.0" },
     { name = "mistralai", marker = "extra == 'mistral'", specifier = ">=1.0.0" },
@@ -616,7 +624,7 @@ requires-dist = [
     { name = "vispy", marker = "extra == 'all'", specifier = ">=0.14.0" },
     { name = "vispy", marker = "extra == 'vispy'", specifier = ">=0.14.0" },
 ]
-provides-extras = ["all", "configui", "context-wayland", "context-windows", "context-x11", "dev", "fnkey", "gtk", "linux", "llm", "mistral", "notifications", "packaging", "vispy", "windows", "xshape"]
+provides-extras = ["all", "configui", "context-wayland", "context-windows", "context-x11", "dev", "fnkey", "groq", "gtk", "linux", "llm", "mistral", "notifications", "packaging", "vispy", "windows", "xshape"]
 
 [[package]]
 name = "distro"
@@ -760,6 +768,23 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/99/96/a0205167fa0154f4a542fd6925bdc63d039d88dab3588b875078107e6f06/googleapis_common_protos-1.73.0.tar.gz", hash = "sha256:778d07cd4fbeff84c6f7c72102f0daf98fa2bfd3fa8bea426edc545588da0b5a", size = 147323, upload-time = "2026-03-06T21:53:09.727Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/69/28/23eea8acd65972bbfe295ce3666b28ac510dfcb115fac089d3edb0feb00a/googleapis_common_protos-1.73.0-py3-none-any.whl", hash = "sha256:dfdaaa2e860f242046be561e6d6cb5c5f1541ae02cfbcb034371aadb2942b4e8", size = 297578, upload-time = "2026-03-06T21:52:33.933Z" },
+]
+
+[[package]]
+name = "groq"
+version = "1.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/27/51/4728c13611849ff6cf8536740ae78ba3ee5e665d67b572a47c9ead0f9788/groq-1.2.0.tar.gz", hash = "sha256:85459e27c9c17f22404349c785cd08680362cfe85e07cc060be46c4832f108c3", size = 155609, upload-time = "2026-04-18T10:43:50.68Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0c/82/748639c95c60ad8846c65b167ca611c815d06d5f67a9e73b23486dce4fdf/groq-1.2.0-py3-none-any.whl", hash = "sha256:1002060a743b27c8f86765e1bc9749c98498e961d9fe2e4902bf7804a71c3c84", size = 142334, upload-time = "2026-04-18T10:43:49.125Z" },
 ]
 
 [[package]]
