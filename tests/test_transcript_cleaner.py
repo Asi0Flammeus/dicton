@@ -165,7 +165,6 @@ def test_auto_provider_ignores_model_override(patch_providers):
 
 
 def test_build_prompt_is_stable_regardless_of_language_arg():
-    """The prompt is intentionally language-agnostic — the 'same language as
-    input' rule does the work, so the optional language arg is a no-op."""
-    assert _build_prompt("hello", language="French") == _build_prompt("hello", language="auto")
-    assert _build_prompt("hello", language=None) == _build_prompt("hello", language="fr")
+    """The cleaner is intentionally French-specific; the legacy language arg is a no-op."""
+    assert _build_prompt("bonjour", language="French") == _build_prompt("bonjour", language="auto")
+    assert _build_prompt("bonjour", language=None) == _build_prompt("bonjour", language="fr")

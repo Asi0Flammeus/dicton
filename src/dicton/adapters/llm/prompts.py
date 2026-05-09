@@ -51,7 +51,7 @@ def reformulate(
 
     Args:
         text: The transcribed text to reformulate.
-        language: Optional language code (e.g., 'en', 'fr') to ensure output matches.
+        language: Legacy language code. Reformulation is French-first; the value is informational only.
         user_provider: Preferred LLM provider name.
         debug: Enable debug output.
 
@@ -61,36 +61,33 @@ def reformulate(
     if not text:
         return None
 
-    language_instruction = ""
-    if language:
-        language_instruction = f"The text is in {language}. Keep your output in the same language."
+    language_instruction = "The text is French. Keep your output in French."
 
     prompt = f"""You are a structural text reformulator. The input has already been
 cleaned of filler words and STT artefacts upstream — focus on structure, not
 filler removal.
 
 RULES:
-1. OUTPUT MUST BE IN THE SAME LANGUAGE as the input. DO NOT translate.
+1. OUTPUT MUST BE IN FRENCH. DO NOT translate.
 2. Preserve the speaker's voice, tone, and meaning. Keep changes minimal.
-3. Convert spoken numbers to digits (e.g., "twenty-three" → "23",
-   "vingt-trois" → "23").
+3. Convert spoken numbers to digits (e.g., "vingt-trois" → "23").
 4. Format enumerated items as lists when the speaker introduces points
    sequentially. Use numbered lists (1. 2. 3.) when speaker uses ordinals
-   like "first", "second", "premier", "deuxième"; bullet points otherwise.
+   like "premier", "deuxième"; bullet points otherwise.
 5. Interpret dictation commands and replace them with actual punctuation:
-   - "new line" / "à la ligne" → line break
-   - "new paragraph" / "nouveau paragraphe" → double line break
-   - "dash" / "tiret" → "-"
-   - "open parenthesis" / "ouvrir parenthèse" → "("
-   - "close parenthesis" / "fermer parenthèse" → ")"
-   - "open bracket" / "ouvrir crochet" → "["
-   - "close bracket" / "fermer crochet" → "]"
-   - "colon" / "deux points" → ":"
-   - "semicolon" / "point virgule" → ";"
-   - "comma" / "virgule" → ","
-   - "period" / "point final" → "."
-   - "question mark" / "point d'interrogation" → "?"
-   - "exclamation mark" / "point d'exclamation" → "!"
+   - "à la ligne" → line break
+   - "nouveau paragraphe" → double line break
+   - "tiret" → "-"
+   - "ouvrir parenthèse" → "("
+   - "fermer parenthèse" → ")"
+   - "ouvrir crochet" → "["
+   - "fermer crochet" → "]"
+   - "deux points" → ":"
+   - "point virgule" → ";"
+   - "virgule" → ","
+   - "point final" → "."
+   - "point d'interrogation" → "?"
+   - "point d'exclamation" → "!"
 6. If the input is empty or has no meaningful content, output exactly "None".
 7. Return ONLY the reformulated text, no explanations.
 {language_instruction}

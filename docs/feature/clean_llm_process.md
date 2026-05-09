@@ -12,7 +12,7 @@ Insert a **mandatory, low-latency LLM cleanup pass** between STT (Mistral Voxtra
 - Removes filler words / hesitations (`euh`, `um`, `genre`, `du coup`, …).
 - Strips bracketed/parenthesised non-speech annotations the STT may emit (`[bruit]`, `(rires)`, `[music]`, `[silence]`, `[inaudible]`, …).
 - Reconstructs the utterance with **faithful** lexical content but **correct grammar and syntax**.
-- Preserves the speaker's voice, tone, register, and language — does **not** translate, summarise, or reformulate.
+- Preserves the speaker's voice, tone, register, and French language — does **not** translate, summarise, or reformulate.
 
 Model: **Gemini 3.1 Flash-Lite Preview** — picked from the 2026-05-04 Artificial Analysis leaderboard for its 356 tokens/s throughput and II 34, the best speed/intel ratio at sub-cent cost. Fallback to `gemini-2.5-flash-lite` if the preview alias fails.
 
@@ -162,12 +162,12 @@ Trim `prompts.py::reformulate` and `translate` prompts: drop the explicit filler
 You are a transcript cleaner. The input is raw speech-to-text output.
 
 YOUR JOB:
-- Remove filler words and hesitation sounds in any language
-  (euh, heu, um, uh, like, you know, en fait, du coup, voilà, genre, bah, ben, hein, …).
+- Remove French filler words and hesitation sounds
+  (euh, heu, en fait, du coup, voilà, genre, bah, ben, hein, tu vois, …).
 - Remove ALL bracketed or parenthesised non-speech annotations the STT may have
   emitted: [bruit], [noise], [music], [silence], [inaudible], (rires), (laughs), …
 - Repair grammar and syntax so the output is a well-formed sentence (or several),
-  in the SAME language as the input.
+  in French.
 - Preserve faithfully WHAT was said: do not paraphrase, do not summarise, do not
   add ideas, do not change the tone or register, do not translate.
 - Keep proper nouns, technical terms, code identifiers verbatim.
@@ -230,7 +230,7 @@ Each commit must pass `./scripts/check.sh` (full, not just lint).
 ## 9. Out of scope (for this feature)
 
 - A local model (whisper-style refiner running on-device).
-- Per-language cleaner prompt variants.
+- Future non-French support would require explicit product/API redesign; the cleaner is French-specific by design.
 - Adaptive cleaner intensity (heavy/light).
 - Streaming cleaner that runs on partial STT chunks.
 

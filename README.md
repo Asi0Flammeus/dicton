@@ -10,21 +10,22 @@
 
 # Dicton
 
-Dicton is a dictation app that lets you speak directly into any text field.
+Dicton is a French-first dictation app that lets you speak directly into any text field.
 
-It is built for speed and low friction: press a hotkey, talk, release, and the text appears where your cursor already is. The default product is intentionally simple:
+It is built for speed and low friction: press a hotkey, talk in French, release, and the text appears where your cursor already is. The product is intentionally narrow:
 
-- direct transcription
-- translation to English
+- French direct transcription
+- French transcript cleanup that preserves meaning and details
+- optional translation from French to English
 - system-wide typing into the active app
 
 ## Why It Works Well
 
 - It stays out of the way. You do not have to dictate inside a separate editor first.
 - It is fast. The app is optimized for short voice dictation.
-- It is simple. The default workflow is just “talk” or “translate to English”.
+- It is simple. The default workflow is just “dictate in French” or “translate French to English”.
 - It works across apps. If you can type there, Dicton can usually type there too.
-- It has provider fallback. You can use Groq Whisper (lowest latency), Mistral Voxtral, or ElevenLabs for speech-to-text.
+- It has provider fallback. You can use Groq Whisper (lowest latency), Mistral Voxtral, or ElevenLabs for French speech-to-text.
 
 ## Platforms
 
@@ -63,7 +64,7 @@ Download `dicton-windows-x64.zip` from the latest release.
 
 ## First Setup
 
-Dicton needs at least one speech-to-text API key.
+Dicton needs at least one speech-to-text API key. Speech input is French by design; the STT providers are explicitly hinted for French to avoid language-detection drift.
 
 Use one of these:
 
@@ -71,7 +72,7 @@ Use one of these:
 - `MISTRAL_API_KEY`
 - `ELEVENLABS_API_KEY`
 
-For translation to English, add one of these too:
+For French-to-English translation, add one of these too:
 
 - `GEMINI_API_KEY`
 - `ANTHROPIC_API_KEY`
@@ -85,6 +86,7 @@ dicton --config
 That opens the guided setup page in your browser. It walks through:
 
 - speech provider key
+- French input-language confirmation
 - hotkey validation
 - first transcription test
 - start-on-login
@@ -107,12 +109,12 @@ GEMINI_API_KEY=your_key_here
 
 ### Linux default hotkeys
 
-- `FN` double-tap: start/stop recording (transcribe)
-- `FN + Ctrl`: translate to English
+- `FN` double-tap: start/stop recording (French transcription)
+- `FN + Ctrl`: translate French to English
 
 ### Windows default hotkey
 
-- `Alt+G`: start/stop dictation
+- `Alt+G`: start/stop French dictation
 
 ## Notes
 
