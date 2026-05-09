@@ -171,6 +171,7 @@ class TestMistralTranscription:
         assert result.language == "en"
         assert result.is_final is True
         mock_client.audio.transcriptions.complete.assert_called_once()
+        assert mock_client.audio.transcriptions.complete.call_args.kwargs["language"] == "fr"
 
     def test_transcribe_handles_api_error(self, mock_provider):
         """Test transcribe handles API errors gracefully."""
@@ -203,6 +204,7 @@ class TestMistralTranscription:
         call_args = mock_client.audio.transcriptions.complete.call_args
         file_arg = call_args.kwargs.get("file", call_args.args[0] if call_args.args else None)
         assert file_arg is not None
+        assert call_args.kwargs["language"] == "fr"
 
     def test_transcribe_with_word_timestamps(self, mock_provider):
         """Test transcription extracts word timestamps."""

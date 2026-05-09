@@ -6,7 +6,7 @@ Offers 85% cost savings vs ElevenLabs with comparable accuracy.
 Key constraints:
 - Batch-only (no streaming)
 - ~15 minute max duration per request
-- Cannot use language hint + timestamps together
+- French language hint is forced; cannot use language hint + timestamps together
 """
 
 import hashlib
@@ -41,7 +41,7 @@ class MistralSTTProvider(STTProvider):
     Features:
     - Batch transcription via REST API
     - Word-level timestamps (when not using language hint)
-    - Auto language detection
+    - French-first transcription via explicit language hint
     - ~20x real-time processing speed
 
     Costs ~$0.001/min ($0.06/hr) vs $0.40/hr for ElevenLabs.
@@ -263,10 +263,14 @@ class MistralSTTProvider(STTProvider):
         for attempt in range(1, max_attempts + 1):
             try:
                 # Call Mistral API
-                # Note: Cannot use language + timestamp_granularities together
+                # Note: Cannot use language + timestamp_granularities together —
+                # we ne demandons pas les timestamps ici, donc le hint langue
+                # est sûr et évite les dérives de détection sur le silence
+                # initial (cf. fix Groq pour la même raison).
                 result = self._client.audio.transcriptions.complete(
                     model=self._config.model,
                     file={"content": wav_content, "file_name": "audio.wav"},
+                    language="fr",
                 )
 
                 if self._debug:

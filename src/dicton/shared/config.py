@@ -289,8 +289,10 @@ class Config:
     # Set to device index number to force specific mic, or "auto"
     MIC_DEVICE = os.getenv("MIC_DEVICE", "auto")
 
-    # Language: "auto" (None), "en", "fr", etc. (ISO-639-1 or ISO-639-3)
-    LANGUAGE = os.getenv("LANGUAGE", "auto")
+    # Input language is intentionally French-only. LANGUAGE remains as a
+    # compatibility knob for existing .env files, but product paths force French
+    # STT hints and the transcript cleaner prompt is French-specific.
+    LANGUAGE = os.getenv("LANGUAGE", "fr")
 
     # Filler word filtering: "true" to enable removal of filler words (um, uh, like, etc.)
     FILTER_FILLERS = os.getenv("FILTER_FILLERS", "true").lower() == "true"
@@ -358,7 +360,7 @@ class Config:
         cls.MUTE_BACKEND = os.getenv("MUTE_BACKEND", "auto").lower()
         cls.PLAYBACK_MUTE_STRATEGY = os.getenv("PLAYBACK_MUTE_STRATEGY", "auto").lower()
         cls.MIC_DEVICE = os.getenv("MIC_DEVICE", "auto")
-        cls.LANGUAGE = os.getenv("LANGUAGE", "auto")
+        cls.LANGUAGE = os.getenv("LANGUAGE", "fr")
         cls.FILTER_FILLERS = os.getenv("FILTER_FILLERS", "true").lower() == "true"
         cls.ENABLE_REFORMULATION = os.getenv("ENABLE_REFORMULATION", "false").lower() == "true"
         cls.CLIPBOARD_VERIFY_DELAY_MS = int(os.getenv("CLIPBOARD_VERIFY_DELAY_MS", "50"))

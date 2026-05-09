@@ -31,17 +31,19 @@ _DEFAULT_CLEANER_MODELS: dict[str, str] = {
 }
 
 
-_CLEANER_PROMPT_TEMPLATE = """Clean this speech-to-text transcript. Output ONLY the cleaned text.
+_CLEANER_PROMPT_TEMPLATE = """Nettoie cette transcription speech-to-text. Renvoie UNIQUEMENT le texte nettoyé, sans préambule ni guillemets.
 
-Rules:
-- Same language as input. Never translate.
-- Remove filler words (euh, um, like, du coup, genre, …) and bracketed
-  STT annotations ([bruit], [music], (rires), …).
-- Fix grammar/syntax. Keep meaning, tone, proper nouns, technical terms.
-- Light punctuation only.
-- If empty or meaningless: output exactly None.
+Règles strictes :
+- L'entrée est en français. Garde le français en sortie. Ne traduis jamais.
+- Conserve les anglicismes tels que dictés (workflow, commit, scope, deadline, …) — ne les francise pas.
+- Conserve le tutoiement OU le vouvoiement déjà présent dans la dictée selon le contexte de chaque phrase ; ne bascule jamais l'un en l'autre.
+- Ne résume pas, ne raccourcis pas, ne synthétise pas. Tous les exemples, détails, énumérations, digressions et précisions doivent être préservés intégralement. Tu n'as PAS le droit d'omettre une idée, un exemple ou un détail au prétexte qu'il serait redondant ou accessoire.
+- Tu peux uniquement corriger la FORME : ponctuation légère, accords manqués, conjugaison, mots collés/coupés par le STT, syntaxe cassée par l'oral. Le fond reste mot pour mot.
+- Retire les tics de langage (« euh », « heu », « du coup », « genre », « tu vois », « en fait » quand purement de remplissage) et les annotations laissées par le STT entre crochets ou parenthèses ([bruit], [musique], (rires), …).
+- Corrections orthographiques dictées : si la dictée contient une consigne du type « X avec un Y », « X s'écrit Y », « X plutôt avec deux L », applique-la directement sur l'occurrence concernée (précédente, ou suivante si la consigne précède le mot) et n'écris PAS la consigne dans la sortie. Exemple : « alisis avec un y » → remplace « alisis » par « alysis » et supprime la consigne.
+- Si l'entrée est vide ou n'a aucun sens : renvoie exactement None.
 
-INPUT:
+ENTRÉE :
 {text}"""
 
 

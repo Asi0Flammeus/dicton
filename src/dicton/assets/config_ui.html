@@ -641,7 +641,7 @@
                         <option value="gemini">Gemini (default)</option>
                         <option value="anthropic">Anthropic</option>
                     </select>
-                    <div class="hint">Primary provider for reformulation and translation</div>
+                    <div class="hint">Primary provider for French reformulation and English translation</div>
                 </div>
             </div>
 
@@ -738,22 +738,11 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>Language</label>
+                    <label>Input Language</label>
                     <select id="language">
-                        <option value="auto">Auto-detect</option>
-                        <option value="en">English</option>
                         <option value="fr">French</option>
-                        <option value="de">German</option>
-                        <option value="es">Spanish</option>
-                        <option value="it">Italian</option>
-                        <option value="pt">Portuguese</option>
-                        <option value="nl">Dutch</option>
-                        <option value="pl">Polish</option>
-                        <option value="ru">Russian</option>
-                        <option value="ja">Japanese</option>
-                        <option value="zh">Chinese</option>
-                        <option value="ko">Korean</option>
                     </select>
+                    <div class="hint">Dicton is French-first: STT providers and transcript cleaning are explicitly hinted for French.</div>
                 </div>
             </div>
 
@@ -764,7 +753,7 @@
                         <input type="checkbox" id="enable_transcript_cleaning">
                         <label class="checkbox-label">Enable LLM transcript cleaner</label>
                     </div>
-                    <div class="hint">Runs a low-latency LLM pass before mode processing to remove filler words and STT bracket annotations. Fail-open: keeps raw STT if the cleaner is unreachable.</div>
+                    <div class="hint">Runs a low-latency French LLM pass before mode processing to remove filler words and STT bracket annotations. Fail-open: keeps raw STT if the cleaner is unreachable.</div>
                 </div>
                 <div class="grid-2">
                     <div class="form-group">
@@ -1380,7 +1369,7 @@
             document.getElementById('hotkey_double_tap_window_ms').value = cfg.hotkey_double_tap_window_ms || '300';
             document.getElementById('filter_fillers').checked = cfg.filter_fillers !== false;
             document.getElementById('enable_reformulation').checked = cfg.enable_reformulation !== false;
-            document.getElementById('language').value = cfg.language || 'auto';
+            document.getElementById('language').value = 'fr';
             document.getElementById('debug').checked = cfg.debug === true;
 
             document.getElementById('mute_playback_on_recording').checked = cfg.mute_playback_on_recording !== false;
@@ -1419,7 +1408,7 @@
                 hotkey_double_tap_window_ms: document.getElementById('hotkey_double_tap_window_ms').value,
                 filter_fillers: document.getElementById('filter_fillers').checked,
                 enable_reformulation: document.getElementById('enable_reformulation').checked,
-                language: document.getElementById('language').value,
+                language: 'fr',
                 debug: document.getElementById('debug').checked,
                 mute_playback_on_recording: document.getElementById('mute_playback_on_recording').checked,
                 playback_mute_strategy: document.getElementById('playback_mute_strategy').value,

@@ -7,41 +7,9 @@ from pathlib import Path
 
 from ...shared.app_paths import get_user_dictionary_path
 
-# Language-aware filler words
+# Filler words. Dicton's product language is French; English/common entries stay
+# only to strip common STT artefacts and legacy dictations.
 FILLER_WORDS = {
-    # English fillers
-    "en": {
-        "um",
-        "uh",
-        "uhm",
-        "umm",
-        "er",
-        "err",
-        "ah",
-        "ahh",
-        "eh",
-        "hmm",
-        "hm",
-        "mm",
-        "mmm",
-        "mhm",
-        "uh-huh",
-        "uh huh",
-        "like",
-        "you know",
-        "i mean",
-        "sort of",
-        "kind of",
-        "basically",
-        "actually",
-        "literally",
-        "honestly",
-        "so",
-        "well",
-        "right",
-        "okay so",
-        "yeah so",
-    },
     # French fillers
     "fr": {
         "euh",
@@ -61,42 +29,7 @@ FILLER_WORDS = {
         "tu vois",
         "tu sais",
     },
-    # German fillers
-    "de": {
-        "äh",
-        "ähm",
-        "öh",
-        "öhm",
-        "hm",
-        "hmm",
-        "also",
-        "halt",
-        "quasi",
-        "sozusagen",
-        "irgendwie",
-        "eigentlich",
-        "ja",
-        "ne",
-        "na ja",
-    },
-    # Spanish fillers
-    "es": {
-        "eh",
-        "em",
-        "este",
-        "esto",
-        "bueno",
-        "pues",
-        "o sea",
-        "es que",
-        "tipo",
-        "como que",
-        "vale",
-        "sabes",
-        "mira",
-        "entonces",
-    },
-    # Common (language-agnostic)
+    # Common STT artefacts still seen in French dictation outputs
     "common": {
         "um",
         "uh",
@@ -120,7 +53,7 @@ class TextProcessor:
         self,
         dictionary_path: Path | str | None = None,
         filter_fillers: bool = True,
-        language: str = "auto",
+        language: str = "fr",
         similarity_threshold: float | None = None,
     ):
         """Initialize the text processor.
@@ -129,8 +62,8 @@ class TextProcessor:
             dictionary_path: Path to custom dictionary JSON file.
                             If None, uses the platform-native user config location.
             filter_fillers: If True, remove filler words from transcriptions.
-            language: Language code for filler detection ('en', 'fr', 'de', 'es', 'auto').
-                     'auto' uses common fillers across all languages.
+            language: Legacy language code for filler detection. French is the
+                      product default; 'auto' is treated as French for backwards compatibility.
             similarity_threshold: Minimum similarity ratio (0.0-1.0) for fuzzy matching.
                                  If None, uses default (0.75).
         """
@@ -239,14 +172,9 @@ class TextProcessor:
         # Get filler words based on language setting
         fillers: set[str] = set()
 
-        if self.language == "auto":
-            # Use common fillers that work across languages
-            fillers = FILLER_WORDS.get("common", set()).copy()
-        else:
-            # Use language-specific fillers
-            fillers = FILLER_WORDS.get(self.language, set()).copy()
-            # Also include common fillers
-            fillers.update(FILLER_WORDS.get("common", set()))
+        language = "fr" if self.language == "auto" else self.language
+        fillers = FILLER_WORDS.get(language, set()).copy()
+        fillers.update(FILLER_WORDS.get("common", set()))
 
         # Sort by length (longest first) to match multi-word fillers before single words
         sorted_fillers = sorted(fillers, key=len, reverse=True)

@@ -410,14 +410,11 @@
                         </select>
                     </div>
                     <div class="field">
-                        <label for="language">Language</label>
+                        <label for="language">Input language</label>
                         <select id="language">
-                            <option value="auto">Auto detect</option>
-                            <option value="en">English</option>
                             <option value="fr">French</option>
-                            <option value="es">Spanish</option>
-                            <option value="de">German</option>
                         </select>
+                        <span class="muted">Dicton is French-first: STT and transcript cleaning are explicitly hinted for French.</span>
                     </div>
                     <div class="field">
                         <label for="mistral_api_key">Mistral API key</label>
@@ -446,7 +443,7 @@
                         </select>
                     </div>
                     <div class="field" style="align-self: end;">
-                        <span class="muted">Used for translation and reformulation modes.</span>
+                        <span class="muted">Used for English translation and French reformulation modes.</span>
                     </div>
                     <div class="field">
                         <label for="gemini_api_key">Gemini API key</label>
@@ -801,7 +798,7 @@
         function populateConfig() {
             const config = state.config;
             document.getElementById('stt_provider').value = config.stt_provider || 'auto';
-            document.getElementById('language').value = config.language || 'auto';
+            document.getElementById('language').value = 'fr';
             document.getElementById('llm_provider').value = config.llm_provider || 'gemini';
             document.getElementById('hotkey_base').value = config.hotkey_base || 'fn';
             renderHotkeyValue(document.getElementById('custom_hotkey_capture'), config.custom_hotkey_value || '');
@@ -824,7 +821,7 @@
         function buildPayload() {
             const payload = {
                 stt_provider: document.getElementById('stt_provider').value,
-                language: document.getElementById('language').value,
+                language: 'fr',
                 llm_provider: document.getElementById('llm_provider').value,
                 hotkey_base: document.getElementById('hotkey_base').value,
                 custom_hotkey_value: document.getElementById('custom_hotkey_capture').dataset.value || '',

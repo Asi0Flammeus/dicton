@@ -41,7 +41,7 @@ def load_app_config() -> AppConfig:
         # General
         debug=_env_bool("DEBUG", "false"),
         notifications_enabled=_env_bool("NOTIFICATIONS_ENABLED", "false"),
-        language=_env("LANGUAGE", "auto"),
+        language=_env("LANGUAGE", "fr"),
         # STT
         stt_provider=_env("STT_PROVIDER", "auto"),
         elevenlabs_api_key=_env("ELEVENLABS_API_KEY"),

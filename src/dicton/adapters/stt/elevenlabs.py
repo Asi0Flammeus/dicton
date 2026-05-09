@@ -6,7 +6,7 @@ High-accuracy transcription with word-level timestamps.
 Key features:
 - Batch-only (no streaming)
 - Word-level timestamps
-- Auto language detection
+- French language hint
 """
 
 import hashlib
@@ -31,8 +31,8 @@ class ElevenLabsSTTProvider(STTProvider):
     Features:
     - Batch transcription via REST API
     - Word-level timestamps
-    - Auto language detection
-    - High accuracy for multiple languages
+    - French language hint
+    - High accuracy French fallback
     """
 
     DEFAULT_MODEL = "scribe_v1"
@@ -159,10 +159,11 @@ class ElevenLabsSTTProvider(STTProvider):
             return None
 
         try:
-            # Call ElevenLabs STT API (language_code=None for auto-detect)
+            # French is the product language. ElevenLabs expects ISO-639-3 here.
             result = self._client.speech_to_text.convert(
                 file=wav_buffer,
                 model_id=self._config.model,
+                language_code="fra",
             )
 
             if not result or not hasattr(result, "text"):
