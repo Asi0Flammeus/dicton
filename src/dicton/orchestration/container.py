@@ -107,7 +107,6 @@ def build_runtime_service(log_path: Path | None = None) -> RuntimeService:
     clipboard = get_clipboard(debug=app_config.debug)
     text_output = get_text_output(
         clipboard,
-        paste_threshold_words=app_config.paste_threshold_words,
         debug=app_config.debug,
         clipboard_verify_delay_ms=app_config.clipboard_verify_delay_ms,
         clipboard_max_retries=app_config.clipboard_max_retries,

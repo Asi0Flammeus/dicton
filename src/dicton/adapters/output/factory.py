@@ -9,7 +9,6 @@ from .base import TextOutput
 def get_text_output(
     clipboard=None,
     *,
-    paste_threshold_words: int = -1,
     debug: bool = False,
     clipboard_verify_delay_ms: int = 50,
     clipboard_max_retries: int = 5,
@@ -20,7 +19,6 @@ def get_text_output(
 
         return LinuxTextOutput(
             clipboard,
-            paste_threshold_words=paste_threshold_words,
             debug=debug,
             clipboard_verify_delay_ms=clipboard_verify_delay_ms,
             clipboard_max_retries=clipboard_max_retries,

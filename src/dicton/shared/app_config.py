@@ -64,7 +64,6 @@ class AppConfig:
     filter_fillers: bool
     enable_reformulation: bool
     enable_advanced_modes: bool
-    paste_threshold_words: int
     clipboard_verify_delay_ms: int
     clipboard_max_retries: int
 
