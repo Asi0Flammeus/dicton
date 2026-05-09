@@ -208,9 +208,14 @@ class GroqSTTProvider(STTProvider):
             try:
                 # Groq's audio.transcriptions.create expects a file tuple
                 # (filename, content, content_type) like OpenAI's SDK.
+                # language="fr" est imposé : sans hint, Whisper Large v3 Turbo
+                # hallucine régulièrement des inserts russes en début de
+                # transcription (silence/respiration/clic) — séquelle bien connue
+                # du corpus YouTube auto-translated subs.
                 result = self._client.audio.transcriptions.create(
                     model=self._config.model,
                     file=("audio.wav", wav_content, "audio/wav"),
+                    language="fr",
                 )
 
                 text = getattr(result, "text", None) or ""

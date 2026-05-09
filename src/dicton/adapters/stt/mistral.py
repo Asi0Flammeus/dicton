@@ -263,10 +263,14 @@ class MistralSTTProvider(STTProvider):
         for attempt in range(1, max_attempts + 1):
             try:
                 # Call Mistral API
-                # Note: Cannot use language + timestamp_granularities together
+                # Note: Cannot use language + timestamp_granularities together —
+                # we ne demandons pas les timestamps ici, donc le hint langue
+                # est sûr et évite les dérives de détection sur le silence
+                # initial (cf. fix Groq pour la même raison).
                 result = self._client.audio.transcriptions.complete(
                     model=self._config.model,
                     file={"content": wav_content, "file_name": "audio.wav"},
+                    language="fr",
                 )
 
                 if self._debug:
