@@ -11,7 +11,7 @@ import asyncio
 import logging
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 import httpx
@@ -19,8 +19,8 @@ import numpy as np
 import sounddevice as sd
 from pynput import keyboard
 
+from . import audio_session, fn_key, stats, stt
 from . import cleanup as cleanup_mod
-from . import fn_key, stats, stt
 from .chunker import Chunker, ChunkParams
 from .config import Config
 from .output import paste
@@ -39,6 +39,7 @@ class State(Enum):
 class _Session:
     chunks: dict[int, asyncio.Task]
     started_at: float
+    paused_players: list[str] = field(default_factory=list)
 
 
 class Pipeline:
@@ -86,6 +87,10 @@ class Pipeline:
 
     def stop(self) -> None:
         self._stop.set()
+        # If we're shutting down mid-recording, the user's music app is
+        # still paused. Restore before tearing the loop down.
+        if self._session is not None:
+            audio_session.resume_players(self._session.paused_players)
         if self._loop is not None:
             self._loop.call_soon_threadsafe(self._loop.stop)
         if self._fn_listener is not None:
@@ -159,7 +164,8 @@ class Pipeline:
         if self._session is not None:
             return
         self._chunker.reset()
-        self._session = _Session(chunks={}, started_at=time.monotonic())
+        paused = audio_session.pause_active_players()
+        self._session = _Session(chunks={}, started_at=time.monotonic(), paused_players=paused)
         if self.viz is not None:
             self.viz.set_state("recording")
         asyncio.create_task(stt.prewarm(self._client, api_key=self.cfg.groq_api_key))  # type: ignore[arg-type]
@@ -252,6 +258,7 @@ class Pipeline:
         except OSError as exc:
             log.warning("stats append failed: %s", exc)
 
+        audio_session.resume_players(session.paused_players)
         if self.viz is not None:
             self.viz.set_state("idle")
         with self._state_lock:
