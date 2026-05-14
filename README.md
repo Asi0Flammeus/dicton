@@ -1,72 +1,151 @@
 # dicton
 
-French voice dictation. Hold a hotkey, speak, release — cleaned-up text appears
-in the active app in under two seconds.
+**Dictée vocale française, transcription en moins d'une seconde.**
 
-Single provider (Groq). Single binary entrypoint. Three platforms.
+Appuie sur F2 (ou tape Fn deux fois), parle, appuie à nouveau pour stopper. Le texte propre est collé dans l'app active avant que tu aies fini de dire « anticonstitutionnellement ».
 
-## Install
+- **Sous la seconde** : 200-300 ms post-stop en cas usuel, jamais plus de 1 s sur des dictées courtes. Conçu pour la performance — un seul provider (Groq), une seule connexion HTTP/2, STT et cleanup partagent le socket TLS.
+- **100% francophone** : prompt cleanup figé en français, anglicismes préservés tels quels (`workflow`, `commit`, `pull request`…), modèle Whisper turbo verrouillé sur `language=fr`.
+- **Un seul binaire**, trois plateformes (Linux X11/Wayland, macOS, Windows), autostart systemd / launchd / HKCU Run, daemon en arrière-plan, hotkey global.
+
+## Installation
+
+Prérequis universel : **[uv](https://docs.astral.sh/uv/getting-started/installation/)** (gestionnaire Python d'Astral) et **[git](https://git-scm.com/downloads)**.
+
+Une seule ligne par plateforme :
+
+### Linux (Debian / Ubuntu / Mint)
 
 ```bash
-uv tool install dicton
-dicton wizard
+sudo apt install -y libportaudio2 xclip xdotool playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
 ```
 
-The wizard walks through: system check → Groq API key → hotkey → live self-test
-of four cleanup models → autostart. The resulting TOML lives at the platform's
-config dir (Linux `~/.config/dicton/config.toml`, macOS
-`~/Library/Application Support/dicton/config.toml`, Windows
-`%APPDATA%\dicton\config.toml`).
+### Linux (Arch / Manjaro)
 
-## Use
+```bash
+sudo pacman -S --needed portaudio xclip xdotool playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
+```
 
-Hold the configured hotkey (default `F2`), speak in French, release. The text
-is pasted into whatever app currently has focus.
+### Linux (Fedora)
 
-## Commands
+```bash
+sudo dnf install -y portaudio xclip xdotool playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
+```
 
-| Command         | Effect                                                   |
-| --------------- | -------------------------------------------------------- |
-| `dicton`        | Run the daemon (default — re-runs the wizard if needed). |
-| `dicton wizard` | Re-run the full first-launch setup.                      |
-| `dicton config` | Re-pick the cleanup model.                               |
-| `dicton stats`  | Print lifetime totals (chars, typing time saved).        |
-| `dicton update` | `uv tool upgrade dicton`.                                |
+### macOS
+
+```bash
+brew install portaudio && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
+```
+
+### Windows (PowerShell)
+
+```powershell
+git clone https://github.com/Asi0Flammeus/dicton.git; cd dicton; uv tool install --force .; dicton
+```
+
+Chaque commande fait, dans l'ordre :
+
+1. installe les dépendances système nécessaires (PortAudio pour la capture audio + utilitaires clipboard/paste),
+2. clone le repo,
+3. installe `dicton` dans `~/.local/bin` (ou équivalent),
+4. lance le daemon — au premier run il enchaîne le **wizard** : check système → clé Groq (à créer sur [console.groq.com/keys](https://console.groq.com/keys)) → choix du hotkey → self-test live des 4 modèles de cleanup avec timings → activation de l'autostart.
+
+À la fin du wizard, si tu as accepté l'autostart, le daemon tourne en arrière-plan via systemd/launchd et te rend la main sur le terminal. F2 marche immédiatement.
+
+## Usage
+
+| Geste                         | Effet                    |
+| ----------------------------- | ------------------------ |
+| **F2** (un click)             | Démarre l'enregistrement |
+| **F2** (un autre click)       | Stoppe, transcrit, colle |
+| **Fn-Fn** (Linux, double-tap) | Démarre l'enregistrement |
+| **Fn** (un tap)               | Stoppe, transcrit, colle |
+
+Pendant l'enregistrement, un petit anneau orange flotte en haut à droite. Il passe en pulse concentrique pendant le processing (STT + cleanup), puis disparaît quand le texte est collé. Les players audio (Spotify, YouTube, VLC…) sont mis en pause automatiquement pendant que tu parles, et repris à la fin.
+
+## Commandes
+
+| Commande               | Effet                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| `dicton`               | Lance le daemon (ou délègue au service systemd si autostart actif)                 |
+| `dicton wizard`        | Re-lance le setup complet (clé, hotkey, modèle, autostart)                         |
+| `dicton config`        | Change uniquement le modèle de cleanup                                             |
+| `dicton stats`         | Affiche les totaux : nombre de dictées, latence moyenne, temps de frappe économisé |
+| `dicton update`        | Upgrade depuis PyPI + restart systemd                                              |
+| `dicton update <path>` | Reinstall depuis un repo local + restart systemd (dev)                             |
+
+## Performance
+
+Mesures réelles (5 dictées sur ThinkPad T14, i3, Groq depuis Paris) :
+
+```
+Avg recording:     13180 ms  (you speaking)
+Avg process:         296 ms  (stt + cleanup + paste, post-stop latency)
+```
+
+Chaque dictée logge sa décomposition :
+
+```
+dictation: 212 chars · recording=13145ms · process=736ms (stt=362ms cleanup=307ms) · chunks=2
+```
+
+- `recording_ms` — temps où tu parlais
+- `process_ms` — latence post-stop perçue (c'est ce qu'on optimise)
+- `stt_ms` — appel Groq Whisper isolé
+- `cleanup_ms` — appel Groq LLM isolé
+- `chunks` — chunks STT envoyés en parallèle (silence-cut au-delà de 6 s)
+
+Live tail des logs : `journalctl --user -u dicton -f`.
 
 ## Architecture
 
-Fourteen files under `src/dicton/`. `pipeline.py` is the only file that owns
-the runtime lifecycle (hotkey, audio, chunker, HTTP, paste). Hard cap of 300
-LOC, enforced by `./scripts/check.sh lint`.
-
-| File            | Role                                                  |
-| --------------- | ----------------------------------------------------- |
-| `pipeline.py`   | Orchestrator. Hotkey → audio → STT → cleanup → paste. |
-| `chunker.py`    | Silence-based RMS chunking during recording.          |
-| `stt.py`        | Groq Whisper, shared `httpx.AsyncClient`.             |
-| `cleanup.py`    | Groq LLM cleanup pass (same socket).                  |
-| `output.py`     | Cross-platform clipboard + paste keystroke.           |
-| `visualizer.py` | pygame waveform + state badge.                        |
-| `fn_key.py`     | Linux Fn-key listener via `evdev` (optional).         |
-| `wizard.py`     | Rich first-run setup with 4-model self-test.          |
-| `config.py`     | TOML at XDG path (`chmod 600` on the key).            |
-| `stats.py`      | Append-only JSONL of every dictation.                 |
-| `platform.py`   | Autostart via systemd / launchd / HKCU Run.           |
-| `cli.py`        | `typer` entrypoint.                                   |
-| `__main__.py`   | `python -m dicton`.                                   |
-| `__init__.py`   | Version export from `hatch-vcs`.                      |
-
-## Development
-
-```bash
-uv sync --extra dev
-./scripts/check.sh all
+```
+src/dicton/
+├── pipeline.py     Orchestrateur unique — state machine (IDLE / RECORDING / PROCESSING), hotkey, audio, chunker, HTTP, paste. Cap 300 LOC enforcé en CI.
+├── runtime.py      Entrypoint daemon : singleton lock + Pipeline + boucle pygame main-thread.
+├── chunker.py      Découpage silence-aware avec overlap, RMS dBFS.
+├── stt.py          Whisper turbo via httpx HTTP/2 partagé.
+├── cleanup.py      LLM cleanup en français, prompt verrouillé.
+├── output.py       Clipboard + Ctrl+Shift+V (xclip+xdotool / wl-copy+wtype / pbcopy+osascript / SetClipboardData+SendInput).
+├── visualizer.py   Donut FFT pygame, XShape circulaire sur X11, hide via shape-mask (jamais de show/hide window → pas de focus stealing).
+├── fn_key.py       Listener evdev pour Fn (KEY_WAKEUP 143 + KEY_FN 464-466), détection double-tap.
+├── audio_session.py  Pause/resume MPRIS via playerctl.
+├── singleton.py    fcntl.flock pour empêcher deux daemons concurrents.
+├── platform.py     Autostart systemd / launchd / HKCU.
+├── wizard.py       Setup interactif rich + self-test 4 modèles.
+├── config.py       TOML à `~/.config/dicton/config.toml` (`chmod 600` sur la clé).
+├── stats.py        JSONL append-only par dictée + résumé.
+└── cli.py          Entrypoint typer.
 ```
 
-`./scripts/check.sh lint` runs `ruff check`, `ruff format --check`, and enforces
-the 300-LOC cap on `pipeline.py`. `./scripts/check.sh test` runs the pytest
-suite (chunker, stats, config, mocked STT/cleanup via respx).
+`pipeline.py` est la seule pièce où vit le cycle de vie runtime. Tout le reste est plat, sans hiérarchie. Hard cap 300 LOC sur `pipeline.py`, vérifié par `scripts/check.sh lint`.
+
+## Développement
+
+```bash
+git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton
+uv sync --extra dev
+./scripts/check.sh all   # ruff + LOC cap + pytest
+```
+
+Workflow itératif (après modif du code) :
+
+```bash
+dicton update .   # reinstall depuis le path courant + restart systemd
+```
+
+CI matrix : Linux × macOS × Windows × Python 3.11 / 3.12. Tag `v*` déclenche `uv publish` automatique.
+
+## Désinstallation
+
+```bash
+systemctl --user disable --now dicton.service   # Linux
+uv tool uninstall dicton
+rm ~/.config/systemd/user/dicton.service        # Linux
+rm -rf ~/.config/dicton                          # config + stats (optionnel)
+```
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — voir [LICENSE](LICENSE).
