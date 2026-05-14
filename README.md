@@ -55,12 +55,14 @@ Chaque commande fait, dans l'ordre :
 
 ## Usage
 
-| Geste                         | Effet                    |
-| ----------------------------- | ------------------------ |
-| **F2** (un click)             | Démarre l'enregistrement |
-| **F2** (un autre click)       | Stoppe, transcrit, colle |
-| **Fn-Fn** (Linux, double-tap) | Démarre l'enregistrement |
-| **Fn** (un tap)               | Stoppe, transcrit, colle |
+| Geste                          | Effet                    |
+| ------------------------------ | ------------------------ |
+| **F2** (un click)              | Démarre l'enregistrement |
+| **F2** (un autre click)        | Stoppe, transcrit, colle |
+| **Fn-Fn** (double-tap, 300 ms) | Démarre l'enregistrement |
+| **Fn** (un tap)                | Stoppe, transcrit, colle |
+
+> Le double-tap **Fn** marche sur Linux (via `evdev`, recommandé sur ThinkPad et claviers exposant `KEY_WAKEUP`) et sur macOS (via pynput, claviers Apple internes). Sur Windows et la plupart des laptops non-Apple, le firmware intercepte la touche Fn avant qu'elle atteigne l'OS — utilise **F2** à la place.
 
 Pendant l'enregistrement, un petit anneau orange flotte en haut à droite. Il passe en pulse concentrique pendant le processing (STT + cleanup), puis disparaît quand le texte est collé. Les players audio (Spotify, YouTube, VLC…) sont mis en pause automatiquement pendant que tu parles, et repris à la fin.
 

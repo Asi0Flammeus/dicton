@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -87,9 +88,7 @@ class Pipeline:
 
     def stop(self) -> None:
         self._stop.set()
-        # If we're shutting down mid-recording, the user's music app is
-        # still paused. Restore before tearing the loop down.
-        if self._session is not None:
+        if self._session is not None:  # mid-record shutdown → resume music
             audio_session.resume_players(self._session.paused_players)
         if self._loop is not None:
             self._loop.call_soon_threadsafe(self._loop.stop)
@@ -113,25 +112,36 @@ class Pipeline:
     # ---- hotkey wiring ----
 
     def _start_hotkeys(self) -> None:
-        primary = _parse_key(self.cfg.hotkey_primary)
-        secondary = _parse_key(self.cfg.hotkey_secondary)
-        watched = {primary, secondary} - {None}
+        watched = {_parse_key(self.cfg.hotkey_primary), _parse_key(self.cfg.hotkey_secondary)} - {
+            None
+        }
         held: set[object] = set()
+        fn_ts = [0.0]
+        # Linux Fn comes from evdev (KEY_WAKEUP). macOS/Windows fall back
+        # to pynput's Key.fn; gated on platform to avoid double-firing.
+        pynput_fn = keyboard.Key.fn if sys.platform != "linux" else None
 
         def on_press(key: object) -> None:
             norm = _normalize(key)
-            if norm not in watched or norm in held:
-                return  # ignore X11 autorepeat
-            held.add(norm)
-            self._toggle()
+            if norm in held:
+                return
+            if pynput_fn is not None and norm == pynput_fn:
+                held.add(norm)
+                is_double = (time.monotonic() - fn_ts[0]) < fn_key.DOUBLE_TAP_WINDOW_S
+                self._on_fn_press(is_double)
+            elif norm in watched:
+                held.add(norm)
+                self._toggle()
 
         def on_release(key: object) -> None:
-            held.discard(_normalize(key))
+            norm = _normalize(key)
+            if pynput_fn is not None and norm == pynput_fn:
+                fn_ts[0] = time.monotonic()
+            held.discard(norm)
 
         self._listener = keyboard.Listener(on_press=on_press, on_release=on_release)
         self._listener.daemon = True
         self._listener.start()
-
         self._fn_listener = fn_key.FnKeyListener(self._on_fn_press)
         self._fn_listener.start()
 
@@ -207,14 +217,11 @@ class Pipeline:
         session = self._session
         recording_ended_at = time.monotonic()
         recording_ms = int((recording_ended_at - session.started_at) * 1000)
-
         if self._stream is not None:
             self._stream.stop()
             self._stream.close()
             self._stream = None
-
-        # Flush BEFORE clearing _session so _on_chunk_ready can still attach
-        # the final chunk's STT task to the active session.
+        # Flush BEFORE clearing _session so _on_chunk_ready stays valid.
         self._chunker.flush()
         self._session = None
         if self.viz is not None:
@@ -284,9 +291,7 @@ def _parse_key(name: str) -> object | None:
         return None
     if hasattr(keyboard.Key, name):
         return getattr(keyboard.Key, name)
-    if len(name) == 1:
-        return keyboard.KeyCode.from_char(name)
-    return None
+    return keyboard.KeyCode.from_char(name) if len(name) == 1 else None
 
 
 def _normalize(key: object) -> object:
