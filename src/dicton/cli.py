@@ -95,16 +95,52 @@ def stats_cmd() -> None:
 
 
 @app.command(name="update")
-def update_cmd() -> None:
-    """Upgrade dicton via uv and ask the user to restart the daemon."""
+def update_cmd(
+    source: str | None = typer.Argument(
+        None,
+        help="Local path (development install). Omit to upgrade from PyPI.",
+    ),
+    no_restart: bool = typer.Option(
+        False, "--no-restart", help="Skip restarting the systemd unit after install."
+    ),
+) -> None:
+    """Reinstall dicton, then restart the daemon to pick up the new code.
+
+    Without arguments, upgrades the published release via ``uv tool upgrade``.
+    With a path, rebuilds from local sources via ``uv tool install --force
+    --reinstall`` — the standard dev loop. Either way, if the systemd unit is
+    active it is restarted automatically so the new binary takes effect.
+    """
     if not _which("uv"):
         console.print("[red]uv not found.[/red] Install: https://docs.astral.sh/uv/")
         raise typer.Exit(1)
-    console.print("Running [cyan]uv tool upgrade dicton[/cyan]…")
-    r = subprocess.run(["uv", "tool", "upgrade", "dicton"], check=False)
+
+    if source:
+        path = Path(source).expanduser().resolve()
+        if not (path / "pyproject.toml").exists():
+            console.print(f"[red]{path} has no pyproject.toml[/red]")
+            raise typer.Exit(1)
+        console.print(f"Running [cyan]uv tool install --force --reinstall {path}[/cyan]…")
+        cmd = ["uv", "tool", "install", "--force", "--reinstall", str(path)]
+    else:
+        console.print("Running [cyan]uv tool upgrade dicton[/cyan]…")
+        cmd = ["uv", "tool", "upgrade", "dicton"]
+
+    r = subprocess.run(cmd, check=False)
     if r.returncode != 0:
         raise typer.Exit(r.returncode)
-    console.print("[green]Upgraded.[/green] Restart the daemon to pick up the new version.")
+
+    if no_restart:
+        console.print("[green]Installed.[/green]  Skipped daemon restart (--no-restart).")
+        return
+    if _systemd_unit_active():
+        console.print("Restarting [cyan]systemctl --user dicton.service[/cyan]…")
+        if _restart_systemd_unit():
+            console.print("[green]Daemon restarted on the new binary.[/green]")
+        else:
+            console.print("[yellow]Systemd restart failed.[/yellow]")
+    else:
+        console.print("[green]Installed.[/green]  Systemd unit isn't active; nothing to restart.")
 
 
 # ---- internal ----
