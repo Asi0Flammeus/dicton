@@ -30,16 +30,16 @@ def paste(text: str) -> None:
 
 
 def _paste_linux(text: str) -> None:
+    # No clipboard restore: the focused app may still be reading the new
+    # clipboard content when we send the key event, so an immediate restore
+    # races and pastes the *old* content instead. Main's adapter behaves the
+    # same way — the dictation simply replaces the clipboard.
     if shutil.which("wl-copy"):
-        prior = _try_run(["wl-paste"])
         subprocess.run(["wl-copy"], input=text.encode("utf-8"), check=True)
         time.sleep(0.02)
         _send_keys_linux()
-        if prior is not None:
-            subprocess.run(["wl-copy"], input=prior.encode("utf-8"), check=False)
         return
     if shutil.which("xclip"):
-        prior = _try_run(["xclip", "-selection", "clipboard", "-o"])
         subprocess.run(
             ["xclip", "-selection", "clipboard"],
             input=text.encode("utf-8"),
@@ -47,31 +47,51 @@ def _paste_linux(text: str) -> None:
         )
         time.sleep(0.02)
         _send_keys_linux()
-        if prior is not None:
-            subprocess.run(
-                ["xclip", "-selection", "clipboard"],
-                input=prior.encode("utf-8"),
-                check=False,
-            )
         return
     raise RuntimeError("install wl-clipboard (Wayland) or xclip+xdotool (X11)")
 
 
 def _send_keys_linux() -> None:
+    # Ctrl+Shift+V is the universal paste shortcut: it works in browsers,
+    # editors *and* terminals (gnome-terminal, kitty, alacritty…). Plain
+    # Ctrl+V hits "quoted-insert" in zsh/vim and is intercepted by tmux.
     if shutil.which("wtype"):
-        subprocess.run(["wtype", "-M", "ctrl", "v"], check=False)
+        subprocess.run(["wtype", "-M", "ctrl", "-M", "shift", "v"], check=False)
         return
     if shutil.which("ydotool"):
-        subprocess.run(["ydotool", "key", "29:1", "47:1", "47:0", "29:0"], check=False)
+        # 29=LeftCtrl, 42=LeftShift, 47=V
+        subprocess.run(
+            ["ydotool", "key", "29:1", "42:1", "47:1", "47:0", "42:0", "29:0"], check=False
+        )
         return
     if shutil.which("xdotool"):
-        subprocess.run(["xdotool", "key", "--clearmodifiers", "ctrl+v"], check=False)
+        _log_active_window("paste target")
+        subprocess.run(
+            ["xdotool", "key", "--clearmodifiers", "--delay", "0", "ctrl+shift+v"],
+            check=False,
+        )
         return
     raise RuntimeError("install wtype (Wayland) or xdotool (X11) to send keystrokes")
 
 
+def _log_active_window(label: str) -> None:
+    import logging
+
+    log = logging.getLogger("dicton")
+    try:
+        win = subprocess.run(
+            ["xdotool", "getactivewindow", "getwindowname"],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=1.0,
+        )
+        log.info("%s: active window = %r", label, win.stdout.strip())
+    except Exception as exc:  # noqa: BLE001
+        log.warning("could not get active window: %s", exc)
+
+
 def _paste_darwin(text: str) -> None:
-    prior = _try_run(["pbpaste"])
     subprocess.run(["pbcopy"], input=text.encode("utf-8"), check=True)
     time.sleep(0.02)
     subprocess.run(
@@ -82,8 +102,6 @@ def _paste_darwin(text: str) -> None:
         ],
         check=False,
     )
-    if prior is not None:
-        subprocess.run(["pbcopy"], input=prior.encode("utf-8"), check=False)
 
 
 def _paste_windows(text: str) -> None:
@@ -139,13 +157,3 @@ def _paste_windows(text: str) -> None:
         _ev(VK_CONTROL, True),
     )
     user32.SendInput(4, ctypes.byref(events), ctypes.sizeof(INPUT))
-
-
-def _try_run(cmd: list[str]) -> str | None:
-    try:
-        r = subprocess.run(cmd, capture_output=True, check=False)
-        if r.returncode != 0:
-            return None
-        return r.stdout.decode("utf-8", errors="replace")
-    except (OSError, FileNotFoundError):
-        return None

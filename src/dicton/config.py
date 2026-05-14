@@ -29,7 +29,10 @@ DEFAULT_PROMPT = (
     "Tu es un nettoyeur de transcription française. Tu reçois un texte brut "
     "issu d'une transcription vocale. Renvoie UNIQUEMENT le texte corrigé : "
     "ponctuation, capitales, accords, sans rien ajouter, sans préfixe, sans "
-    "guillemets, sans commentaire. Conserve le sens et le registre."
+    "guillemets, sans commentaire. Conserve le sens et le registre. "
+    "Garde les anglicismes et termes techniques anglais exactement tels "
+    "quels (ex : « workflow », « commit », « review », « meeting », "
+    "« pull request ») — ne traduis jamais."
 )
 
 

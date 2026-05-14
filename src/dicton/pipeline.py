@@ -12,6 +12,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass
+from enum import Enum
 
 import httpx
 import numpy as np
@@ -26,6 +27,12 @@ from .output import paste
 from .visualizer import Visualizer
 
 log = logging.getLogger("dicton")
+
+
+class State(Enum):
+    IDLE = "idle"
+    RECORDING = "recording"
+    PROCESSING = "processing"
 
 
 @dataclass
@@ -49,8 +56,8 @@ class Pipeline:
         self._session: _Session | None = None
         self._stop = threading.Event()
         self._fn_listener: fn_key.FnKeyListener | None = None
-        self._hotkey_active = False
-        self._hotkey_lock = threading.Lock()
+        self._state = State.IDLE
+        self._state_lock = threading.Lock()
 
     def _chunk_params(self) -> ChunkParams:
         c = self.cfg.chunk
@@ -104,37 +111,47 @@ class Pipeline:
         primary = _parse_key(self.cfg.hotkey_primary)
         secondary = _parse_key(self.cfg.hotkey_secondary)
         watched = {primary, secondary} - {None}
+        held: set[object] = set()
 
         def on_press(key: object) -> None:
-            if _normalize(key) in watched:
-                self._press()
+            norm = _normalize(key)
+            if norm not in watched or norm in held:
+                return  # ignore X11 autorepeat
+            held.add(norm)
+            self._toggle()
 
         def on_release(key: object) -> None:
-            if _normalize(key) in watched:
-                self._release()
+            held.discard(_normalize(key))
 
         self._listener = keyboard.Listener(on_press=on_press, on_release=on_release)
         self._listener.daemon = True
         self._listener.start()
 
-        self._fn_listener = fn_key.FnKeyListener(self._press, self._release)
+        self._fn_listener = fn_key.FnKeyListener(self._on_fn_press)
         self._fn_listener.start()
 
-    # ---- press / release (thread-safe entrypoints) ----
+    # ---- state transitions ----
 
-    def _press(self) -> None:
-        with self._hotkey_lock:
-            if self._hotkey_active:
-                return
-            self._hotkey_active = True
-        asyncio.run_coroutine_threadsafe(self._begin(), self._loop)  # type: ignore[arg-type]
+    def _toggle(self) -> None:
+        self._advance(can_start=True)
 
-    def _release(self) -> None:
-        with self._hotkey_lock:
-            if not self._hotkey_active:
+    def _on_fn_press(self, is_double_tap: bool) -> None:
+        self._advance(can_start=is_double_tap)
+
+    def _advance(self, *, can_start: bool) -> None:
+        with self._state_lock:
+            if self._state is State.IDLE:
+                if not can_start:
+                    return
+                self._state = State.RECORDING
+                coro_fn = self._begin
+            elif self._state is State.RECORDING:
+                self._state = State.PROCESSING
+                coro_fn = self._end
+            else:
+                log.info("locked — state=%s", self._state.value)
                 return
-            self._hotkey_active = False
-        asyncio.run_coroutine_threadsafe(self._end(), self._loop)  # type: ignore[arg-type]
+        asyncio.run_coroutine_threadsafe(coro_fn(), self._loop)  # type: ignore[arg-type]
 
     # ---- session lifecycle (async, on the loop) ----
 
@@ -182,14 +199,16 @@ class Pipeline:
         if self._session is None:
             return
         session = self._session
-        self._session = None
 
         if self._stream is not None:
             self._stream.stop()
             self._stream.close()
             self._stream = None
 
+        # Flush BEFORE clearing _session so _on_chunk_ready can still attach
+        # the final chunk's STT task to the active session.
         self._chunker.flush()
+        self._session = None
         if self.viz is not None:
             self.viz.set_state("processing")
 
@@ -235,6 +254,8 @@ class Pipeline:
 
         if self.viz is not None:
             self.viz.set_state("idle")
+        with self._state_lock:
+            self._state = State.IDLE
         log.info(
             "dictation: %d chars in %dms (stt=%dms cleanup=%dms chunks=%d)",
             len(cleaned),
@@ -261,21 +282,3 @@ def _normalize(key: object) -> object:
     if isinstance(key, keyboard.KeyCode) and key.char is not None:
         return keyboard.KeyCode.from_char(key.char.lower())
     return key
-
-
-def run(cfg: Config) -> None:
-    """Blocking entrypoint — wires pygame on the main thread when enabled."""
-    viz = Visualizer() if cfg.visualizer else None
-    pipe = Pipeline(cfg, viz=viz)
-    pipe.start()
-
-    try:
-        if viz is not None:
-            viz.run()  # main-thread pygame loop
-        else:
-            while not pipe._stop.is_set():
-                time.sleep(0.5)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        pipe.stop()

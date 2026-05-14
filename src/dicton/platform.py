@@ -17,7 +17,7 @@ Description=dicton voice dictation
 
 [Service]
 Type=simple
-ExecStart={exec_path}
+ExecStart={exec_path} --foreground
 Restart=on-failure
 RestartSec=2
 

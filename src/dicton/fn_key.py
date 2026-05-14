@@ -1,32 +1,39 @@
 """Linux Fn-key listener via evdev — optional, Linux-only.
 
-The Fn key is not surfaced to userland by most laptops, but on a handful of
-Lenovo/ASUS models it is exposed as a regular evdev keycode on the keyboard
-device. We listen for it and call the same handler as pynput.
+The Fn key on ThinkPads is typically remapped by the kernel to KEY_WAKEUP
+(143); on some Lenovo/ASUS models it surfaces as KEY_FN (464). We listen
+on every keyboard-like device that exposes either code and emit
+`on_press(is_double_tap)` on each key_down event. The pipeline state
+machine decides what to do with it (double-tap only matters in IDLE;
+any tap stops a RECORDING).
 """
 
 from __future__ import annotations
 
 import sys
 import threading
+import time
 from collections.abc import Callable
 
-# Common Fn keycodes seen across vendors. evdev exposes them as ints.
-FN_KEYCODES = {464, 0x1D1, 0x1D2}
+# Fn keycodes seen across vendors.
+#   143 = KEY_WAKEUP  (ThinkPad kernel remap of bare Fn)
+#   464 = KEY_FN
+#   465 = KEY_FN_ESC
+#   466 = KEY_FN_F1
+FN_KEYCODES = {143, 464, 465, 466}
+
+DOUBLE_TAP_WINDOW_S = 0.3
 
 
 class FnKeyListener:
-    """Background thread that calls on_press / on_release for the Fn key."""
+    """Background thread that emits an `on_press(is_double_tap)` event per Fn
+    key_down. State decisions belong to the caller."""
 
-    def __init__(
-        self,
-        on_press: Callable[[], None],
-        on_release: Callable[[], None],
-    ) -> None:
+    def __init__(self, on_press: Callable[[bool], None]) -> None:
         self._on_press = on_press
-        self._on_release = on_release
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._last_release_ts = 0.0
 
     def start(self) -> bool:
         if sys.platform != "linux":
@@ -42,6 +49,14 @@ class FnKeyListener:
     def stop(self) -> None:
         self._stop.set()
 
+    def _handle_key_down(self) -> None:
+        now = time.monotonic()
+        is_double = (now - self._last_release_ts) < DOUBLE_TAP_WINDOW_S
+        self._on_press(is_double)
+
+    def _handle_key_up(self) -> None:
+        self._last_release_ts = time.monotonic()
+
     def _run(self) -> None:
         try:
             from evdev import InputDevice, categorize, ecodes, list_devices
@@ -55,6 +70,11 @@ class FnKeyListener:
             except OSError:
                 continue
             caps = d.capabilities().get(ecodes.EV_KEY, [])
+            # Skip pseudo-devices like Power Button that *also* expose
+            # KEY_WAKEUP (143) but emit phantom events on suspend/resume.
+            # Real keyboards advertise far more than the handful of system keys.
+            if len(caps) < 10:
+                continue
             if any(code in FN_KEYCODES for code in caps):
                 devices.append(d)
         if not devices:
@@ -73,8 +93,8 @@ class FnKeyListener:
                             continue
                         key = categorize(event)
                         if key.keystate == key.key_down:
-                            self._on_press()
+                            self._handle_key_down()
                         elif key.keystate == key.key_up:
-                            self._on_release()
+                            self._handle_key_up()
         except OSError:
             return
