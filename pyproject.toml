@@ -1,17 +1,17 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
 name = "dicton"
-description = "Voice-to-text dictation with direct transcription and translation"
+description = "Lean French voice dictation powered by Groq Whisper and cleanup models"
 dynamic = ["version"]
 readme = "README.md"
 license = "MIT"
 authors = [
     { name = "asi0 flammeus", email = "asi0@crqpt.com" }
 ]
-keywords = ["voice", "speech-to-text", "transcription", "elevenlabs", "dictation"]
+keywords = ["voice", "speech-to-text", "transcription", "groq", "dictation"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
@@ -26,88 +26,24 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    # Audio capture
-    "pyaudio>=0.2.14",
-    # Keyboard handling
+    "sounddevice>=0.4.6",
     "pynput>=1.7.7",
-    # Configuration
-    "python-dotenv>=1.0.1",
-    # Audio processing
-    "numpy>=1.24.0",
-    # ElevenLabs speech-to-text API
-    "elevenlabs>=1.0.0",
-    # Groq Cloud Whisper Large v3 Turbo (default STT provider, lowest latency)
-    "groq>=0.16.0",
-    # Audio visualizer (default)
     "pygame>=2.5.0",
+    "httpx[http2]>=0.27.0",
+    "platformdirs>=4.0.0",
+    "typer>=0.12.0",
+    "rich>=13.7.0",
+    "evdev>=1.6.0; sys_platform == 'linux'",
 ]
 
 [project.optional-dependencies]
-vispy = [
-    "vispy>=0.14.0",
-    "pyglet>=2.0.0",
-]
-gtk = [
-    "PyGObject>=3.42.0",
-]
-fnkey = [
-    "evdev>=1.6.0",
-    "pyudev>=0.24.0",
-]
-llm = [
-    "google-genai>=1.0.0",
-    "anthropic>=0.40.0",
-]
-xshape = [
-    "python-xlib>=0.33",
-]
-context-x11 = [
-    # X11 context detection
-    "python-xlib>=0.33",
-    "psutil>=5.9.0",
-    # Note: pyatspi (AT-SPI widget focus) is a system package: python3-pyatspi
-]
-context-wayland = [
-    # Wayland context detection (GNOME, KDE require dbus-python)
-    "dbus-python>=1.3.2",
-    "psutil>=5.9.0",
-    # Note: pyatspi (AT-SPI) is a system package: python3-pyatspi
-    # Note: Sway/Hyprland use CLI tools (swaymsg, hyprctl) - no pip deps
-]
-notifications = [
-    "plyer>=2.1.0",
-]
-windows = [
-    "pyautogui>=0.9.54",
-    "pyperclip>=1.9.0",
-]
-context-windows = [
-    # Windows context detection
-    "pywin32>=306",
-    "comtypes>=1.4.1",
-    "psutil>=5.9.0",
-]
 dev = [
     "pytest>=7.0.0",
+    "pytest-asyncio>=0.23.0",
     "pytest-cov>=4.0.0",
     "ruff>=0.1.0",
 ]
-packaging = [
-    "pyinstaller>=6.11.0",
-]
-configui = [
-    "fastapi>=0.110.0",
-    "uvicorn>=0.27.0",
-]
-linux = [
-    # Linux production: all Linux-specific features
-    # Note: gtk excluded - requires system deps (libgirepository-2.0-dev) not available on all distros
-    # Users wanting GTK backend can install separately: pip install dicton[gtk]
-    "dicton[fnkey,llm,xshape,notifications,configui,context-x11]",
-]
-all = [
-    "dicton[vispy,gtk,fnkey,llm,xshape,notifications,windows,dev,packaging,configui,context-x11,context-wayland,context-windows]",
-]
+
 
 [project.scripts]
 dicton = "dicton.__main__:main"
@@ -118,7 +54,10 @@ Repository = "https://github.com/Asi0Flammeus/dicton"
 Issues = "https://github.com/Asi0Flammeus/dicton/issues"
 
 [tool.hatch.version]
-path = "src/dicton/__init__.py"
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+fallback_version = "2.0.0a0"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/dicton"]

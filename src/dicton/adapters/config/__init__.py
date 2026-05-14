@@ -1,1 +1,0 @@
-"""Configuration and metrics adapters."""

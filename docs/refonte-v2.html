@@ -1,0 +1,1263 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>dicton — Le retour à la simplicité</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..600,30..100;1,9..144,400..600,30..100&family=Inter:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --color-bg: #ebe3d2;
+        --color-paper: #f3ecdd;
+        --color-ink: #2b2217;
+        --color-sub: #6b5d45;
+        --color-rule: #c9bea4;
+        --color-accent: #a14a28;
+        --color-accent-2: #3d5a3d;
+        --paper-bg:
+          repeating-linear-gradient(
+            0deg,
+            rgba(90, 70, 40, 0.015) 0 1px,
+            transparent 1px 3px
+          ),
+          radial-gradient(
+            ellipse at 30% 20%,
+            rgba(180, 140, 80, 0.08),
+            transparent 50%
+          );
+        --font-serif: "Fraunces", "Tiempos Headline", Georgia, serif;
+        --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+        --font-mono: "DM Mono", "JetBrains Mono", ui-monospace, monospace;
+        --tracking-tight: -0.03em;
+        --tracking-wider: 0.18em;
+        --leading-tight: 1.05;
+        --leading-snug: 1.2;
+        --leading-normal: 1.6;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: var(--font-sans);
+        font-size: 15px;
+        line-height: var(--leading-normal);
+        color: var(--color-ink);
+        background: var(--color-bg);
+        background-image: var(--paper-bg);
+        background-attachment: fixed;
+        font-variation-settings: "SOFT" 50;
+        -webkit-font-smoothing: antialiased;
+      }
+      ::selection {
+        background: var(--color-accent);
+        color: var(--color-paper);
+      }
+      :focus-visible {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 2px;
+      }
+      main {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+      section {
+        padding: 96px 0;
+        border-bottom: 1px solid var(--color-rule);
+      }
+      section:last-child {
+        border-bottom: none;
+      }
+      h1,
+      h2,
+      h3,
+      h4 {
+        font-family: var(--font-serif);
+        font-weight: 500;
+        letter-spacing: var(--tracking-tight);
+        line-height: var(--leading-tight);
+        font-variation-settings:
+          "SOFT" 50,
+          "opsz" 144;
+      }
+      h1 {
+        font-size: clamp(40px, 7vw, 72px);
+        font-weight: 500;
+        margin-bottom: 24px;
+      }
+      h2 {
+        font-size: clamp(32px, 5vw, 52px);
+        font-style: italic;
+        font-weight: 500;
+        margin-bottom: 32px;
+        line-height: var(--leading-snug);
+      }
+      h3 {
+        font-size: 26px;
+        margin-bottom: 16px;
+      }
+      h4 {
+        font-size: 19px;
+        margin-bottom: 12px;
+      }
+      p {
+        margin-bottom: 16px;
+        max-width: 65ch;
+      }
+      p.lead {
+        font-size: 21px;
+        line-height: 1.5;
+        color: var(--color-sub);
+        max-width: 60ch;
+        margin-bottom: 32px;
+      }
+      strong {
+        font-weight: 600;
+        color: var(--color-ink);
+      }
+      em {
+        font-style: italic;
+      }
+      a:not([class]) {
+        color: var(--color-accent);
+        text-decoration: none;
+        border-bottom: 1px solid var(--color-accent);
+        transition: opacity 0.15s;
+      }
+      a:not([class]):hover {
+        opacity: 0.65;
+      }
+      .eyebrow {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--color-accent);
+        letter-spacing: var(--tracking-wider);
+        text-transform: uppercase;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      .eyebrow--green {
+        color: var(--color-accent-2);
+      }
+      .eyebrow::before {
+        content: "";
+        width: 14px;
+        height: 1px;
+        background: currentColor;
+      }
+      .hero {
+        padding: 140px 0 96px;
+        border-bottom: 1px solid var(--color-rule);
+      }
+      .hero__meta {
+        display: flex;
+        gap: 32px;
+        margin-top: 48px;
+        flex-wrap: wrap;
+        color: var(--color-sub);
+        font-family: var(--font-mono);
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .hero__meta span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .hero__meta span::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        background: var(--color-accent);
+        display: inline-block;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 160px 1fr;
+        gap: 24px;
+        padding: 16px 0;
+        border-bottom: 1px dashed var(--color-rule);
+        align-items: start;
+      }
+      .row:last-child {
+        border-bottom: none;
+      }
+      .row__k {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--color-accent);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding-top: 3px;
+      }
+      .num {
+        font-family: var(--font-serif);
+        font-size: 88px;
+        line-height: 1;
+        color: var(--color-accent);
+        font-weight: 500;
+        display: inline-block;
+        letter-spacing: -0.04em;
+      }
+      .num__unit {
+        font-size: 24px;
+        color: var(--color-sub);
+        font-style: italic;
+        margin-left: 8px;
+        font-weight: 400;
+      }
+      pre,
+      code {
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+      }
+      pre.diagram {
+        background: var(--color-paper);
+        border: 1px solid var(--color-rule);
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        line-height: 1.5;
+        padding: 20px 24px;
+        overflow-x: auto;
+        color: var(--color-sub);
+        margin: 24px 0;
+        white-space: pre;
+      }
+      pre.diagram .hl {
+        color: var(--color-accent);
+        font-weight: 500;
+      }
+      pre.diagram .hl2 {
+        color: var(--color-accent-2);
+        font-weight: 500;
+      }
+      code {
+        background: rgba(161, 74, 40, 0.08);
+        color: var(--color-accent);
+        padding: 1px 5px;
+        border-radius: 0;
+      }
+      pre code {
+        background: transparent;
+        color: inherit;
+        padding: 0;
+      }
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 24px 0;
+        font-size: 14px;
+      }
+      .table th,
+      .table td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--color-rule);
+        vertical-align: top;
+      }
+      .table th {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--color-accent);
+        font-weight: 500;
+      }
+      .table td.num-cell {
+        font-family: var(--font-mono);
+        text-align: right;
+        color: var(--color-accent);
+      }
+      .table tr.total {
+        font-weight: 600;
+        background: rgba(161, 74, 40, 0.06);
+      }
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 48px;
+        margin-top: 32px;
+      }
+      @media (max-width: 700px) {
+        .split {
+          grid-template-columns: 1fr;
+        }
+      }
+      .split h3 {
+        font-style: italic;
+        border-bottom: 2px solid var(--color-ink);
+        padding-bottom: 8px;
+        margin-bottom: 16px;
+      }
+      footer {
+        padding: 64px 0;
+        text-align: center;
+        color: var(--color-sub);
+        font-family: var(--font-mono);
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+      }
+      footer span {
+        display: inline-block;
+        margin: 0 12px;
+      }
+      .recommend {
+        border: 2px solid var(--color-accent);
+        background: var(--color-paper);
+        padding: 40px 36px;
+        margin: 32px 0;
+        position: relative;
+      }
+      .recommend::before {
+        content: "";
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        width: 60px;
+        height: 60px;
+        border-top: 6px solid var(--color-accent);
+        border-left: 6px solid var(--color-accent);
+      }
+      .recommend h3 {
+        color: var(--color-accent);
+        margin-bottom: 8px;
+      }
+      .recommend h3 em {
+        font-style: italic;
+      }
+      blockquote {
+        font-family: var(--font-serif);
+        font-style: italic;
+        font-size: 22px;
+        line-height: 1.4;
+        border-left: 3px solid var(--color-accent);
+        padding: 8px 0 8px 24px;
+        color: var(--color-sub);
+        margin: 32px 0;
+        max-width: 60ch;
+      }
+      .toc {
+        position: sticky;
+        top: 0;
+        background: var(--color-bg);
+        background-image: var(--paper-bg);
+        border-bottom: 1px solid var(--color-rule);
+        padding: 14px 24px;
+        z-index: 10;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .toc__wrap {
+        max-width: 920px;
+        margin: 0 auto;
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .toc a {
+        color: var(--color-sub);
+        text-decoration: none;
+        border: none;
+      }
+      .toc a:hover {
+        color: var(--color-accent);
+      }
+      .toc__brand {
+        color: var(--color-accent);
+        font-weight: 500;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="toc">
+      <div class="toc__wrap">
+        <span class="toc__brand">dicton · refonte</span>
+        <span>
+          <a href="#constat">Constat</a> · <a href="#objectifs">Objectifs</a> ·
+          <a href="#chunking">Chunking</a> · <a href="#groq">Une clé</a> ·
+          <a href="#synthese">Synthèse</a> ·
+          <a href="#recommandation">Reco</a> ·
+          <a href="#annexe">Annexe</a>
+        </span>
+      </div>
+    </nav>
+
+    <main>
+      <header class="hero">
+        <div class="eyebrow eyebrow--green">
+          Refonte · Mai 2026 · Note de cadrage
+        </div>
+        <h1>dicton, version <em style="font-style: italic">maigre</em>.</h1>
+        <p class="lead">
+          Un outil opinionated. Une seule mission&nbsp;: transcrire et nettoyer
+          la voix française en <strong>moins de deux secondes</strong>, de la
+          fin du dictat jusqu'au texte collé dans l'app active. Une étude de cas
+          en programmation efficace&nbsp;: faire <em>une seule chose</em>
+          avec une exactitude obsessionnelle.
+        </p>
+        <div class="hero__meta">
+          <span>État courant : ~7&nbsp;000 LOC</span>
+          <span>Cible : ~940 LOC runtime</span>
+          <span>Pipeline ≤ 300 LOC</span>
+          <span>Une clé · Groq</span>
+        </div>
+      </header>
+
+      <section id="constat">
+        <div class="eyebrow">01 · Le constat</div>
+        <h2>Une cathédrale hexagonale construite pour un cabanon.</h2>
+        <p>
+          Le <code>dicton</code> actuel comporte 87 fichiers Python répartis sur
+          cinq couches architecturales&nbsp;: <code>core/</code>,
+          <code>adapters/</code>, <code>orchestration/</code>,
+          <code>interfaces/</code>, <code>shared/</code>. C'est le pattern
+          hexagonal classique — ports, adapters, factories, container DI,
+          state-machine. Ce pattern existe pour absorber
+          <em>l'incertitude</em> sur les fournisseurs externes.
+        </p>
+        <p>
+          Or aujourd'hui, l'incertitude a disparu. <strong>Groq</strong> gagne
+          sur la latence STT <em>et</em> sur la latence LLM, avec le même
+          endpoint et la même clé API. Le reste n'est plus du choix, c'est du
+          bagage.
+        </p>
+        <blockquote>
+          Quand la cathédrale est construite pour absorber un futur qui ne vient
+          pas, chaque couche devient un impôt sur la lecture, sur le test, sur
+          la modification.
+        </blockquote>
+
+        <h3 style="margin-top: 48px; font-style: italic">
+          Les chiffres du constat
+        </h3>
+        <div class="row">
+          <div class="row__k">LOC totales</div>
+          <div>~7&nbsp;000 lignes Python sur <code>src/dicton/</code></div>
+        </div>
+        <div class="row">
+          <div class="row__k">Plus gros fichier</div>
+          <div><code>visualizer_vispy.py</code> · 842 lignes</div>
+        </div>
+        <div class="row">
+          <div class="row__k">Fournisseurs STT supportés</div>
+          <div>3 (Groq, Voxtral, ElevenLabs) — un seul est utilisé en prod</div>
+        </div>
+        <div class="row">
+          <div class="row__k">Surfaces de config</div>
+          <div>
+            Variables d'env + fichier <code>.env</code> + serveur web localhost
+            + flags CLI
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Modes de distribution</div>
+          <div>
+            .deb, PyInstaller zip Windows, scripts shell d'update — trois
+            pipelines à maintenir
+          </div>
+        </div>
+      </section>
+
+      <section id="objectifs">
+        <div class="eyebrow eyebrow--green">02 · Les non-négociables</div>
+        <h2>Cinq contraintes. Pas de discussion.</h2>
+
+        <div class="row">
+          <div class="row__k">Latence</div>
+          <div>
+            <strong>Moins de 2 secondes</strong> entre la relâche du raccourci
+            et le texte nettoyé collé dans l'app active. Mesure end-to-end.
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Provider</div>
+          <div>
+            <strong>Groq seul</strong>. <code>whisper-large-v3-turbo</code> pour
+            le STT. <strong>Quatre modèles cleanup</strong> embarqués, choix
+            utilisateur au wizard avec une phrase de description chacun (cf.
+            §04). Une seule clé API. Même socket TLS HTTP/2 pour les deux
+            appels.
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Plateformes</div>
+          <div>
+            <strong
+              >Linux · macOS · Windows — les trois doivent marcher.</strong
+            >
+            Hard prerequisite, pas un best effort. Une seule commande
+            d'installation identique sur les trois OS.
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Hotkey</div>
+          <div>
+            Raccourci global double <strong>primary + secondary</strong>, défaut
+            <code>F2</code> sur les deux + support de la touche
+            <strong>Fn</strong> (laptop) sur Linux via <code>evdev</code>.
+            Configurable au wizard. Auto-paste dans l'app active.
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Fonctionnalités</div>
+          <div>
+            Daemon avec autostart · <strong>visualizer audio</strong> (pygame,
+            feedback live). Pas de notifications desktop. Pas de web config UI.
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Distribution</div>
+          <div>
+            Une seule commande pour installer · une seule commande
+            <code>dicton update</code> · tags Git mais
+            <strong>aucune release GitHub</strong>. Wizard terminal, pas
+            navigateur.
+          </div>
+        </div>
+
+        <div
+          style="
+            margin-top: 48px;
+            display: flex;
+            gap: 64px;
+            flex-wrap: wrap;
+            align-items: baseline;
+          "
+        >
+          <div>
+            <div class="num">2<span class="num__unit">s max</span></div>
+            <p
+              style="
+                color: var(--color-sub);
+                font-size: 13px;
+                max-width: 18ch;
+                margin-top: 8px;
+              "
+            >
+              budget end-to-end après relâche
+            </p>
+          </div>
+          <div>
+            <div class="num">1<span class="num__unit">clé API</span></div>
+            <p
+              style="
+                color: var(--color-sub);
+                font-size: 13px;
+                max-width: 18ch;
+                margin-top: 8px;
+              "
+            >
+              Groq · STT et cleanup
+            </p>
+          </div>
+          <div>
+            <div class="num">3<span class="num__unit">OS</span></div>
+            <p
+              style="
+                color: var(--color-sub);
+                font-size: 13px;
+                max-width: 18ch;
+                margin-top: 8px;
+              "
+            >
+              Linux · macOS · Windows
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="chunking">
+        <div class="eyebrow">03 · Le killer feature</div>
+        <h2>
+          Transcrire <em>pendant</em> qu'on parle. Nettoyer une seule fois à la
+          fin.
+        </h2>
+
+        <p class="lead">
+          La technique qui rend le &lt;2&nbsp;s tenable, même sur des audios
+          longs. Existe déjà dans <code>chunk_manager.py</code> — à préserver,
+          pas réinventer.
+        </p>
+
+        <p>
+          L'audio est découpé en chunks <strong>pendant</strong> le recording,
+          sur les frontières de silence. Chaque chunk part chez Groq dès qu'il
+          est prêt, en parallèle du recording. Quand on relâche, il ne reste
+          qu'à transcrire la <em>queue</em> et faire
+          <strong>UN seul appel cleanup</strong> sur le transcript joint.
+        </p>
+
+        <ul style="padding-left: 24px; margin-bottom: 24px">
+          <li>
+            Latence end-to-end quasi-<strong>constante</strong> par durée
+            d'audio. 30s = ~1.15s. 60s = ~1.2s. 4s = ~0.7s.
+          </li>
+          <li>
+            <strong>UN seul</strong> appel cleanup, peu importe le nombre de
+            chunks. Contexte global = nettoyage cohérent.
+          </li>
+          <li>Pre-chauffage des sockets dès le <em>début</em> du recording.</li>
+        </ul>
+
+        <h3 style="margin-top: 48px; font-style: italic">
+          Audio court (~4&nbsp;s) · un seul chunk
+        </h3>
+        <pre class="diagram">
+t=0.00   HOTKEY DOWN
+         ├─ visualizer pygame s'ouvre (waveform live)
+         ├─ chunker reçoit les frames audio
+         ├─ <span class="hl">prewarm socket api.groq.com</span> ─► TCP + TLS + HTTP/2 SETTINGS
+         │   (un seul handshake pour STT et cleanup — même host)
+         │
+         │ ... 4 secondes d'audio en RAM, aucun chunk émis ...
+         │
+t=4.00   HOTKEY UP — chunker.flush() → 1 chunk (tout l'audio)
+         ├─ submit Groq STT (socket warm)        ─[~325ms]─►
+t=4.32                                                       transcript brut
+         ├─ cleanup gpt-oss-20b (même socket)    ─[~370ms]─►
+t=4.69                                                       transcript propre
+         └─ paste()                              ─[~30ms]──► texte dans l'app
+
+<span class="hl2">Latence perçue (relâche → texte collé) : ~725 ms</span>
+</pre>
+
+        <h3 style="margin-top: 48px; font-style: italic">
+          Audio long (~30&nbsp;s) · 4 chunks
+        </h3>
+        <pre class="diagram">
+t=0.0    HOTKEY DOWN — recording + chunking en parallèle
+         <span class="hl">prewarm</span> socket api.groq.com, visualizer up
+         │
+t=0.0 ──── enregistrement audio (chunker observe RMS) ──────────────────────►
+         │
+t=7.2    silence détecté · <span class="hl">chunk #1</span> (6.0s + overlap) ──► Groq STT ─[700ms]─► texte#1 (t=7.9)
+t=14.5   silence détecté · <span class="hl">chunk #2</span> (7.0s)             ──► Groq STT ─[750ms]─► texte#2 (t=15.3)
+t=22.1   silence détecté · <span class="hl">chunk #3</span> (7.4s)             ──► Groq STT ─[780ms]─► texte#3 (t=22.9)
+         │
+         │  ↳ pendant ce temps, visualizer affiche la waveform en continu
+         │
+t=30.0   HOTKEY UP — chunker.flush() → <span class="hl">chunk #4</span> (queue ~7.5s)
+                                                ──► Groq STT ─[780ms]─► texte#4 (t=30.78)
+
+t=30.78  tous les futures résolus (chunks 1-3 finis depuis longtemps)
+         joined = " ".join([texte#1, texte#2, texte#3, texte#4])
+         <span class="hl2">cleanup gpt-oss-20b(joined)</span> ─[~370ms · UN SEUL appel]─► (t=31.15)
+t=31.15  paste()
+
+<span class="hl2">Latence perçue (relâche → texte collé) : ~1150 ms</span>
+</pre>
+
+        <p style="margin-top: 32px">
+          La latence est bornée par
+          <code>STT(dernier_chunk) + cleanup(joint)</code>, pas par
+          <code>STT(audio_complet)</code>. C'est ça, le mécanisme.
+        </p>
+
+        <h3 style="margin-top: 56px; font-style: italic">
+          Paramètres de chunking
+        </h3>
+        <p
+          style="font-size: 13px; color: var(--color-sub); margin-bottom: 24px"
+        >
+          Valeurs issues du <code>chunk_manager.py</code> actuel. Marchent bien
+          en pratique — embarquées telles quelles comme defaults, configurables
+          via TOML.
+        </p>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Paramètre</th>
+              <th>Valeur</th>
+              <th>Pourquoi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>min_chunk_s</code></td>
+              <td class="num-cell">6.0</td>
+              <td>
+                Whisper Turbo dégrade sous 5&nbsp;s. 6&nbsp;s = ~15-20 mots FR.
+              </td>
+            </tr>
+            <tr>
+              <td><code>max_chunk_s</code></td>
+              <td class="num-cell">20.0</td>
+              <td>
+                Plafond dur. STT sur 20&nbsp;s ≈ 800&nbsp;ms — pire-cas pour la
+                queue.
+              </td>
+            </tr>
+            <tr>
+              <td><code>overlap_s</code></td>
+              <td class="num-cell">0.4</td>
+              <td>Couvre la latence de réaction du détecteur de silence.</td>
+            </tr>
+            <tr>
+              <td><code>silence_threshold</code></td>
+              <td class="num-cell">-40 dBFS</td>
+              <td>
+                Parole FR ≈ -25/-30, bruit pièce ≈ -50. -40 = séparation propre.
+              </td>
+            </tr>
+            <tr>
+              <td><code>silence_window_s</code></td>
+              <td class="num-cell">0.35</td>
+              <td>
+                Pauses inter-phrase FR = 200-500&nbsp;ms. 350&nbsp;ms attrape
+                les pauses sans couper les micro-silences.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="groq">
+        <div class="eyebrow eyebrow--green">04 · Une seule clé Groq</div>
+        <h2>Tout sur Groq. <em>Même host, même socket, une clé.</em></h2>
+
+        <p class="lead">
+          L'illusion qu'il fallait Gemini ou OpenRouter pour le cleanup
+          s'effondre dès qu'on regarde le catalogue Groq de mai 2026. Groq fait
+          Whisper
+          <strong>et</strong> des LLMs de qualité, sur le même endpoint
+          <code>api.groq.com</code>, avec la même clé.
+        </p>
+
+        <div class="recommend" style="border-color: var(--color-accent-2)">
+          <h3 style="color: var(--color-accent-2)">
+            La découverte qui simplifie tout
+          </h3>
+          <p style="margin-bottom: 16px">
+            <strong
+              >Un seul provider, un seul host, un seul handshake TLS.</strong
+            >
+            Les appels STT et cleanup partagent la même connexion HTTP/2 vers
+            <code>api.groq.com</code>. Pas de second prewarm. Pas de hop proxy.
+            Pas de deuxième clé à demander à l'utilisateur.
+          </p>
+          <p>
+            End-to-end sur audio court&nbsp;:
+            <code
+              >STT 325&nbsp;ms + cleanup 370&nbsp;ms + paste 30&nbsp;ms ≈
+              <strong>725&nbsp;ms</strong></code
+            >. Sur audio long (30&nbsp;s)&nbsp;: <strong>~1.15&nbsp;s</strong>.
+            Marge confortable.
+          </p>
+        </div>
+
+        <h3 style="margin-top: 48px; font-style: italic">
+          Catalogue Groq pertinent (mai 2026)
+        </h3>
+        <p
+          style="font-size: 13px; color: var(--color-sub); margin-bottom: 24px"
+        >
+          Source&nbsp;:
+          <a href="https://console.groq.com/docs/models"
+            >console.groq.com/docs/models</a
+          >
+          + <a href="https://groq.com/pricing">groq.com/pricing</a>.
+        </p>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Modèle</th>
+              <th>Speed</th>
+              <th>$/1M in</th>
+              <th>$/1M out</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="total">
+              <td>
+                <strong><code>openai/gpt-oss-20b</code></strong> · embarqué
+                (vitesse)
+              </td>
+              <td class="num-cell"><strong>1000 t/s</strong></td>
+              <td class="num-cell">$0.075</td>
+              <td class="num-cell">$0.30</td>
+              <td>OpenAI open-weight 20B · reasoning natif</td>
+            </tr>
+            <tr class="total">
+              <td>
+                <strong><code>openai/gpt-oss-120b</code></strong> · embarqué
+                (équilibre)
+              </td>
+              <td class="num-cell">500 t/s</td>
+              <td class="num-cell">$0.15</td>
+              <td class="num-cell">$0.60</td>
+              <td>OpenAI open-weight 120B · reasoning + qualité</td>
+            </tr>
+            <tr class="total">
+              <td>
+                <strong><code>llama-3.3-70b-versatile</code></strong> · embarqué
+                (qualité)
+              </td>
+              <td class="num-cell">280-394 t/s</td>
+              <td class="num-cell">$0.59</td>
+              <td class="num-cell">$0.79</td>
+              <td>Meta multilingue · top qualité FR</td>
+            </tr>
+            <tr class="total">
+              <td>
+                <strong><code>llama-3.1-8b-instant</code></strong> · embarqué
+                (économie)
+              </td>
+              <td class="num-cell">560-840 t/s</td>
+              <td class="num-cell">$0.05</td>
+              <td class="num-cell">$0.08</td>
+              <td>Ultra-rapide · qualité FR juste correcte</td>
+            </tr>
+            <tr style="background: rgba(61, 90, 61, 0.04)">
+              <td><code>whisper-large-v3-turbo</code> (STT)</td>
+              <td class="num-cell">228× RT</td>
+              <td colspan="2" class="num-cell">$0.04 / heure</td>
+              <td>Le choix STT verrouillé</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin-top: 48px; font-style: italic">
+          Quatre modèles embarqués, l'utilisateur choisit au wizard
+        </h3>
+        <p>
+          Le wizard de premier lancement teste les
+          <strong>quatre modèles cleanup</strong> avec une phrase FR-test et
+          affiche pour chacun TTFT mesuré, latence totale, rendu du nettoyage et
+          coût annuel estimé. L'utilisateur pick. Le choix est inscrit dans le
+          TOML (<code>cleanup_model = ...</code>) et modifiable plus tard via
+          <code>dicton config</code> (qui pose juste la question du modèle) ou
+          édition directe du fichier.
+        </p>
+        <ul style="padding-left: 24px">
+          <li>
+            <strong><code>openai/gpt-oss-20b</code></strong> —
+            <em>Vitesse pure.</em>
+            Cleanup ~370&nbsp;ms · ~2&nbsp;€/an à 100 dictations/jour ·
+            reasoning natif. Le default proposé.
+          </li>
+          <li>
+            <strong><code>openai/gpt-oss-120b</code></strong> —
+            <em>Équilibre vitesse/qualité.</em>
+            Cleanup ~540&nbsp;ms · ~4&nbsp;€/an · reasoning natif, plus de
+            paramètres pour les nuances françaises subtiles.
+          </li>
+          <li>
+            <strong><code>llama-3.3-70b-versatile</code></strong> —
+            <em>Qualité maximale FR.</em>
+            Cleanup ~600&nbsp;ms · ~9&nbsp;€/an · top multilingue Meta, meilleur
+            sur idiomes et registres parlés.
+          </li>
+          <li>
+            <strong><code>llama-3.1-8b-instant</code></strong> —
+            <em>Mode économie.</em>
+            Cleanup ~280&nbsp;ms · &lt;1&nbsp;€/an · qualité FR juste correcte
+            mais imbattable sur la latence et le coût.
+          </li>
+        </ul>
+      </section>
+
+      <section id="synthese">
+        <div class="eyebrow eyebrow--green">05 · Synthèse</div>
+        <h2>Toutes les décisions sont verrouillées.</h2>
+
+        <ul
+          style="
+            padding-left: 20px;
+            column-count: 2;
+            column-gap: 48px;
+            font-size: 14.5px;
+          "
+        >
+          <li>
+            <strong>Provider unique</strong>&nbsp;: Groq. Une clé. Même socket
+            STT + cleanup.
+          </li>
+          <li>
+            <strong>STT</strong>&nbsp;: <code>whisper-large-v3-turbo</code>.
+          </li>
+          <li>
+            <strong>Cleanup</strong>&nbsp;: 4 modèles embarqués
+            (<code>gpt-oss-20b</code>, <code>gpt-oss-120b</code>,
+            <code>llama-3.3-70b</code>, <code>llama-3.1-8b-instant</code>),
+            choix utilisateur au wizard, swap via <code>dicton config</code>.
+          </li>
+          <li>
+            <strong>Chunking parallèle + UN seul cleanup final</strong> (§03),
+            paramètres figés au courant.
+          </li>
+          <li>
+            <strong>Pre-chauffage HTTP/2</strong> au hotkey-down, un seul host.
+          </li>
+          <li>
+            <strong>Hotkey</strong>&nbsp;: F2 primary + secondary par défaut,
+            support Fn-key Linux via evdev (~60 LOC).
+          </li>
+          <li>
+            <strong>Cross-platform</strong>&nbsp;: Linux + macOS + Windows. Hard
+            prerequisite.
+          </li>
+          <li>
+            <strong>Install</strong>&nbsp;: <code>uv tool install dicton</code>.
+          </li>
+          <li>
+            <strong>Update</strong>&nbsp;: <code>dicton update</code> =
+            <code>uv tool upgrade</code> + restart daemon.
+          </li>
+          <li>
+            <strong>Wizard rich</strong> en 5 étapes avec self-test 3&nbsp;s qui
+            teste les 4 modèles cleanup + <code>dicton config</code> pour
+            re-choisir plus tard.
+          </li>
+          <li>
+            <strong>Stats locales JSONL</strong> +
+            <code>dicton stats</code> avec temps économisé.
+          </li>
+          <li>
+            <strong>Pas de releases GitHub</strong>, tags git → CI → PyPI.
+          </li>
+          <li>
+            <strong>Visualizer pygame</strong> (~150 LOC). Pas de notifications
+            desktop.
+          </li>
+          <li>
+            <strong>Suppression hexagonale</strong>&nbsp;: ports, adapters,
+            factories, container.
+          </li>
+          <li><strong>Mort du .deb et du PyInstaller</strong>.</li>
+          <li>
+            <strong>Versioning via <code>hatch-vcs</code></strong
+            >&nbsp;: tag git = version.
+          </li>
+          <li>
+            <strong>Main file ≤ 300 LOC</strong>. Si dépasse → split (pre-commit
+            hook).
+          </li>
+        </ul>
+      </section>
+
+      <section id="recommandation">
+        <div class="eyebrow">06 · Recommandation finale</div>
+        <h2>dicton 2.0 · <em>l'architecture</em>.</h2>
+
+        <p class="lead">
+          14 fichiers. <code>pipeline.py</code> à 260 LOC (cap dur à 300). ~940
+          LOC runtime + 250 LOC wizard. <strong>Une clé Groq.</strong>
+          Trois plateformes. Deux secondes maximum.
+        </p>
+
+        <h3 style="margin-top: 48px; font-style: italic">
+          Arborescence + LOC par fichier
+        </h3>
+        <pre class="diagram">
+src/dicton/
+├── __init__.py              5 LOC    (version export)
+├── __main__.py             10 LOC    (python -m dicton entrypoint)
+├── cli.py                  90 LOC    (typer: run / stats / update / wizard)
+├── <span class="hl">pipeline.py            260 LOC</span>    *** ORCHESTRATEUR (≤300 LOC HARD CAP) ***
+├── chunker.py             180 LOC    (détection silence RMS + émission chunks)
+├── stt.py                  70 LOC    (Groq Whisper HTTP, prewarm)
+├── cleanup.py              80 LOC    (Groq LLM HTTP, modèle config-driven)
+├── output.py               60 LOC    (paste — wl-copy/xdotool/pbpaste/clip)
+├── visualizer.py          140 LOC    (pygame waveform, main-thread)
+├── fn_key.py               60 LOC    (Linux Fn-key via evdev, optional import)
+├── wizard.py              250 LOC    (rich first-run + self-test 4 modèles)
+├── stats.py                50 LOC    (JSONL append + lifetime totals)
+├── config.py               60 LOC    (TOML at XDG path)
+└── platform.py             50 LOC    (autostart: systemd/launchd/startup)
+
+tests/                                   ~250 LOC
+
+<span class="hl2">Total runtime  : ~940 LOC</span>
+<span class="hl2">+ Wizard       : ~250 LOC  (UX one-shot, hors hot-path)</span>
+<span class="hl2">+ Tests        : ~250 LOC</span>
+</pre>
+
+        <div class="recommend">
+          <h3>Décisions architecturales clés</h3>
+          <p
+            style="
+              color: var(--color-sub);
+              font-style: italic;
+              margin-bottom: 24px;
+            "
+          >
+            Tous les choix défendables séparément. L'ensemble forme un système
+            cohérent.
+          </p>
+
+          <div class="row">
+            <div class="row__k">Orchestrateur</div>
+            <div>
+              <code>pipeline.py</code> est le SEUL fichier qui possède le cycle
+              de vie. Hotkey (pynput + evdev sur Linux), audio (sounddevice),
+              ThreadPoolExecutor pour les STT chunks, event loop asyncio pour
+              httpx. <strong>Cap dur ≤300 LOC</strong>, validé par un pre-commit
+              hook.
+            </div>
+          </div>
+          <div class="row">
+            <div class="row__k">Installation</div>
+            <div>
+              <code>uv tool install dicton</code>.
+              <strong>Identique sur les 3 OS.</strong> Tag git → CI
+              <code>uv publish</code> → PyPI.
+            </div>
+          </div>
+          <div class="row">
+            <div class="row__k">Provider unique</div>
+            <div>
+              <strong>Groq seul</strong>. <code>stt.py</code> et
+              <code>cleanup.py</code> partagent le même
+              <code>httpx.AsyncClient(http2=True)</code> vers
+              <code>api.groq.com</code>. Un seul prewarm, un seul TLS handshake,
+              un seul pool. Modèle cleanup choisi au wizard parmi 4 embarqués
+              (cf. §04), changeable plus tard via <code>dicton config</code>.
+            </div>
+          </div>
+          <div class="row">
+            <div class="row__k">Hotkey</div>
+            <div>
+              Double binding <strong>primary + secondary</strong>, défaut
+              <code>F2</code>
+              sur les deux (configurable via wizard). Support de la touche
+              <strong>Fn</strong> sur Linux laptops via
+              <code>fn_key.py</code> (evdev, ~60 LOC, import optionnel sur Linux
+              uniquement).
+            </div>
+          </div>
+          <div class="row">
+            <div class="row__k">Stack runtime</div>
+            <div>
+              8 dépendances&nbsp;: <code>sounddevice</code>,
+              <code>pynput</code>, <code>pygame</code>,
+              <code>httpx[http2]</code>, <code>platformdirs</code>,
+              <code>typer</code>, <code>rich</code>, <code>evdev</code> (Linux
+              uniquement). <strong>Appels REST directs en httpx</strong> (pas de
+              groq SDK, pas d'openai SDK). Pas de plyer/desktop-notifier.
+            </div>
+          </div>
+          <div class="row">
+            <div class="row__k">Latence</div>
+            <div>
+              Pre-chauffage <code>api.groq.com</code> au hotkey-down. Chunking
+              pendant le recording. UN seul cleanup à la fin.
+              <strong
+                >Audio court ≈ 725&nbsp;ms · audio long ≈ 1150&nbsp;ms.</strong
+              >
+              Marge ~850&nbsp;ms sous les 2&nbsp;s.
+            </div>
+          </div>
+          <div class="row">
+            <div class="row__k">Visualizer</div>
+            <div>
+              <code>pygame</code> en main thread (SDL macOS l'exige), 400×100,
+              waveform live + bar RMS + état "REC" / "processing". Frames via
+              <code>queue.Queue</code> depuis le callback audio. ~140 LOC.
+            </div>
+          </div>
+          <div class="row">
+            <div class="row__k">Wizard</div>
+            <div>
+              <code>rich</code> en 5 étapes&nbsp;: system check ·
+              <strong>clé Groq</strong> avec ping live · hotkey chooser ·
+              <strong
+                >self-test 3&nbsp;s qui mesure les 4 modèles cleanup</strong
+              >
+              avec breakdown latence + coût/an comparés · toggle autostart. Clé
+              en TOML, chmod 600.
+            </div>
+          </div>
+          <div class="row">
+            <div class="row__k">CLI</div>
+            <div>
+              5 commandes via <code>typer</code>&nbsp;: <code>dicton</code> (run
+              daemon) · <code>dicton wizard</code> (relance setup complet) ·
+              <code>dicton config</code> (pose juste la question du modèle
+              cleanup et l'écrit dans le TOML) · <code>dicton stats</code> ·
+              <code>dicton update</code>.
+            </div>
+          </div>
+          <div class="row">
+            <div class="row__k">Cross-platform</div>
+            <div>
+              Hard prerequisite. <code>sys.platform</code> inline dans
+              <code>output.py</code> et <code>platform.py</code>. CI matrix
+              3&nbsp;OS × 2 versions Python (6 cells) doit passer vert pour
+              merger. Wayland documenté (ydotool) — installer script l'installe
+              au besoin.
+            </div>
+          </div>
+          <div class="row">
+            <div class="row__k">Tests</div>
+            <div>
+              6 tests&nbsp;: silence cut, max cut, overlap, pipeline mocké,
+              recovery chunk-failed, stats summary math. Mocks httpx via
+              <code>respx</code>.
+            </div>
+          </div>
+        </div>
+
+        <h3 style="margin-top: 56px; font-style: italic">
+          Le wizard self-test (l'écran qui vend l'outil)
+        </h3>
+        <p>À l'étape 4 du wizard, après validation de la clé Groq&nbsp;:</p>
+        <pre class="diagram">
+  Appuyez sur Entrée puis parlez 3 secondes (n'importe quoi — essayez
+  "le rapide renard brun saute par-dessus le chien paresseux") ⏎
+
+  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ recording...
+  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ testing 4 cleanup models...
+
+  Stages communs : prewarm 180ms · audio 3000ms · STT 325ms · paste 28ms
+
+  ┌───┬────────────────────────────┬─────────┬─────────┬────────┬────────┐
+  │ # │ Modèle                     │ Cleanup │   E2E   │  €/an  │ Status │
+  ├───┼────────────────────────────┼─────────┼─────────┼────────┼────────┤
+  │ 1 │ <span class="hl2">openai/gpt-oss-20b</span>         │  <span class="hl2">370ms</span>  │  <span class="hl2">723ms</span>  │  ~2€   │   ok   │
+  │ 2 │ openai/gpt-oss-120b        │  540ms  │  893ms  │  ~4€   │   ok   │
+  │ 3 │ llama-3.3-70b-versatile    │  600ms  │  953ms  │  ~9€   │   ok   │
+  │ 4 │ <span class="hl">llama-3.1-8b-instant</span>       │  <span class="hl">280ms</span>  │  <span class="hl">633ms</span>  │  &lt;1€   │   ok   │
+  └───┴────────────────────────────┴─────────┴─────────┴────────┴────────┘
+
+  Transcript brut: "le rapide renard brun saute par dessus le chien paresseux"
+
+  Cleanup rendus (côté qualité, à toi de juger) :
+    1 · "Le rapide renard brun saute par-dessus le chien paresseux."
+    2 · "Le rapide renard brun saute par-dessus le chien paresseux."
+    3 · "Le rapide renard brun saute par-dessus le chien paresseux."
+    4 · "le rapide renard brun saute par dessus le chien paresseux."
+
+  Quel modèle veux-tu pour ton default ?  [<span class="hl2">1</span>] / 2 / 3 / 4
+</pre>
+        <p style="margin-top: 16px">
+          Si un modèle dépasse 2000&nbsp;ms&nbsp;: ligne en rouge + hint
+          actionnable («&nbsp;<code>ping api.groq.com</code>&nbsp;», «&nbsp;pick
+          option 4 pour le mode économie&nbsp;»). L'utilisateur
+          <strong>voit ses chiffres et le rendu avant de valider</strong>. Le
+          choix peut être changé plus tard via <code>dicton config</code>
+          qui repose juste la question du modèle cleanup.
+        </p>
+      </section>
+
+      <section id="annexe">
+        <div class="eyebrow">07 · Annexe — liste de mort</div>
+        <h2>~6 500 LOC à supprimer.</h2>
+
+        <div class="row">
+          <div class="row__k">Couche hexagonale</div>
+          <div>
+            <code>core/ports.py</code> · <code>core/state_machine.py</code> ·
+            <code>core/processing_mode.py</code> ·
+            <code>core/cancel_token.py</code>
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Orchestration</div>
+          <div>
+            <code>orchestration/container.py</code> ·
+            <code>orchestration/session_service.py</code> ·
+            <code>orchestration/runtime_service.py</code>
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Adapters multi-provider</div>
+          <div>
+            <code>adapters/stt/elevenlabs.py</code> ·
+            <code>adapters/stt/factory.py</code> ·
+            <code>adapters/stt/provider.py</code> ·
+            <code>adapters/llm/factory.py</code> ·
+            <code>adapters/llm/anthropic.py</code> ·
+            <code>adapters/llm/gemini.py</code> ·
+            <code>adapters/llm/provider.py</code>. Plus de google-genai dans les
+            deps.
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Notifications</div>
+          <div>
+            <code>adapters/ui/notifications_*.py</code> (5 fichiers, ~250 LOC).
+            Remplacé par&nbsp;: rien.
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Visualizer overkill</div>
+          <div>
+            <code>visualizer_vispy.py</code> (842 LOC),
+            <code>visualizer_gtk.py</code> (573 LOC). Remplacé par un
+            <code>visualizer.py</code> pygame ~140 LOC.
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Fn-key handler overkill</div>
+          <div>
+            <code>adapters/input/fn/*.py</code> (~1200 LOC). Remplacé par
+            <code>fn_key.py</code> ~60 LOC (juste lecture evdev + match
+            scancode).
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Web config wizard</div>
+          <div>
+            <code>interfaces/web/</code> +
+            <code>interfaces/config_server.py</code>. Remplacé par
+            <code>wizard.py</code> rich-terminal (~250 LOC).
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Packaging legacy</div>
+          <div>
+            <code>packaging/</code> · <code>scripts/</code> ·
+            <code>build/</code> · <code>dist/</code> · <code>update.sh</code> ·
+            <code>run.sh</code> · <code>run.bat</code>. Remplacés par
+            <code>uv publish</code>.
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Optional extras</div>
+          <div>
+            <code>vispy</code> · <code>gtk</code> · <code>xshape</code> ·
+            <code>context-x11</code> · <code>context-wayland</code> ·
+            <code>windows</code> · <code>notifications</code>. Tous supprimés.
+            <code>evdev</code> reste mais devient une dep runtime Linux directe.
+          </div>
+        </div>
+        <div class="row">
+          <div class="row__k">Tests scaffolding</div>
+          <div>
+            ~30 fichiers de tests pour les ports/adapters disparaissent. Restent
+            6 tests centrés sur <code>pipeline.py</code>,
+            <code>chunker.py</code>, <code>output.py</code>,
+            <code>config.py</code>.
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <span>dicton · refonte v2</span>
+      <span>—</span>
+      <span>une clé Groq · &lt;2s · ~940 LOC · 3 OS</span>
+      <span>—</span>
+      <span>2026-05-14</span>
+    </footer>
+  </body>
+</html>
