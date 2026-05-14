@@ -296,11 +296,12 @@ class Visualizer:
     # ---- X11 / Windows window setup ----
 
     def _set_x11_floating_hint(self, pygame) -> None:
-        """Mark as UTILITY (auto-float on i3) and tell the WM we don't want
-        keyboard focus — so the donut never steals focus from the user's app
-        when shown, and xdotool's paste keystroke lands on the right window."""
+        """Mark as UTILITY (auto-float on i3), tell the WM we don't want
+        keyboard focus, and pin the window across every workspace (sticky).
+        Without sticky, i3 leaves the visualizer on workspace 1 so the user
+        loses sight of it when they switch workspace."""
         try:
-            from Xlib import Xutil, display
+            from Xlib import X, Xutil, display, protocol
 
             wm_info = pygame.display.get_wm_info()
             win_id = wm_info.get("window")
@@ -317,6 +318,24 @@ class Visualizer:
             # not want keyboard input. Most WMs (i3 included) skip it in the
             # focus rotation as a result.
             win.set_wm_hints(flags=Xutil.InputHint, input=False)
+
+            # _NET_WM_STATE_STICKY: float on every workspace, not just the
+            # one where the daemon was started. We set the property *and*
+            # send the EWMH ClientMessage to root — the property covers the
+            # case where the window is still being mapped, the message
+            # covers the case where it's already mapped.
+            wm_state = d.intern_atom("_NET_WM_STATE")
+            sticky = d.intern_atom("_NET_WM_STATE_STICKY")
+            win.change_property(wm_state, d.intern_atom("ATOM"), 32, [sticky])
+            ev = protocol.event.ClientMessage(
+                window=win,
+                client_type=wm_state,
+                data=(32, [1, sticky, 0, 1, 0]),  # _NET_WM_STATE_ADD=1, source=app
+            )
+            d.screen().root.send_event(
+                ev,
+                event_mask=X.SubstructureNotifyMask | X.SubstructureRedirectMask,
+            )
             d.sync()
         except Exception:
             pass
