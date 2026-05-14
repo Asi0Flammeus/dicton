@@ -3,154 +3,64 @@ name: CI
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
-      - "LICENSE"
+    tags: ["v*"]
   pull_request:
     branches: [main]
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
-      - "LICENSE"
-  schedule:
-    - cron: "0 8 * * 1"
 
 jobs:
-  lint:
-    name: Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install ruff
-        run: pip install ruff
-
-      - name: Run lint checks
-        run: ./scripts/check.sh lint
-
-  test:
-    name: Test (Python 3.12)
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y portaudio19-dev
-
-      - name: Install package with dev dependencies
-        run: pip install -e ".[dev]"
-
-      - name: Run tests with coverage
-        run: ./scripts/check.sh test --cov=dicton --cov-report=xml --cov-report=term
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
-
-  test-compatibility:
-    name: Test Compatibility (Python ${{ matrix.python-version }})
-    if: github.event_name == 'schedule'
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.10", "3.11"]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y portaudio19-dev
-
-      - name: Install package with dev dependencies
-        run: pip install -e ".[dev]"
-
-      - name: Run tests
-        run: ./scripts/check.sh test
-
-  build:
-    name: Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v4
-
-      - name: Run build
-        run: ./scripts/check.sh build
-
-  smoke:
-    name: Smoke (${{ matrix.os }})
-    if: github.event_name == 'pull_request' || github.event_name == 'schedule'
+  check:
+    name: check (${{ matrix.os }} · py${{ matrix.python }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          fetch-depth: 0
 
-      - name: Install Linux system dependencies
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set Python ${{ matrix.python }}
+        run: uv python install ${{ matrix.python }}
+
+      - name: Install Linux system deps
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y portaudio19-dev
+          sudo apt-get install -y libportaudio2 wl-clipboard xdotool
 
-      - name: Install macOS system dependencies
-        if: matrix.os == 'macos-latest'
-        run: brew install portaudio
+      - name: Sync deps
+        run: uv sync --extra dev
 
-      - name: Install package
+      - name: Lint
+        run: ./scripts/check.sh lint
         shell: bash
-        run: |
-          case "${{ matrix.os }}" in
-            ubuntu-latest)
-              pip install -e ".[dev]"
-              ;;
-            windows-latest)
-              pip install -e ".[dev,windows,context-windows,notifications]"
-              ;;
-            macos-latest)
-              pip install -e ".[dev,notifications]"
-              ;;
-          esac
 
-      - name: Run smoke checks
-        run: |
-          python -c "import dicton; print(dicton.__version__)"
-          python -m dicton --version
+      - name: Test
+        run: uv run pytest
+        shell: bash
+
+  publish:
+    name: Publish to PyPI
+    needs: check
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Build
+        run: uv build
+
+      - name: Publish (trusted publisher)
+        run: uv publish

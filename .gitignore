@@ -55,3 +55,6 @@ _bmad
 .pi/
 .pi
 .coverage
+
+# hatch-vcs-generated version file
+/src/dicton/_version.py
