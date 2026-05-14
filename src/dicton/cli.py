@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -26,26 +27,34 @@ console = Console()
 def _entry(
     ctx: typer.Context,
     version: bool = typer.Option(False, "--version", "-V", help="Show version and exit."),
+    foreground: bool = typer.Option(
+        False, "--foreground", help="Run inline (block the terminal) instead of via systemd."
+    ),
 ) -> None:
     if version:
         console.print(f"dicton {__version__}")
         raise typer.Exit()
     if ctx.invoked_subcommand is None:
-        _run_daemon()
+        _smart_start(foreground=foreground)
 
 
 @app.command()
 def run() -> None:
-    """Run the dictation daemon (default when no command given)."""
-    _run_daemon()
+    """Run the dictation daemon in foreground (legacy; prefer bare `dicton`)."""
+    _smart_start(foreground=True)
 
 
 @app.command(name="wizard")
-def wizard_cmd() -> None:
-    """Re-run the first-launch wizard (system check, Groq key, hotkey, self-test)."""
+def wizard_cmd(
+    foreground: bool = typer.Option(
+        False, "--foreground", help="Run inline instead of via systemd after the wizard."
+    ),
+) -> None:
+    """Re-run the first-launch wizard, then start the daemon."""
     cfg = wizard.run_wizard(config.load() if config.exists() else None)
     cfg.save()
     console.print(f"[green]Saved[/green] {config.CONFIG_PATH}")
+    _start_after_config(cfg, foreground=foreground)
 
 
 @app.command(name="config")
@@ -101,20 +110,68 @@ def update_cmd() -> None:
 # ---- internal ----
 
 
-def _run_daemon() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+def _smart_start(*, foreground: bool) -> None:
+    """Run wizard if no config, then start the daemon via systemd (default) or inline."""
+    # When invoked by a systemd unit, INVOCATION_ID is set. Forcing foreground
+    # there prevents an infinite restart loop where the unit's ExecStart command
+    # would otherwise ask systemd to restart itself.
+    if "INVOCATION_ID" in os.environ:
+        foreground = True
     if not config.exists():
         console.print("[yellow]No config yet — running first-launch wizard.[/yellow]")
         cfg = wizard.run_wizard(None)
         cfg.save()
     else:
         cfg = config.load()
+    _start_after_config(cfg, foreground=foreground)
+
+
+def _start_after_config(cfg, *, foreground: bool) -> None:
     if not cfg.groq_api_key:
         console.print("[red]Missing Groq API key.[/red] Run [cyan]dicton wizard[/cyan].")
         raise typer.Exit(1)
-    from .pipeline import run as run_pipeline
+
+    if not foreground and cfg.autostart and _restart_systemd_unit():
+        console.print("[green]Daemon running via systemd[/green] — terminal is free.")
+        console.print("  status:  [cyan]systemctl --user status dicton[/cyan]")
+        console.print("  logs:    [cyan]journalctl --user -u dicton -f[/cyan]")
+        console.print("  stop:    [cyan]systemctl --user stop dicton[/cyan]")
+        return
+
+    # Skip the "unit already running" check when we *are* the unit's ExecStart.
+    if "INVOCATION_ID" not in os.environ and _systemd_unit_active():
+        console.print(
+            "[yellow]dicton.service is already running.[/yellow]\n"
+            "Stop it first ([cyan]systemctl --user stop dicton[/cyan]) "
+            "to run inline."
+        )
+        raise typer.Exit(1)
+
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    console.print("[cyan]Starting daemon in foreground…[/cyan]  (Ctrl+C to stop)")
+    from .runtime import run as run_pipeline
 
     run_pipeline(cfg)
+
+
+def _systemd_unit_active() -> bool:
+    if sys.platform != "linux" or not _which("systemctl"):
+        return False
+    r = subprocess.run(
+        ["systemctl", "--user", "is-active", "--quiet", "dicton.service"],
+        check=False,
+    )
+    return r.returncode == 0
+
+
+def _restart_systemd_unit() -> bool:
+    if sys.platform != "linux" or not _which("systemctl"):
+        return False
+    r = subprocess.run(
+        ["systemctl", "--user", "restart", "dicton.service"],
+        check=False,
+    )
+    return r.returncode == 0
 
 
 def _which(name: str) -> str | None:
@@ -124,4 +181,3 @@ def _which(name: str) -> str | None:
 
 
 _ = Path  # reserved for future config-path printing
-_ = sys
