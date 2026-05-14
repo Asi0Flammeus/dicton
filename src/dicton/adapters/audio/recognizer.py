@@ -72,7 +72,7 @@ class SpeechRecognizer:
 
         # Provider status is printed by the factory (verbose=True by default)
         if not self._provider_available:
-            print("   Set MISTRAL_API_KEY or ELEVENLABS_API_KEY in .env")
+            print("   Set GROQ_API_KEY or ELEVENLABS_API_KEY in .env")
 
     @property
     def provider_name(self) -> str:

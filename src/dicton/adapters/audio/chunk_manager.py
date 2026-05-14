@@ -61,8 +61,8 @@ class ChunkManager:
     def __init__(self, stt_provider: STTProvider, config: ChunkConfig) -> None:
         self._stt = stt_provider
         self._config = config
-        # Sequential dispatch (max_workers=1) to stay within Mistral's
-        # per-second rate limit on lower tiers (free tier = 1 RPS).
+        # Sequential dispatch (max_workers=1) to stay within provider per-second
+        # rate limits on lower tiers; Groq free tier is the conservative bound.
         self._executor = ThreadPoolExecutor(max_workers=1)
 
         # Precompute frame-related constants

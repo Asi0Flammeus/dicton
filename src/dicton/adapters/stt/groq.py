@@ -3,7 +3,7 @@
 Provides batch transcription using Groq Cloud's hosted Whisper Large v3 Turbo,
 the OpenAI-compatible STT endpoint at ``api.groq.com``. ~0.3-0.5 s wall-clock
 on 10-18 s clips — markedly faster than Voxtral while remaining cheaper
-($0.04/h vs $0.06/h on Mistral).
+($0.04/h vs $0.40/h on ElevenLabs).
 
 Constraints (Groq Cloud free + paid tiers, as of 2026):
 - 25 MB max file size, 7200 s of audio per minute (rate).
@@ -26,7 +26,7 @@ from .provider import (
 logger = logging.getLogger(__name__)
 
 
-# Mirror Mistral's pool size — coupled with chunk_manager.max_workers.
+# Pool size coupled with chunk_manager.max_workers.
 _PREWARM_POOL_SIZE = 2
 _KEEPALIVE_EXPIRY_S = 300.0
 _GROQ_BASE_URL = "https://api.groq.com"

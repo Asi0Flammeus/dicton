@@ -123,7 +123,7 @@ def test_input_and_output_module_import_does_not_require_pynput(monkeypatch):
         (
             "scripts/install.ps1",
             "requirements.txt",
-            'pip install -e ".[windows,context-windows,notifications,llm,configui,mistral]"',
+            'pip install -e ".[windows,context-windows,notifications,llm,configui]"',
         ),
         ("scripts/install.ps1", "src\\main.py", "python.exe -m dicton"),
         ("run.bat", "src\\main.py", "python -m dicton"),
@@ -168,7 +168,7 @@ def test_config_server_field_maps_cover_saved_configuration():
     )
 
     assert CONFIG_STRING_FIELDS | CONFIG_BOOL_FIELDS == set(CONFIG_FIELD_MAP)
-    assert "mistral_api_key" in CONFIG_FIELD_MAP
+    assert "groq_api_key" in CONFIG_FIELD_MAP
     assert "stt_provider" in CONFIG_FIELD_MAP
 
 
@@ -330,10 +330,10 @@ def test_setup_save_persists_speech_provider_fields(monkeypatch, tmp_path):
     client = TestClient(config_server.create_app())
     response = client.post(
         "/api/setup/save",
-        json={"stt_provider": "mistral", "mistral_api_key": "test-key"},
+        json={"stt_provider": "groq", "groq_api_key": "test-key"},
     )
 
     assert response.status_code == 200
     env_vars = config_server.read_env_file()
-    assert env_vars["STT_PROVIDER"] == "mistral"
-    assert env_vars["MISTRAL_API_KEY"] == "test-key"
+    assert env_vars["STT_PROVIDER"] == "groq"
+    assert env_vars["GROQ_API_KEY"] == "test-key"

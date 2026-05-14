@@ -103,7 +103,7 @@ jobs:
 
       - name: Install package dependencies
         shell: bash
-        run: pip install -e ".[windows,context-windows,notifications,llm,configui,mistral,packaging]"
+        run: pip install -e ".[windows,context-windows,notifications,llm,configui,packaging]"
 
       - name: Build Windows bundle
         shell: powershell

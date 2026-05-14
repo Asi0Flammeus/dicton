@@ -39,54 +39,54 @@ class TestSTTFactory:
         provider = get_stt_provider("nonexistent")
         assert isinstance(provider, NullSTTProvider)
 
-    def test_get_mistral_provider(self):
-        """Test getting Mistral provider."""
-        mock_mistral_module = MagicMock()
-        mock_mistral_class = MagicMock()
-        mock_mistral_module.Mistral = mock_mistral_class
+    def test_get_groq_provider(self):
+        """Test getting Groq provider."""
+        mock_groq_module = MagicMock()
+        mock_groq_class = MagicMock()
+        mock_groq_module.Groq = mock_groq_class
 
         with (
-            patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
-            patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
+            patch.dict("os.environ", {"GROQ_API_KEY": "test_key"}, clear=False),
+            patch.dict("sys.modules", {"groq": mock_groq_module}),
         ):
             from dicton.adapters.stt.factory import get_stt_provider
 
-            provider = get_stt_provider("mistral")
-            assert provider.name == "Mistral Voxtral"
+            provider = get_stt_provider("groq")
+            assert provider.name == "Groq Whisper"
             assert STTCapability.BATCH in provider.capabilities
 
     def test_get_provider_caches_result(self):
         """Test provider is cached after first retrieval."""
-        mock_mistral_module = MagicMock()
-        mock_mistral_class = MagicMock()
-        mock_mistral_module.Mistral = mock_mistral_class
+        mock_groq_module = MagicMock()
+        mock_groq_class = MagicMock()
+        mock_groq_module.Groq = mock_groq_class
 
         with (
-            patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
-            patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
+            patch.dict("os.environ", {"GROQ_API_KEY": "test_key"}, clear=False),
+            patch.dict("sys.modules", {"groq": mock_groq_module}),
         ):
             from dicton.adapters.stt.factory import _provider_cache, get_stt_provider
 
-            provider1 = get_stt_provider("mistral")
-            provider2 = get_stt_provider("mistral")
+            provider1 = get_stt_provider("groq")
+            provider2 = get_stt_provider("groq")
 
             assert provider1 is provider2
-            assert "mistral" in _provider_cache
+            assert "groq" in _provider_cache
 
     def test_get_provider_no_cache(self):
         """Test provider retrieval without caching."""
-        mock_mistral_module = MagicMock()
-        mock_mistral_class = MagicMock()
-        mock_mistral_module.Mistral = mock_mistral_class
+        mock_groq_module = MagicMock()
+        mock_groq_class = MagicMock()
+        mock_groq_module.Groq = mock_groq_class
 
         with (
-            patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
-            patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
+            patch.dict("os.environ", {"GROQ_API_KEY": "test_key"}, clear=False),
+            patch.dict("sys.modules", {"groq": mock_groq_module}),
         ):
             from dicton.adapters.stt.factory import get_stt_provider
 
-            provider1 = get_stt_provider("mistral", use_cache=False)
-            provider2 = get_stt_provider("mistral", use_cache=False)
+            provider1 = get_stt_provider("groq", use_cache=False)
+            provider2 = get_stt_provider("groq", use_cache=False)
 
             assert provider1 is not provider2
 
@@ -107,26 +107,24 @@ class TestSTTFactoryFallback:
 
     def test_fallback_to_available_provider(self):
         """Test fallback chain finds available provider."""
-        mock_mistral_module = MagicMock()
-        mock_mistral_class = MagicMock()
-        mock_mistral_module.Mistral = mock_mistral_class
+        mock_groq_module = MagicMock()
+        mock_groq_class = MagicMock()
+        mock_groq_module.Groq = mock_groq_class
 
         with (
-            patch.dict(
-                "os.environ", {"STT_PROVIDER": "", "MISTRAL_API_KEY": "test_key"}, clear=False
-            ),
-            patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
+            patch.dict("os.environ", {"STT_PROVIDER": "", "GROQ_API_KEY": "test_key"}, clear=False),
+            patch.dict("sys.modules", {"groq": mock_groq_module}),
         ):
             from dicton.adapters.stt.factory import get_stt_provider_with_fallback
 
             provider = get_stt_provider_with_fallback()
-            assert provider.name == "Mistral Voxtral"
+            assert provider.name == "Groq Whisper"
 
     def test_fallback_returns_null_when_none_available(self):
         """Test fallback returns NullSTTProvider when none available."""
         with patch.dict(
             "os.environ",
-            {"STT_PROVIDER": "", "MISTRAL_API_KEY": "", "ELEVENLABS_API_KEY": ""},
+            {"STT_PROVIDER": "", "GROQ_API_KEY": "", "ELEVENLABS_API_KEY": ""},
             clear=False,
         ):
             from dicton.adapters.stt.factory import get_stt_provider_with_fallback
@@ -136,42 +134,42 @@ class TestSTTFactoryFallback:
 
     def test_user_specified_provider_takes_priority(self):
         """Test user-specified STT_PROVIDER env var takes priority."""
-        mock_mistral_module = MagicMock()
-        mock_mistral_class = MagicMock()
-        mock_mistral_module.Mistral = mock_mistral_class
+        mock_groq_module = MagicMock()
+        mock_groq_class = MagicMock()
+        mock_groq_module.Groq = mock_groq_class
 
         with (
             patch.dict(
                 "os.environ",
-                {"STT_PROVIDER": "mistral", "MISTRAL_API_KEY": "test_key"},
+                {"STT_PROVIDER": "groq", "GROQ_API_KEY": "test_key"},
                 clear=False,
             ),
-            patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
+            patch.dict("sys.modules", {"groq": mock_groq_module}),
         ):
             from dicton.adapters.stt.factory import get_stt_provider_with_fallback
 
             provider = get_stt_provider_with_fallback()
-            assert provider.name == "Mistral Voxtral"
+            assert provider.name == "Groq Whisper"
 
     def test_auto_provider_uses_fallback_chain(self):
         """Test STT_PROVIDER=auto triggers fallback chain, not literal lookup."""
-        mock_mistral_module = MagicMock()
-        mock_mistral_class = MagicMock()
-        mock_mistral_module.Mistral = mock_mistral_class
+        mock_groq_module = MagicMock()
+        mock_groq_class = MagicMock()
+        mock_groq_module.Groq = mock_groq_class
 
         with (
             patch.dict(
                 "os.environ",
-                {"STT_PROVIDER": "auto", "MISTRAL_API_KEY": "test_key"},
+                {"STT_PROVIDER": "auto", "GROQ_API_KEY": "test_key"},
                 clear=False,
             ),
-            patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
+            patch.dict("sys.modules", {"groq": mock_groq_module}),
         ):
             from dicton.adapters.stt.factory import get_stt_provider_with_fallback
 
             provider = get_stt_provider_with_fallback()
-            # "auto" should use fallback chain and find mistral, not return NullSTTProvider
-            assert provider.name == "Mistral Voxtral"
+            # "auto" should use fallback chain and find groq, not return NullSTTProvider
+            assert provider.name == "Groq Whisper"
 
 
 class TestSTTFactoryAvailable:
@@ -188,30 +186,28 @@ class TestSTTFactoryAvailable:
         stt_factory._PROVIDER_REGISTRY.clear()
         stt_factory._provider_cache.clear()
 
-    def test_get_available_providers_with_mistral(self):
-        """Test listing available providers includes Mistral."""
-        mock_mistral_module = MagicMock()
-        mock_mistral_class = MagicMock()
-        mock_mistral_module.Mistral = mock_mistral_class
+    def test_get_available_providers_with_groq(self):
+        """Test listing available providers includes Groq."""
+        mock_groq_module = MagicMock()
+        mock_groq_class = MagicMock()
+        mock_groq_module.Groq = mock_groq_class
 
         with (
-            patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
-            patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
+            patch.dict("os.environ", {"GROQ_API_KEY": "test_key"}, clear=False),
+            patch.dict("sys.modules", {"groq": mock_groq_module}),
         ):
             from dicton.adapters.stt.factory import get_available_stt_providers
 
             available = get_available_stt_providers()
-            assert "mistral" in available
+            assert "groq" in available
 
     def test_get_available_providers_empty_when_none_configured(self):
         """Test listing available providers returns empty when none configured."""
-        with patch.dict(
-            "os.environ", {"MISTRAL_API_KEY": "", "ELEVENLABS_API_KEY": ""}, clear=False
-        ):
+        with patch.dict("os.environ", {"GROQ_API_KEY": "", "ELEVENLABS_API_KEY": ""}, clear=False):
             from dicton.adapters.stt.factory import get_available_stt_providers
 
             available = get_available_stt_providers()
-            # May have mistral if SDK is available even without key
+            # May have groq if SDK is available even without key
             # so just check it returns a list
             assert isinstance(available, list)
 
@@ -232,13 +228,13 @@ class TestSTTFactoryCache:
 
     def test_clear_provider_cache(self):
         """Test clearing provider cache."""
-        mock_mistral_module = MagicMock()
-        mock_mistral_class = MagicMock()
-        mock_mistral_module.Mistral = mock_mistral_class
+        mock_groq_module = MagicMock()
+        mock_groq_class = MagicMock()
+        mock_groq_module.Groq = mock_groq_class
 
         with (
-            patch.dict("os.environ", {"MISTRAL_API_KEY": "test_key"}, clear=False),
-            patch.dict("sys.modules", {"mistralai": mock_mistral_module}),
+            patch.dict("os.environ", {"GROQ_API_KEY": "test_key"}, clear=False),
+            patch.dict("sys.modules", {"groq": mock_groq_module}),
         ):
             from dicton.adapters.stt.factory import (
                 _provider_cache,
@@ -247,9 +243,9 @@ class TestSTTFactoryCache:
             )
 
             # Populate cache
-            get_stt_provider("mistral")
-            assert "mistral" in _provider_cache
+            get_stt_provider("groq")
+            assert "groq" in _provider_cache
 
             # Clear cache
             clear_provider_cache()
-            assert "mistral" not in _provider_cache
+            assert "groq" not in _provider_cache

@@ -53,7 +53,7 @@ python -m pip install --upgrade pip
 
 # Install dependencies
 Write-Host "[4/4] Installing dependencies..." -ForegroundColor Cyan
-pip install -e ".[windows,context-windows,notifications,llm,configui,mistral]"
+pip install -e ".[windows,context-windows,notifications,llm,configui]"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""

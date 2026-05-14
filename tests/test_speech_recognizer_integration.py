@@ -21,7 +21,7 @@ class TestSpeechRecognizerIntegration:
     @pytest.fixture(autouse=True)
     def reset_factory(self):
         """Reset factory state before each test."""
-        from dicton import stt_factory
+        from dicton.adapters.stt import factory as stt_factory
 
         stt_factory._PROVIDER_REGISTRY.clear()
         stt_factory._provider_cache.clear()
@@ -42,33 +42,27 @@ class TestSpeechRecognizerIntegration:
 
     def test_recognizer_uses_factory(self, mock_audio_deps):
         """Test that SpeechRecognizer uses the STT factory."""
+        mock_groq_module = MagicMock()
         with (
             patch.dict(
                 "os.environ",
                 {
-                    "STT_PROVIDER": "mistral",
-                    "MISTRAL_API_KEY": "test_key",
+                    "STT_PROVIDER": "groq",
+                    "GROQ_API_KEY": "test_key",
                 },
                 clear=False,
             ),
-            patch("dicton.stt_mistral._get_mistral_client") as mock_get,
-            patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio,
+            patch.dict("sys.modules", {"groq": mock_groq_module}),
+            patch("dicton.adapters.audio.recognizer.pyaudio") as mock_pyaudio,
         ):
-            mock_get.return_value = MagicMock()
             mock_pyaudio.PyAudio.return_value = MagicMock()
 
-            # Clear module cache
-            import dicton.stt_mistral as mistral_module
-
-            mistral_module._mistral_client = None
-
-            from dicton.speech_recognition_engine import SpeechRecognizer
+            from dicton.adapters.audio.recognizer import SpeechRecognizer
 
             recognizer = SpeechRecognizer()
 
-            # Verify provider was initialized from factory
             assert recognizer._provider_available
-            assert recognizer.provider_name == "Mistral Voxtral"
+            assert recognizer.provider_name == "Groq Whisper"
 
     def test_recognizer_respects_stt_provider_config(self, mock_audio_deps):
         """Test that STT_PROVIDER env var is respected."""
@@ -81,18 +75,11 @@ class TestSpeechRecognizerIntegration:
                 },
                 clear=False,
             ),
-            patch("dicton.stt_elevenlabs._get_elevenlabs_client") as mock_get,
-            patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio,
+            patch("dicton.adapters.audio.recognizer.pyaudio") as mock_pyaudio,
         ):
-            mock_get.return_value = MagicMock()
             mock_pyaudio.PyAudio.return_value = MagicMock()
 
-            # Clear module cache
-            import dicton.stt_elevenlabs as el_module
-
-            el_module._elevenlabs_client = None
-
-            from dicton.speech_recognition_engine import SpeechRecognizer
+            from dicton.adapters.audio.recognizer import SpeechRecognizer
 
             recognizer = SpeechRecognizer()
 
@@ -106,94 +93,18 @@ class TestSpeechRecognizerIntegration:
                 "os.environ",
                 {
                     "STT_PROVIDER": "",
-                    "MISTRAL_API_KEY": "",
+                    "GROQ_API_KEY": "",
                     "ELEVENLABS_API_KEY": "",
                 },
                 clear=False,
             ),
-            patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio,
+            patch("dicton.adapters.audio.recognizer.pyaudio") as mock_pyaudio,
         ):
             mock_pyaudio.PyAudio.return_value = MagicMock()
 
-            from dicton.speech_recognition_engine import SpeechRecognizer
+            from dicton.adapters.audio.recognizer import SpeechRecognizer
 
             recognizer = SpeechRecognizer()
 
-            # Should degrade gracefully to NullSTTProvider
             assert not recognizer._provider_available
             assert recognizer.provider_name == "None"
-
-    def test_use_elevenlabs_backwards_compat(self, mock_audio_deps):
-        """Test use_elevenlabs property for backwards compatibility."""
-        with (
-            patch.dict(
-                "os.environ",
-                {
-                    "STT_PROVIDER": "mistral",
-                    "MISTRAL_API_KEY": "test_key",
-                },
-                clear=False,
-            ),
-            patch("dicton.stt_mistral._get_mistral_client") as mock_get,
-            patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio,
-        ):
-            mock_get.return_value = MagicMock()
-            mock_pyaudio.PyAudio.return_value = MagicMock()
-
-            import dicton.stt_mistral as mistral_module
-
-            mistral_module._mistral_client = None
-
-            from dicton.speech_recognition_engine import SpeechRecognizer
-
-            recognizer = SpeechRecognizer()
-
-            # use_elevenlabs should return True when any provider is available
-            assert recognizer.use_elevenlabs is True
-
-    def test_provider_switching_via_config(self, mock_audio_deps):
-        """Test that different STT_PROVIDER values result in different providers."""
-        test_cases = [
-            ("mistral", "MISTRAL_API_KEY", "Mistral Voxtral"),
-            ("elevenlabs", "ELEVENLABS_API_KEY", "ElevenLabs Scribe"),
-        ]
-
-        for provider_name, api_key_var, expected_name in test_cases:
-            # Reset factory state
-            from dicton import stt_factory
-
-            stt_factory._PROVIDER_REGISTRY.clear()
-            stt_factory._provider_cache.clear()
-
-            with (
-                patch.dict(
-                    "os.environ",
-                    {
-                        "STT_PROVIDER": provider_name,
-                        api_key_var: "test_key",
-                    },
-                    clear=False,
-                ),
-                patch(f"dicton.stt_{provider_name}._get_{provider_name}_client") as mock_get,
-                patch("dicton.speech_recognition_engine.pyaudio") as mock_pyaudio,
-            ):
-                mock_get.return_value = MagicMock()
-                mock_pyaudio.PyAudio.return_value = MagicMock()
-
-                # Clear module cache
-                if provider_name == "mistral":
-                    import dicton.stt_mistral as mod
-
-                    mod._mistral_client = None
-                elif provider_name == "elevenlabs":
-                    import dicton.stt_elevenlabs as mod
-
-                    mod._elevenlabs_client = None
-
-                from dicton.speech_recognition_engine import SpeechRecognizer
-
-                recognizer = SpeechRecognizer()
-
-                assert recognizer.provider_name == expected_name, (
-                    f"Expected {expected_name} for {provider_name}, got {recognizer.provider_name}"
-                )

@@ -46,7 +46,6 @@ def load_app_config() -> AppConfig:
         stt_provider=_env("STT_PROVIDER", "auto"),
         elevenlabs_api_key=_env("ELEVENLABS_API_KEY"),
         elevenlabs_model=_env("ELEVENLABS_MODEL", "scribe_v1"),
-        mistral_api_key=_env("MISTRAL_API_KEY"),
         groq_api_key=_env("GROQ_API_KEY"),
         api_timeout=_env_float("API_TIMEOUT", "30"),
         stt_timeout=_env_float("STT_TIMEOUT", "120"),

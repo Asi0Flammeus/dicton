@@ -5,8 +5,8 @@ Providers are lazily initialized and cached for reuse.
 
 Provider priority (configurable via STT_PROVIDER env var):
 1. User-specified provider (if available)
-2. Mistral (cost-effective default)
-3. ElevenLabs (fallback)
+2. Groq Whisper Large v3 Turbo (lowest-latency default)
+3. ElevenLabs Scribe (fallback)
 4. NullSTTProvider (graceful degradation)
 """
 
@@ -26,9 +26,8 @@ _PROVIDER_REGISTRY: dict[str, type[STTProvider]] = {}
 _provider_cache: dict[str, STTProvider] = {}
 
 # Default fallback order when no provider specified.
-# Groq Whisper Large v3 Turbo is fastest; Mistral Voxtral is the cheap fallback;
-# ElevenLabs is the legacy default.
-DEFAULT_FALLBACK_ORDER = ["groq", "mistral", "elevenlabs"]
+# Groq Whisper Large v3 Turbo is fastest; ElevenLabs is the legacy fallback.
+DEFAULT_FALLBACK_ORDER = ["groq", "elevenlabs"]
 
 
 def _register_providers():
@@ -49,14 +48,6 @@ def _register_providers():
     except ImportError:
         logger.debug("Groq provider not available (missing groq package)")
 
-    # Register Mistral provider
-    try:
-        from .mistral import MistralSTTProvider
-
-        _PROVIDER_REGISTRY["mistral"] = MistralSTTProvider
-    except ImportError:
-        logger.debug("Mistral provider not available (missing mistralai)")
-
     # Register ElevenLabs provider (if exists)
     try:
         from .elevenlabs import ElevenLabsSTTProvider
@@ -74,7 +65,7 @@ def get_stt_provider(
     """Get an STT provider by name.
 
     Args:
-        name: Provider name (e.g., "mistral", "elevenlabs").
+        name: Provider name (e.g., "groq", "elevenlabs").
         config: Optional configuration for the provider.
         use_cache: Whether to use cached provider instance.
 

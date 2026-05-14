@@ -26,7 +26,7 @@ hiddenimports = [
     "dicton.context_detector_windows",
     "dicton.main",
     "dicton.stt_elevenlabs",
-    "dicton.stt_mistral",
+    "dicton.stt_groq",
 ]
 hiddenimports += collect_submodules("pynput")
 

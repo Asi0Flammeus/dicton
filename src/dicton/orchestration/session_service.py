@@ -154,7 +154,7 @@ class SessionService:
         concurrent threads so the slowest bounds total time. Public so the
         runtime can also call it at daemon boot (not just at FN press).
 
-        - STT (Voxtral): opens N warm TCP sockets to api.mistral.ai.
+        - STT (Whisper Turbo on Groq): opens N warm TCP sockets to api.groq.com.
         - Main LLM (translate/reformulate, e.g. Anthropic if configured):
           warms the configured provider.
         - Cleaner LLM (always Gemini Flash-Lite by default): triggers the

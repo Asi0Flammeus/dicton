@@ -203,15 +203,11 @@ class Config:
     # ElevenLabs STT model
     ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "scribe_v1")
 
-    # Mistral STT. Model is pinned in code
-    # (see adapters.stt.mistral.MistralSTTProvider.DEFAULT_MODEL); MISTRAL_STT_MODEL is ignored.
-    MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
-
     # Groq STT (Whisper Large v3 Turbo). Model is pinned in code
     # (see adapters.stt.groq.GroqSTTProvider.DEFAULT_MODEL); GROQ_STT_MODEL is ignored.
     GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 
-    # STT Provider selection: "groq", "mistral", "elevenlabs", or "auto" (tries fallback order)
+    # STT Provider selection: "groq", "elevenlabs", or "auto" (tries fallback order)
     STT_PROVIDER = os.getenv("STT_PROVIDER", "auto")
 
     # API timeout in seconds (prevents infinite hang if VPN blocks APIs)
@@ -330,7 +326,6 @@ class Config:
         cls.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
         cls.ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
         cls.ELEVENLABS_MODEL = os.getenv("ELEVENLABS_MODEL", "scribe_v1")
-        cls.MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY", "")
         cls.GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
         cls.STT_PROVIDER = os.getenv("STT_PROVIDER", "auto")
         cls.API_TIMEOUT = float(os.getenv("API_TIMEOUT", "30"))
