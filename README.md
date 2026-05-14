@@ -104,7 +104,7 @@ Live tail des logs : `journalctl --user -u dicton -f`.
 
 ```
 src/dicton/
-├── pipeline.py     Orchestrateur unique — state machine (IDLE / RECORDING / PROCESSING), hotkey, audio, chunker, HTTP, paste. Cap 300 LOC enforcé en CI.
+├── pipeline.py     Orchestrateur unique — state machine (IDLE / RECORDING / PROCESSING), hotkey, audio, chunker, HTTP, paste. Soft cap 500 LOC en CI pour décourager le fourre-tout : la logique métier vit dans des modules voisins.
 ├── runtime.py      Entrypoint daemon : singleton lock + Pipeline + boucle pygame main-thread.
 ├── chunker.py      Découpage silence-aware avec overlap, RMS dBFS.
 ├── stt.py          Whisper turbo via httpx HTTP/2 partagé.
@@ -121,7 +121,7 @@ src/dicton/
 └── cli.py          Entrypoint typer.
 ```
 
-`pipeline.py` est la seule pièce où vit le cycle de vie runtime. Tout le reste est plat, sans hiérarchie. Hard cap 300 LOC sur `pipeline.py`, vérifié par `scripts/check.sh lint`.
+`pipeline.py` est la seule pièce où vit le cycle de vie runtime. Tout le reste est plat, sans hiérarchie. Soft cap 500 LOC sur `pipeline.py`, vérifié par `scripts/check.sh lint` — assez de marge pour que le wiring reste lisible, mais qui hurle si on commence à y entasser de la logique métier.
 
 ## Développement
 

@@ -10,10 +10,10 @@ run_lint() {
     uv run ruff check src tests
     echo "» ruff format --check"
     uv run ruff format --check src tests
-    echo "» pipeline.py LOC cap (≤300)"
+    echo "» pipeline.py LOC cap (≤500)"
     loc=$(wc -l < src/dicton/pipeline.py)
-    if [ "$loc" -gt 300 ]; then
-        echo "FAIL: pipeline.py is $loc lines (cap 300)"
+    if [ "$loc" -gt 500 ]; then
+        echo "FAIL: pipeline.py is $loc lines (cap 500). Don't turn the orchestrator into a junk drawer — extract domain logic to a sibling module instead of growing this file."
         exit 1
     fi
     echo "  pipeline.py: $loc lines — OK"

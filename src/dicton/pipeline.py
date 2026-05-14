@@ -1,8 +1,10 @@
 """Pipeline orchestrator — the only file that owns the full lifecycle.
 
-Hard cap: ≤300 LOC. Validated by `scripts/check.sh lint` (a length guard
-is enforced in CI). Anything domain-specific (chunking, HTTP, paste) lives
-elsewhere; this file wires them.
+Soft cap: ≤500 LOC (`scripts/check.sh lint`). The cap exists to keep the
+orchestrator from becoming a junk drawer — when this file starts growing
+domain logic (chunking, HTTP, paste, output, audio session, …) extract
+it to a sibling module instead of cramming it here. Wiring stays, logic
+moves.
 """
 
 from __future__ import annotations
@@ -88,7 +90,9 @@ class Pipeline:
 
     def stop(self) -> None:
         self._stop.set()
-        if self._session is not None:  # mid-record shutdown → resume music
+        # If we're shutting down mid-recording, the user's music app is
+        # still paused. Restore before tearing the loop down.
+        if self._session is not None:
             audio_session.resume_players(self._session.paused_players)
         if self._loop is not None:
             self._loop.call_soon_threadsafe(self._loop.stop)
@@ -112,36 +116,42 @@ class Pipeline:
     # ---- hotkey wiring ----
 
     def _start_hotkeys(self) -> None:
-        watched = {_parse_key(self.cfg.hotkey_primary), _parse_key(self.cfg.hotkey_secondary)} - {
-            None
-        }
+        primary = _parse_key(self.cfg.hotkey_primary)
+        secondary = _parse_key(self.cfg.hotkey_secondary)
+        watched = {primary, secondary} - {None}
         held: set[object] = set()
-        fn_ts = [0.0]
-        # Linux Fn comes from evdev (KEY_WAKEUP). macOS/Windows fall back
-        # to pynput's Key.fn; gated on platform to avoid double-firing.
+        fn_last_release = [0.0]
+
+        # On Linux, Fn comes through the evdev listener (KEY_WAKEUP on
+        # ThinkPads, KEY_FN on a handful of other vendors — neither is
+        # exposed by pynput's X11 backend). On macOS / Windows pynput's
+        # Key.fn is our only option. Gating on platform avoids double-
+        # firing alongside evdev on Linux.
         pynput_fn = keyboard.Key.fn if sys.platform != "linux" else None
 
         def on_press(key: object) -> None:
             norm = _normalize(key)
             if norm in held:
-                return
+                return  # ignore X11 / Quartz autorepeat
             if pynput_fn is not None and norm == pynput_fn:
                 held.add(norm)
-                is_double = (time.monotonic() - fn_ts[0]) < fn_key.DOUBLE_TAP_WINDOW_S
+                is_double = (time.monotonic() - fn_last_release[0]) < fn_key.DOUBLE_TAP_WINDOW_S
                 self._on_fn_press(is_double)
-            elif norm in watched:
+                return
+            if norm in watched:
                 held.add(norm)
                 self._toggle()
 
         def on_release(key: object) -> None:
             norm = _normalize(key)
             if pynput_fn is not None and norm == pynput_fn:
-                fn_ts[0] = time.monotonic()
+                fn_last_release[0] = time.monotonic()
             held.discard(norm)
 
         self._listener = keyboard.Listener(on_press=on_press, on_release=on_release)
         self._listener.daemon = True
         self._listener.start()
+
         self._fn_listener = fn_key.FnKeyListener(self._on_fn_press)
         self._fn_listener.start()
 
@@ -217,11 +227,14 @@ class Pipeline:
         session = self._session
         recording_ended_at = time.monotonic()
         recording_ms = int((recording_ended_at - session.started_at) * 1000)
+
         if self._stream is not None:
             self._stream.stop()
             self._stream.close()
             self._stream = None
-        # Flush BEFORE clearing _session so _on_chunk_ready stays valid.
+
+        # Flush BEFORE clearing _session so _on_chunk_ready can still attach
+        # the final chunk's STT task to the active session.
         self._chunker.flush()
         self._session = None
         if self.viz is not None:
@@ -291,7 +304,9 @@ def _parse_key(name: str) -> object | None:
         return None
     if hasattr(keyboard.Key, name):
         return getattr(keyboard.Key, name)
-    return keyboard.KeyCode.from_char(name) if len(name) == 1 else None
+    if len(name) == 1:
+        return keyboard.KeyCode.from_char(name)
+    return None
 
 
 def _normalize(key: object) -> object:
