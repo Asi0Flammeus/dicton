@@ -205,6 +205,8 @@ class Pipeline:
         if self._session is None:
             return
         session = self._session
+        recording_ended_at = time.monotonic()
+        recording_ms = int((recording_ended_at - session.started_at) * 1000)
 
         if self._stream is not None:
             self._stream.stop()
@@ -241,15 +243,16 @@ class Pipeline:
         if cleaned:
             await asyncio.to_thread(paste, cleaned)
 
-        e2e_ms = int((time.monotonic() - session.started_at) * 1000)
+        process_ms = int((time.monotonic() - recording_ended_at) * 1000)
         try:
             stats.record(
                 stats.Dictation(
                     ts=stats.now_iso(),
-                    duration_s=round(time.monotonic() - session.started_at, 2),
+                    duration_s=round(recording_ms / 1000.0, 2),
                     chars=len(cleaned),
                     chunks=len(session.chunks),
-                    e2e_ms=e2e_ms,
+                    recording_ms=recording_ms,
+                    process_ms=process_ms,
                     stt_ms=stt_ms,
                     cleanup_ms=cleanup_ms,
                     model=self.cfg.cleanup_model,
@@ -264,9 +267,10 @@ class Pipeline:
         with self._state_lock:
             self._state = State.IDLE
         log.info(
-            "dictation: %d chars in %dms (stt=%dms cleanup=%dms chunks=%d)",
+            "dictation: %d chars · recording=%dms · process=%dms (stt=%dms cleanup=%dms) · chunks=%d",
             len(cleaned),
-            e2e_ms,
+            recording_ms,
+            process_ms,
             stt_ms,
             cleanup_ms,
             len(session.chunks),

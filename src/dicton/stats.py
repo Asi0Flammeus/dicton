@@ -19,7 +19,8 @@ class Dictation:
     duration_s: float
     chars: int
     chunks: int
-    e2e_ms: int
+    recording_ms: int  # hotkey-on → hotkey-off (user speaking)
+    process_ms: int  # hotkey-off → text pasted (server-side latency)
     stt_ms: int
     cleanup_ms: int
     model: str
@@ -41,16 +42,18 @@ class Summary:
     total_chars: int
     total_audio_s: float
     typing_saved_min: float
-    avg_e2e_ms: float
+    avg_recording_ms: float
+    avg_process_ms: float
 
 
 def summarise(path: Path = STATS_PATH) -> Summary:
     if not path.exists():
-        return Summary(0, 0, 0.0, 0.0, 0.0)
+        return Summary(0, 0, 0.0, 0.0, 0.0, 0.0)
     count = 0
     chars = 0
     audio = 0.0
-    e2e_sum = 0
+    rec_sum = 0
+    proc_sum = 0
     with path.open(encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -62,13 +65,24 @@ def summarise(path: Path = STATS_PATH) -> Summary:
                 continue
             count += 1
             chars += int(d.get("chars", 0))
-            audio += float(d.get("duration_s", 0.0))
-            e2e_sum += int(d.get("e2e_ms", 0))
+            duration_s = float(d.get("duration_s", 0.0))
+            audio += duration_s
+            # Backward compat: rows written before the split stored the full
+            # session timing as ``e2e_ms``. Use ``duration_s`` for recording
+            # and the remainder for process when ``recording_ms`` is absent.
+            if "recording_ms" in d:
+                rec_sum += int(d["recording_ms"])
+                proc_sum += int(d.get("process_ms", 0))
+            else:
+                rec_sum += int(duration_s * 1000)
+                e2e = int(d.get("e2e_ms", 0))
+                proc_sum += max(0, e2e - int(duration_s * 1000))
     typing_min = (chars / TYPING_CPM) - (audio / 60.0)
     return Summary(
         count=count,
         total_chars=chars,
         total_audio_s=audio,
         typing_saved_min=max(typing_min, 0.0),
-        avg_e2e_ms=(e2e_sum / count) if count else 0.0,
+        avg_recording_ms=(rec_sum / count) if count else 0.0,
+        avg_process_ms=(proc_sum / count) if count else 0.0,
     )

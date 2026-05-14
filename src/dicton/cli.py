@@ -91,7 +91,11 @@ def stats_cmd() -> None:
     console.print(f"Characters output: [cyan]{s.total_chars:,}[/cyan]")
     console.print(f"Audio recorded:    [cyan]{s.total_audio_s / 60:.1f} min[/cyan]")
     console.print(f"Typing saved:      [green]{s.typing_saved_min:.0f} min[/green]")
-    console.print(f"Avg end-to-end:    [cyan]{s.avg_e2e_ms:.0f} ms[/cyan]")
+    console.print(f"Avg recording:     [cyan]{s.avg_recording_ms:.0f} ms[/cyan]  (you speaking)")
+    console.print(
+        f"Avg process:       [cyan]{s.avg_process_ms:.0f} ms[/cyan]  "
+        "(stt + cleanup + paste, post-stop latency)"
+    )
 
 
 @app.command(name="update")
