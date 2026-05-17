@@ -6,10 +6,14 @@ in TOML. Same httpx client as stt.py — same TLS handshake, same pool.
 
 from __future__ import annotations
 
+import re
+
 import httpx
 
 from .config import DEFAULT_PROMPT
 from .stt import GROQ_BASE
+
+_TAG_RE = re.compile(r"</?transcription>", re.IGNORECASE)
 
 
 async def cleanup(
@@ -32,7 +36,7 @@ async def cleanup(
         "model": model,
         "messages": [
             {"role": "system", "content": prompt},
-            {"role": "user", "content": text},
+            {"role": "user", "content": f"<transcription>{text}</transcription>"},
         ],
         "temperature": 0.0,
         "stream": False,
@@ -51,6 +55,7 @@ async def cleanup(
         r.raise_for_status()
         data = r.json()
         cleaned = data["choices"][0]["message"]["content"].strip()
+        cleaned = _TAG_RE.sub("", cleaned).strip()
         return _strip_wrapping_quotes(cleaned) or text
     except (httpx.HTTPError, KeyError, IndexError, ValueError):
         return text
