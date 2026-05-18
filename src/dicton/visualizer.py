@@ -104,6 +104,7 @@ class Visualizer:
             self._set_windows_colorkey_transparency(pygame, screen)
 
         shape_visible = False
+        was_showing = False
         clock = pygame.time.Clock()
         while not self._stop.is_set():
             for event in pygame.event.get():
@@ -117,6 +118,17 @@ class Visualizer:
                 self._drain_frames()
                 self._draw(pygame, screen)
                 self.frame += 1
+            elif was_showing and not (IS_LINUX and IS_X11):
+                # On Windows / macOS / non-X11 Linux there is no XShape mask
+                # to clip the stale frame away when we go back to idle. Paint
+                # one frame of pure colorkey/background so the donut actually
+                # disappears.
+                if IS_WINDOWS:
+                    screen.fill(TRANSPARENT_COLORKEY)
+                else:
+                    screen.fill((15, 15, 18))
+                pygame.display.flip()
+            was_showing = should_show
             clock.tick(60 if should_show else 20)
         pygame.quit()
 
