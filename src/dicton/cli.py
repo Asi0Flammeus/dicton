@@ -160,10 +160,10 @@ def update_cmd(
 
 def _smart_start(*, foreground: bool) -> None:
     """Run wizard if no config, then start the daemon via systemd (default) or inline."""
-    # When invoked by a systemd unit, INVOCATION_ID is set. Forcing foreground
-    # there prevents an infinite restart loop where the unit's ExecStart command
-    # would otherwise ask systemd to restart itself.
-    if "INVOCATION_ID" in os.environ:
+    # When invoked by a systemd unit, INVOCATION_ID is set. DICTON_DETACHED is
+    # set by the Windows self-respawn path. Either way, we're the worker — run
+    # inline, don't try to re-detach.
+    if "INVOCATION_ID" in os.environ or "DICTON_DETACHED" in os.environ:
         foreground = True
     if not config.exists():
         console.print("[yellow]No config yet — running first-launch wizard.[/yellow]")
@@ -185,6 +185,12 @@ def _start_after_config(cfg, *, foreground: bool) -> None:
         console.print("  logs:    [cyan]journalctl --user -u dicton -f[/cyan]")
         console.print("  stop:    [cyan]systemctl --user stop dicton[/cyan]")
         return
+
+    if not foreground and cfg.autostart and sys.platform == "win32":
+        if _spawn_detached_dicton_on_windows():
+            console.print("[green]dicton lancé en arrière-plan[/green] — terminal libéré.")
+            console.print("  stop: [cyan]taskkill /F /IM dicton.exe[/cyan]")
+            return
 
     # Skip the "unit already running" check when we *are* the unit's ExecStart.
     if "INVOCATION_ID" not in os.environ and _systemd_unit_active():
@@ -242,6 +248,31 @@ def _kill_stale_dicton_on_windows() -> None:
         check=False,
         capture_output=True,
     )
+
+
+def _spawn_detached_dicton_on_windows() -> bool:
+    """Re-launch dicton --foreground with no console attached.
+
+    Mirrors the Linux systemd handoff: when ``autostart=true``, the user
+    expects ``dicton`` to free the terminal. We mark the child with
+    ``DICTON_DETACHED=1`` so it doesn't try to detach again.
+    """
+    exe = _which("dicton")
+    if not exe:
+        return False
+    DETACHED_PROCESS = 0x00000008  # noqa: N806
+    CREATE_NO_WINDOW = 0x08000000  # noqa: N806
+    env = {**os.environ, "DICTON_DETACHED": "1"}
+    subprocess.Popen(
+        [exe, "--foreground"],
+        creationflags=DETACHED_PROCESS | CREATE_NO_WINDOW,
+        close_fds=True,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return True
 
 
 def _spawn_detached_uv_on_windows(cmd: list[str]) -> None:
