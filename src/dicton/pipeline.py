@@ -195,6 +195,7 @@ class Pipeline:
             dtype="int16",
             blocksize=int(self.cfg.sample_rate * 0.05),
             callback=self._audio_cb,
+            device=self.cfg.input_device,
         )
         self._stream.start()
 

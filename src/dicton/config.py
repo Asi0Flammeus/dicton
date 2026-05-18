@@ -62,6 +62,7 @@ class Config:
     hotkey_primary: str = "f2"
     hotkey_secondary: str = "f2"
     sample_rate: int = 16000
+    input_device: int | None = None
     visualizer: bool = True
     autostart: bool = False
     chunk: ChunkParams = field(default_factory=ChunkParams)
@@ -92,6 +93,8 @@ def _to_toml(cfg: Config) -> str:
     chunk = d.pop("chunk")
     lines = ["# dicton config — edit by hand or run `dicton config`", ""]
     for k, v in d.items():
+        if v is None:
+            continue
         lines.append(f"{k} = {_fmt(v)}")
     lines.extend(["", "[chunk]"])
     for k, v in chunk.items():

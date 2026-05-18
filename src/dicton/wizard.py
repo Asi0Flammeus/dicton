@@ -40,7 +40,7 @@ def run_wizard(existing: Config | None) -> Config:
         )
     )
 
-    _step_system_check()
+    _step_system_check(cfg)
     cfg.groq_api_key = _step_api_key(cfg.groq_api_key)
     cfg.hotkey_primary, cfg.hotkey_secondary = _step_hotkeys(
         cfg.hotkey_primary, cfg.hotkey_secondary
@@ -62,7 +62,7 @@ def run_wizard(existing: Config | None) -> Config:
 # ---- 1. system check ----
 
 
-def _step_system_check() -> None:
+def _step_system_check(cfg: Config) -> None:
     console.rule("[bold]1 · Système[/bold]")
     py_ok = sys.version_info >= (3, 11)
     console.print(
@@ -73,8 +73,11 @@ def _step_system_check() -> None:
         raise SystemExit(1)
 
     try:
-        sd.query_devices()
-        console.print("  Audio (sounddevice): [green]OK[/green]")
+        default = sd.query_devices(kind="input")
+        console.print(f"  Audio (sounddevice): [green]OK[/green] — {default['name']}")
+    except sd.PortAudioError as exc:
+        console.print(f"  Audio: [yellow]défaut indisponible ({exc})[/yellow]")
+        cfg.input_device = _pick_input_device()
     except Exception as exc:
         console.print(f"  Audio: [red]{exc}[/red]")
         raise SystemExit(1) from exc
@@ -85,6 +88,29 @@ def _step_system_check() -> None:
             console.print("  Clipboard: [yellow]installez wl-clipboard ou xclip[/yellow]")
         else:
             console.print("  Clipboard: [green]OK[/green]")
+
+
+def _pick_input_device() -> int:
+    devices = sd.query_devices()
+    inputs = [(i, d) for i, d in enumerate(devices) if d.get("max_input_channels", 0) > 0]
+    if not inputs:
+        console.print("  [red]Aucun périphérique d'entrée détecté.[/red]")
+        raise SystemExit(1)
+
+    table = Table(title="Périphériques d'entrée disponibles")
+    table.add_column("#")
+    table.add_column("Nom")
+    table.add_column("Canaux", justify="right")
+    for n, (_idx, d) in enumerate(inputs, 1):
+        table.add_row(str(n), d["name"], str(d["max_input_channels"]))
+    console.print(table)
+
+    raw = Prompt.ask(
+        "Quel micro veux-tu utiliser ?",
+        choices=[str(i) for i in range(1, len(inputs) + 1)],
+        default="1",
+    )
+    return inputs[int(raw) - 1][0]
 
 
 # ---- 2. Groq API key ----
@@ -131,7 +157,7 @@ async def _step_self_test(cfg: Config) -> str:
     )
     Prompt.ask("⏎ pour démarrer", default="")
 
-    pcm = _record_seconds(RECORD_SECONDS, cfg.sample_rate)
+    pcm = _record_seconds(RECORD_SECONDS, cfg.sample_rate, cfg.input_device)
     wav = pcm16_to_wav(pcm, cfg.sample_rate)
     console.print("  recording   [green]done[/green]")
 
@@ -200,10 +226,10 @@ async def _step_self_test(cfg: Config) -> str:
     return CLEANUP_MODELS[int(raw) - 1]
 
 
-def _record_seconds(seconds: float, sample_rate: int) -> np.ndarray:
+def _record_seconds(seconds: float, sample_rate: int, device: int | None) -> np.ndarray:
     samples = int(seconds * sample_rate)
     console.print(f"  [red]●[/red] recording {seconds:.0f}s...")
-    audio = sd.rec(samples, samplerate=sample_rate, channels=1, dtype="int16")
+    audio = sd.rec(samples, samplerate=sample_rate, channels=1, dtype="int16", device=device)
     sd.wait()
     return audio[:, 0]
 
