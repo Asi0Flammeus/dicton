@@ -49,6 +49,12 @@ dev = [
 [project.scripts]
 dicton = "dicton.cli:app"
 
+[project.gui-scripts]
+# Windows: dictonw.exe runs under pythonw.exe so the daemon launches at
+# login without a console window. Linux/macOS treat gui-scripts the same
+# as scripts. The autostart registry entry points here.
+dictonw = "dicton.cli:app"
+
 [project.urls]
 Homepage = "https://github.com/Asi0Flammeus/dicton"
 Repository = "https://github.com/Asi0Flammeus/dicton"

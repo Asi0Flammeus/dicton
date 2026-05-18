@@ -45,6 +45,11 @@ def _exec_path() -> str:
     return found or "dicton"
 
 
+def _windows_autostart_exec() -> str:
+    """Prefer dictonw.exe (no console) for HKCU\\Run; fall back to dicton.exe."""
+    return shutil.which("dictonw") or shutil.which("dicton") or "dictonw"
+
+
 def enable_autostart() -> bool:
     if sys.platform == "linux":
         return _enable_systemd()
@@ -112,7 +117,7 @@ def _enable_windows() -> bool:
         winreg.KEY_SET_VALUE,
     )
     try:
-        winreg.SetValueEx(key, "dicton", 0, winreg.REG_SZ, _exec_path())
+        winreg.SetValueEx(key, "dicton", 0, winreg.REG_SZ, _windows_autostart_exec())
     finally:
         winreg.CloseKey(key)
     return True
