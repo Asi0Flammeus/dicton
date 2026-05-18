@@ -443,9 +443,26 @@ class Visualizer:
             if not hwnd:
                 return
             user32 = ctypes.windll.user32
-            style = user32.GetWindowLongW(hwnd, -20)
-            user32.SetWindowLongW(hwnd, -20, style | 0x80000)
+
+            # Hide, flip the extended style, then show without activating.
+            # The style change only takes effect on a window-state cycle, and
+            # if we Show normally the donut steals focus from the user's app.
+            GWL_EXSTYLE = -20  # noqa: N806
+            WS_EX_LAYERED = 0x00080000  # noqa: N806
+            WS_EX_TOOLWINDOW = 0x00000080  # noqa: N806  (no taskbar / Alt+Tab)
+            WS_EX_NOACTIVATE = 0x08000000  # noqa: N806
+            SW_HIDE = 0  # noqa: N806
+            SW_SHOWNOACTIVATE = 4  # noqa: N806
+
+            user32.ShowWindow(hwnd, SW_HIDE)
+            style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            user32.SetWindowLongW(
+                hwnd,
+                GWL_EXSTYLE,
+                style | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+            )
             user32.SetLayeredWindowAttributes(hwnd, 0xFF | (0x00 << 8) | (0xFF << 16), 0, 0x1)
+            user32.ShowWindow(hwnd, SW_SHOWNOACTIVATE)
         except Exception:
             pass
 
