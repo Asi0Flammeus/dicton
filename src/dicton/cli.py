@@ -119,6 +119,8 @@ def update_cmd(
         console.print("[red]uv not found.[/red] Install: https://docs.astral.sh/uv/")
         raise typer.Exit(1)
 
+    _kill_stale_dicton_on_windows()
+
     if source:
         path = Path(source).expanduser().resolve()
         if not (path / "pyproject.toml").exists():
@@ -218,6 +220,22 @@ def _which(name: str) -> str | None:
     from shutil import which
 
     return which(name)
+
+
+def _kill_stale_dicton_on_windows() -> None:
+    """Kill any other dicton.exe still holding the launcher shim open.
+
+    Windows refuses to overwrite an .exe whose process is alive, so
+    ``uv tool upgrade`` fails with ERROR_SHARING_VIOLATION. We exclude
+    our own PID — the running ``dicton update`` is itself dicton.exe.
+    """
+    if sys.platform != "win32":
+        return
+    subprocess.run(
+        ["taskkill", "/F", "/IM", "dicton.exe", "/FI", f"PID ne {os.getpid()}"],
+        check=False,
+        capture_output=True,
+    )
 
 
 _ = Path  # reserved for future config-path printing
