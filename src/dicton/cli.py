@@ -119,19 +119,25 @@ def update_cmd(
         console.print("[red]uv not found.[/red] Install: https://docs.astral.sh/uv/")
         raise typer.Exit(1)
 
-    _kill_stale_dicton_on_windows()
-
     if source:
         path = Path(source).expanduser().resolve()
         if not (path / "pyproject.toml").exists():
             console.print(f"[red]{path} has no pyproject.toml[/red]")
             raise typer.Exit(1)
-        console.print(f"Running [cyan]uv tool install --force --reinstall {path}[/cyan]…")
         cmd = ["uv", "tool", "install", "--force", "--reinstall", str(path)]
     else:
-        console.print("Running [cyan]uv tool upgrade dicton[/cyan]…")
         cmd = ["uv", "tool", "upgrade", "dicton"]
 
+    _kill_stale_dicton_on_windows()
+    if sys.platform == "win32":
+        # We can't replace our own running dicton.exe in place — Windows
+        # holds an exclusive lock on it. Spawn a detached PowerShell that
+        # waits for us to exit, then runs uv upgrade.
+        _spawn_detached_uv_on_windows(cmd)
+        console.print("[cyan]Upgrade started in a new window — close this one.[/cyan]")
+        return
+
+    console.print(f"Running [cyan]{' '.join(cmd)}[/cyan]…")
     r = subprocess.run(cmd, check=False)
     if r.returncode != 0:
         raise typer.Exit(r.returncode)
@@ -223,11 +229,11 @@ def _which(name: str) -> str | None:
 
 
 def _kill_stale_dicton_on_windows() -> None:
-    """Kill any other dicton.exe still holding the launcher shim open.
+    """Kill any *other* dicton.exe holding the launcher shim open.
 
-    Windows refuses to overwrite an .exe whose process is alive, so
-    ``uv tool upgrade`` fails with ERROR_SHARING_VIOLATION. We exclude
-    our own PID — the running ``dicton update`` is itself dicton.exe.
+    Windows refuses to overwrite a running .exe, so a parallel daemon
+    blocks the upgrade. We exclude our own PID — that one is handled
+    by the detached-helper path which waits for us to exit.
     """
     if sys.platform != "win32":
         return
@@ -236,6 +242,35 @@ def _kill_stale_dicton_on_windows() -> None:
         check=False,
         capture_output=True,
     )
+
+
+def _spawn_detached_uv_on_windows(cmd: list[str]) -> None:
+    """Launch a PowerShell window that waits for us to exit, then runs `cmd`.
+
+    Self-replacement is impossible on Windows: the running dicton.exe
+    holds an exclusive lock on the file uv wants to overwrite. The
+    helper waits on our PID, then runs the upgrade once the lock drops.
+    """
+    quoted = " ".join(_ps_quote(a) for a in cmd)
+    script = (
+        f"$p = Get-Process -Id {os.getpid()} -ErrorAction SilentlyContinue; "
+        f"if ($p) {{ $p.WaitForExit() }}; Start-Sleep -Milliseconds 500; "
+        f"Write-Host 'Running: {quoted}' -ForegroundColor Cyan; "
+        f"{quoted}; "
+        f"Write-Host ''; Read-Host 'Press Enter to close'"
+    )
+    CREATE_NEW_CONSOLE = 0x00000010  # noqa: N806
+    subprocess.Popen(
+        ["powershell", "-NoProfile", "-Command", script],
+        creationflags=CREATE_NEW_CONSOLE,
+        close_fds=True,
+    )
+
+
+def _ps_quote(s: str) -> str:
+    if not s or any(c in s for c in " \t\"'"):
+        return "'" + s.replace("'", "''") + "'"
+    return s
 
 
 _ = Path  # reserved for future config-path printing
