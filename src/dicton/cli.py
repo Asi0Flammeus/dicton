@@ -126,6 +126,8 @@ def update_cmd(
             raise typer.Exit(1)
         cmd = ["uv", "tool", "install", "--force", "--reinstall", str(path)]
     else:
+        if not _check_for_updates():
+            return
         cmd = ["uv", "tool", "upgrade", "dicton"]
 
     _kill_stale_dicton_on_windows()
@@ -230,6 +232,66 @@ def _which(name: str) -> str | None:
     from shutil import which
 
     return which(name)
+
+
+GITHUB_REMOTE_URL = "https://github.com/Asi0Flammeus/dicton.git"
+
+
+def _current_commit_sha() -> str | None:
+    """Pull the abbreviated git SHA out of ``__version__`` (e.g. ``g3102926``).
+
+    Returns ``None`` for non-git installs (PyPI), where hatch-vcs writes a
+    plain version like ``1.15.0`` with no ``+g<sha>`` local tag.
+    """
+    import re
+
+    m = re.search(r"\+g([0-9a-f]+)", __version__)
+    return m.group(1) if m else None
+
+
+def _remote_commit_sha() -> str | None:
+    """Fetch the SHA of ``HEAD`` on the public repo. ``None`` if unreachable."""
+    if not _which("git"):
+        return None
+    try:
+        r = subprocess.run(
+            ["git", "ls-remote", GITHUB_REMOTE_URL, "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if r.returncode != 0 or not r.stdout:
+        return None
+    return r.stdout.split()[0]
+
+
+def _check_for_updates() -> bool:
+    """Compare local vs remote git SHA. Returns False if already up to date.
+
+    Prints a status line either way so the user sees what dicton thinks is
+    happening — `dicton update` used to silently spawn a window with no
+    feedback in the parent shell.
+    """
+    with console.status("[cyan]Vérification des mises à jour…[/cyan]", spinner="dots"):
+        current = _current_commit_sha()
+        remote = _remote_commit_sha()
+
+    if current and remote and remote.startswith(current):
+        console.print(f"[green]Déjà à jour[/green] · [dim]commit {current}[/dim]")
+        return False
+    if current and remote:
+        console.print(
+            f"[yellow]Nouvelle version disponible[/yellow]: "
+            f"[dim]{current}[/dim] → [cyan]{remote[: len(current)]}[/cyan]"
+        )
+    else:
+        console.print(
+            "[dim]Vérification distante impossible — on tente l'upgrade quand même.[/dim]"
+        )
+    return True
 
 
 def _setup_logging() -> None:
