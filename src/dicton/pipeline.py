@@ -122,12 +122,11 @@ class Pipeline:
         held: set[object] = set()
         fn_last_release = [0.0]
 
-        # On Linux, Fn comes through the evdev listener (KEY_WAKEUP on
-        # ThinkPads, KEY_FN on a handful of other vendors — neither is
-        # exposed by pynput's X11 backend). On macOS / Windows pynput's
-        # Key.fn is our only option. Gating on platform avoids double-
-        # firing alongside evdev on Linux.
-        pynput_fn = keyboard.Key.fn if sys.platform != "linux" else None
+        # Only pynput's macOS backend exposes Key.fn. Windows and Linux
+        # X11 backends don't define it — Linux uses evdev (KEY_WAKEUP on
+        # ThinkPads, KEY_FN elsewhere), Windows has no userland Fn path
+        # at all. getattr keeps this robust if pynput's API shifts.
+        pynput_fn = getattr(keyboard.Key, "fn", None) if sys.platform == "darwin" else None
 
         def on_press(key: object) -> None:
             norm = _normalize(key)
