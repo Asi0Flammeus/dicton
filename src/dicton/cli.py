@@ -195,8 +195,9 @@ def _start_after_config(cfg, *, foreground: bool) -> None:
         )
         raise typer.Exit(1)
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    _setup_logging()
     console.print("[cyan]Starting daemon in foreground…[/cyan]  (Ctrl+C to stop)")
+    console.print(f"[dim]Logs: {config.LOG_PATH}[/dim]")
     from .runtime import run as run_pipeline
 
     run_pipeline(cfg)
@@ -226,6 +227,29 @@ def _which(name: str) -> str | None:
     from shutil import which
 
     return which(name)
+
+
+def _setup_logging() -> None:
+    """Route logs to a rotating file plus stderr when available.
+
+    dictonw.exe under pythonw has no usable stderr, so without a file
+    handler the daemon is invisible when it misbehaves. systemd users
+    on Linux still get logs via journalctl AND a local file.
+    """
+    from logging.handlers import RotatingFileHandler
+
+    config.LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    fmt = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+
+    file_h = RotatingFileHandler(config.LOG_PATH, maxBytes=512_000, backupCount=2, encoding="utf-8")
+    file_h.setFormatter(fmt)
+    handlers: list[logging.Handler] = [file_h]
+    if sys.stderr is not None:
+        stream_h = logging.StreamHandler()
+        stream_h.setFormatter(fmt)
+        handlers.append(stream_h)
+
+    logging.basicConfig(level=logging.INFO, handlers=handlers, force=True)
 
 
 def _kill_stale_dicton_on_windows() -> None:
