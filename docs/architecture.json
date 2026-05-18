@@ -1,0 +1,1727 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "project": "dicton",
+  "version": "0.5.0",
+  "tagline": "French voice dictation — hotkey to pasted text in <1s. Single orchestrator (pipeline.py), one Groq HTTP/2 socket, three platforms.",
+  "generated_for": "Agent map — read this file before adding a feature so you know where state lives, which module to extend, and which contracts must be preserved.",
+  "source_root": "src/dicton/",
+  "entrypoint_module": "dicton.__main__:main",
+  "console_script": "dicton",
+  "layers": [
+    {
+      "id": "external",
+      "label": "External",
+      "col": 0
+    },
+    {
+      "id": "entrypoint",
+      "label": "Entrypoints",
+      "col": 1
+    },
+    {
+      "id": "supervisor",
+      "label": "Supervisor",
+      "col": 2
+    },
+    {
+      "id": "orchestrator",
+      "label": "Orchestrator",
+      "col": 3
+    },
+    {
+      "id": "io",
+      "label": "I/O · Effects",
+      "col": 4
+    },
+    {
+      "id": "service",
+      "label": "Services",
+      "col": 5
+    },
+    {
+      "id": "persistence",
+      "label": "Persistence",
+      "col": 6
+    }
+  ],
+  "nodes": [
+    {
+      "id": "user",
+      "label": "User",
+      "layer": "external",
+      "kind": "actor",
+      "role": "Presses F2 (or double-taps Fn). Speaks. Presses again to stop.",
+      "color": "neutral"
+    },
+    {
+      "id": "groq",
+      "label": "Groq API\n(api.groq.com)",
+      "layer": "external",
+      "kind": "service",
+      "role": "Whisper turbo (STT) + chat completion (cleanup) over a single HTTP/2 connection shared by stt.py and cleanup.py.",
+      "color": "accent"
+    },
+    {
+      "id": "os_kbd",
+      "label": "OS keyboard\n(pynput · evdev)",
+      "layer": "external",
+      "kind": "io",
+      "role": "Linux X11/Wayland, macOS Quartz, Windows hooks. Fn key surfaces as KEY_WAKEUP/KEY_FN on Linux only.",
+      "color": "neutral"
+    },
+    {
+      "id": "os_mic",
+      "label": "Microphone\n(sounddevice · PortAudio)",
+      "layer": "external",
+      "kind": "io",
+      "role": "16 kHz mono int16 PCM, 50 ms blocks.",
+      "color": "neutral"
+    },
+    {
+      "id": "os_paste",
+      "label": "OS clipboard +\npaste keystroke",
+      "layer": "external",
+      "kind": "io",
+      "role": "wl-copy+wtype / xclip+xdotool / pbcopy+osascript / SetClipboardData+SendInput. Ctrl+Shift+V on Linux to survive zsh/tmux/vim.",
+      "color": "neutral"
+    },
+    {
+      "id": "os_mpris",
+      "label": "MPRIS players\n(playerctl)",
+      "layer": "external",
+      "kind": "io",
+      "role": "Spotify / YouTube / VLC / mpv paused during recording, resumed at end. Linux only.",
+      "color": "neutral"
+    },
+    {
+      "id": "os_autostart",
+      "label": "OS autostart\n(systemd · launchd · HKCU)",
+      "layer": "external",
+      "kind": "io",
+      "role": "Daemon runs at login. Wizard writes the unit; CLI restarts it on update.",
+      "color": "neutral"
+    },
+    {
+      "id": "fs_config",
+      "label": "config.toml\n(~/.config/dicton)",
+      "layer": "external",
+      "kind": "fs",
+      "role": "Single source of truth. chmod 600 on the Groq API key.",
+      "color": "neutral"
+    },
+    {
+      "id": "fs_stats",
+      "label": "stats.jsonl\n(append-only)",
+      "layer": "external",
+      "kind": "fs",
+      "role": "One JSON line per dictation. Read by `dicton stats`.",
+      "color": "neutral"
+    },
+    {
+      "id": "fs_lock",
+      "label": "dicton.lock\n(runtime dir)",
+      "layer": "external",
+      "kind": "fs",
+      "role": "fcntl.flock / msvcrt.locking — blocks a second daemon from paste-racing the first.",
+      "color": "neutral"
+    },
+    {
+      "id": "__main__",
+      "label": "__main__",
+      "layer": "entrypoint",
+      "kind": "module",
+      "file": "src/dicton/__main__.py",
+      "loc": 9,
+      "role": "Thin shim → cli.app."
+    },
+    {
+      "id": "cli",
+      "label": "cli",
+      "layer": "entrypoint",
+      "kind": "module",
+      "file": "src/dicton/cli.py",
+      "loc": 223,
+      "role": "Typer app with 5 commands. Bare `dicton` smart-starts: wizard if no config, else delegate to systemd if autostart, else inline foreground run.",
+      "commands": [
+        "dicton",
+        "dicton wizard",
+        "dicton config",
+        "dicton stats",
+        "dicton update"
+      ]
+    },
+    {
+      "id": "wizard",
+      "label": "wizard",
+      "layer": "entrypoint",
+      "kind": "module",
+      "file": "src/dicton/wizard.py",
+      "loc": 221,
+      "role": "5-step rich-terminal first-launch flow: system check → Groq key → hotkey → 4-model self-test with timings → autostart toggle."
+    },
+    {
+      "id": "config",
+      "label": "config",
+      "layer": "persistence",
+      "kind": "module",
+      "file": "src/dicton/config.py",
+      "loc": 106,
+      "role": "Dataclasses + tomllib load/save. Embeds the locked-down French cleanup prompt (DEFAULT_PROMPT) and the 4 allowed cleanup models."
+    },
+    {
+      "id": "stats",
+      "label": "stats",
+      "layer": "persistence",
+      "kind": "module",
+      "file": "src/dicton/stats.py",
+      "loc": 88,
+      "role": "Append a Dictation dataclass per dictation; summarise() folds the file into a Summary (count, chars, typing saved, avg latencies)."
+    },
+    {
+      "id": "singleton",
+      "label": "singleton",
+      "layer": "supervisor",
+      "kind": "module",
+      "file": "src/dicton/singleton.py",
+      "loc": 48,
+      "role": "Acquire-and-hold exclusive file lock. Closing the handle releases it."
+    },
+    {
+      "id": "platform",
+      "label": "platform",
+      "layer": "supervisor",
+      "kind": "module",
+      "file": "src/dicton/platform.py",
+      "loc": 138,
+      "role": "Cross-platform autostart enable/disable. Wizard's step 5."
+    },
+    {
+      "id": "runtime",
+      "label": "runtime",
+      "layer": "supervisor",
+      "kind": "module",
+      "file": "src/dicton/runtime.py",
+      "loc": 37,
+      "role": "Daemon entrypoint: acquire singleton, instantiate Visualizer + Pipeline, start the pipeline, then block on the pygame main loop (required on macOS)."
+    },
+    {
+      "id": "pipeline",
+      "label": "pipeline\n· State machine ·",
+      "layer": "orchestrator",
+      "kind": "module",
+      "file": "src/dicton/pipeline.py",
+      "loc": 315,
+      "role": "The only module that owns the full lifecycle. Wires hotkey + audio + chunker + Groq HTTP + paste. Soft cap 500 LOC in CI — if it grows, extract to a sibling.",
+      "states": [
+        "IDLE",
+        "RECORDING",
+        "PROCESSING"
+      ],
+      "owns": [
+        "asyncio loop on a background thread",
+        "httpx.AsyncClient (http2=True)",
+        "sd.InputStream",
+        "Chunker",
+        "pynput Listener",
+        "FnKeyListener",
+        "_Session"
+      ],
+      "color": "accent"
+    },
+    {
+      "id": "fn_key",
+      "label": "fn_key",
+      "layer": "io",
+      "kind": "module",
+      "file": "src/dicton/fn_key.py",
+      "loc": 100,
+      "role": "Linux-only evdev listener for KEY_WAKEUP (143) / KEY_FN (464-466). Detects double-tap within 300 ms and emits on_press(is_double_tap). pynput handles Fn on macOS/Windows."
+    },
+    {
+      "id": "chunker",
+      "label": "chunker",
+      "layer": "service",
+      "kind": "module",
+      "file": "src/dicton/chunker.py",
+      "loc": 114,
+      "role": "Rolling int16 PCM buffer. RMS dBFS detector cuts at silence boundaries with overlap; emits wav bytes via callback so STT runs in parallel with recording. flush() drains the tail at hotkey-up."
+    },
+    {
+      "id": "stt",
+      "label": "stt",
+      "layer": "service",
+      "kind": "module",
+      "file": "src/dicton/stt.py",
+      "loc": 66,
+      "role": "POST /audio/transcriptions to Groq Whisper turbo. pcm16_to_wav() helper. prewarm() warms the TLS+HTTP/2 socket on each recording start."
+    },
+    {
+      "id": "cleanup",
+      "label": "cleanup",
+      "layer": "service",
+      "kind": "module",
+      "file": "src/dicton/cleanup.py",
+      "loc": 62,
+      "role": "POST /chat/completions to Groq with the locked French prompt. Falls back to the raw transcript on any error so a cleanup hiccup never loses the dictation."
+    },
+    {
+      "id": "audio_session",
+      "label": "audio_session",
+      "layer": "io",
+      "kind": "module",
+      "file": "src/dicton/audio_session.py",
+      "loc": 66,
+      "role": "Linux only. playerctl pauses every MPRIS player currently Playing, returns the list; resume_players replays them at the end of the dictation."
+    },
+    {
+      "id": "output",
+      "label": "output",
+      "layer": "io",
+      "kind": "module",
+      "file": "src/dicton/output.py",
+      "loc": 159,
+      "role": "Place text on the clipboard and synthesise the paste keystroke. Per-OS branches; on Linux uses Ctrl+Shift+V to survive zsh/tmux/vim."
+    },
+    {
+      "id": "visualizer",
+      "label": "visualizer",
+      "layer": "io",
+      "kind": "module",
+      "file": "src/dicton/visualizer.py",
+      "loc": 465,
+      "role": "Pygame donut on the main thread. FFT-driven wave around a Flexoki-orange ring; pulsing concentric ring during processing. Hidden via XShape mask (never show/hide window — would steal focus). Sticky across i3 workspaces.",
+      "color": "accent"
+    }
+  ],
+  "edges": [
+    {
+      "from": "user",
+      "to": "os_kbd",
+      "kind": "hardware",
+      "label": "hotkey"
+    },
+    {
+      "from": "user",
+      "to": "os_mic",
+      "kind": "hardware",
+      "label": "voice"
+    },
+    {
+      "from": "__main__",
+      "to": "cli",
+      "kind": "import"
+    },
+    {
+      "from": "cli",
+      "to": "wizard",
+      "kind": "invokes",
+      "label": "first-launch or `dicton wizard`"
+    },
+    {
+      "from": "cli",
+      "to": "config",
+      "kind": "invokes",
+      "label": "load · save · re-pick model"
+    },
+    {
+      "from": "cli",
+      "to": "stats",
+      "kind": "invokes",
+      "label": "`dicton stats`"
+    },
+    {
+      "from": "cli",
+      "to": "runtime",
+      "kind": "invokes",
+      "label": "foreground daemon"
+    },
+    {
+      "from": "cli",
+      "to": "os_autostart",
+      "kind": "invokes",
+      "label": "systemctl restart"
+    },
+    {
+      "from": "wizard",
+      "to": "stt",
+      "kind": "invokes",
+      "label": "prewarm · transcribe"
+    },
+    {
+      "from": "wizard",
+      "to": "cleanup",
+      "kind": "invokes",
+      "label": "4-model self-test"
+    },
+    {
+      "from": "wizard",
+      "to": "platform",
+      "kind": "invokes",
+      "label": "enable_autostart"
+    },
+    {
+      "from": "wizard",
+      "to": "os_mic",
+      "kind": "io",
+      "label": "record 3 s"
+    },
+    {
+      "from": "wizard",
+      "to": "config",
+      "kind": "invokes",
+      "label": "build & save Config"
+    },
+    {
+      "from": "platform",
+      "to": "os_autostart",
+      "kind": "io"
+    },
+    {
+      "from": "runtime",
+      "to": "singleton",
+      "kind": "invokes",
+      "label": "acquire lock"
+    },
+    {
+      "from": "runtime",
+      "to": "visualizer",
+      "kind": "owns",
+      "label": "main-thread run()"
+    },
+    {
+      "from": "runtime",
+      "to": "pipeline",
+      "kind": "owns",
+      "label": "start / stop"
+    },
+    {
+      "from": "singleton",
+      "to": "fs_lock",
+      "kind": "io"
+    },
+    {
+      "from": "pipeline",
+      "to": "fn_key",
+      "kind": "owns",
+      "label": "FnKeyListener (Linux)"
+    },
+    {
+      "from": "pipeline",
+      "to": "chunker",
+      "kind": "owns"
+    },
+    {
+      "from": "pipeline",
+      "to": "stt",
+      "kind": "invokes",
+      "label": "prewarm · transcribe"
+    },
+    {
+      "from": "pipeline",
+      "to": "cleanup",
+      "kind": "invokes",
+      "label": "single call on joined transcript"
+    },
+    {
+      "from": "pipeline",
+      "to": "audio_session",
+      "kind": "invokes",
+      "label": "pause · resume"
+    },
+    {
+      "from": "pipeline",
+      "to": "output",
+      "kind": "invokes",
+      "label": "paste(cleaned)"
+    },
+    {
+      "from": "pipeline",
+      "to": "stats",
+      "kind": "invokes",
+      "label": "record() per dictation"
+    },
+    {
+      "from": "pipeline",
+      "to": "visualizer",
+      "kind": "callback",
+      "label": "set_state · push_frame"
+    },
+    {
+      "from": "pipeline",
+      "to": "config",
+      "kind": "reads",
+      "label": "Config dataclass"
+    },
+    {
+      "from": "pipeline",
+      "to": "os_kbd",
+      "kind": "io",
+      "label": "pynput Listener"
+    },
+    {
+      "from": "pipeline",
+      "to": "os_mic",
+      "kind": "io",
+      "label": "sd.InputStream"
+    },
+    {
+      "from": "fn_key",
+      "to": "os_kbd",
+      "kind": "io",
+      "label": "evdev raw events"
+    },
+    {
+      "from": "chunker",
+      "to": "stt",
+      "kind": "callback",
+      "label": "_on_chunk_ready → wav bytes"
+    },
+    {
+      "from": "stt",
+      "to": "groq",
+      "kind": "http",
+      "label": "POST /audio/transcriptions"
+    },
+    {
+      "from": "cleanup",
+      "to": "groq",
+      "kind": "http",
+      "label": "POST /chat/completions"
+    },
+    {
+      "from": "audio_session",
+      "to": "os_mpris",
+      "kind": "io",
+      "label": "playerctl pause/play"
+    },
+    {
+      "from": "output",
+      "to": "os_paste",
+      "kind": "io",
+      "label": "clipboard + Ctrl+Shift+V"
+    },
+    {
+      "from": "config",
+      "to": "fs_config",
+      "kind": "io",
+      "label": "TOML read/write (chmod 600)"
+    },
+    {
+      "from": "stats",
+      "to": "fs_stats",
+      "kind": "io",
+      "label": "append JSONL"
+    }
+  ],
+  "events": [
+    {
+      "phase": "IDLE",
+      "step": 1,
+      "title": "Daemon up",
+      "where": "runtime.run → pipeline.start",
+      "detail": "singleton lock acquired, asyncio loop runs on a background thread, httpx.AsyncClient(http2=True) opened, pynput Listener + FnKeyListener armed, visualizer mapped invisibly via XShape.",
+      "nodes": [
+        "runtime",
+        "singleton",
+        "pipeline",
+        "visualizer"
+      ]
+    },
+    {
+      "phase": "IDLE → RECORDING",
+      "step": 2,
+      "title": "Hotkey press",
+      "where": "pipeline._toggle / _on_fn_press → _advance(can_start=True)",
+      "detail": "F2 (any platform) or Fn double-tap (Linux via evdev, macOS via pynput). State lock flips IDLE→RECORDING and schedules _begin on the loop.",
+      "nodes": [
+        "user",
+        "os_kbd",
+        "fn_key",
+        "pipeline"
+      ]
+    },
+    {
+      "phase": "RECORDING",
+      "step": 3,
+      "title": "Session opens",
+      "where": "pipeline._begin",
+      "detail": "Chunker reset · audio_session.pause_active_players (MPRIS) · stt.prewarm(client) warms TLS+HTTP/2 to Groq · sd.InputStream(50 ms blocks) starts · visualizer.set_state(\"recording\") swaps the XShape to the donut.",
+      "nodes": [
+        "pipeline",
+        "chunker",
+        "audio_session",
+        "os_mpris",
+        "stt",
+        "groq",
+        "os_mic",
+        "visualizer"
+      ]
+    },
+    {
+      "phase": "RECORDING",
+      "step": 4,
+      "title": "Audio in flight",
+      "where": "_audio_cb → loop.call_soon_threadsafe(chunker.feed)",
+      "detail": "Each 50 ms PCM block: push to viz queue (FFT donut) and feed the chunker. Chunker tracks RMS dBFS; when min_chunk_s elapsed and silence_window_s of silence seen → emit a chunk (with overlap_s overlap into the next). Max cap: max_chunk_s.",
+      "nodes": [
+        "os_mic",
+        "pipeline",
+        "chunker",
+        "visualizer"
+      ]
+    },
+    {
+      "phase": "RECORDING",
+      "step": 5,
+      "title": "Chunks fly to Groq",
+      "where": "chunker._emit → pipeline._on_chunk_ready → stt.transcribe",
+      "detail": "Each emitted chunk spawns an asyncio task on the shared httpx client (HTTP/2 multiplexed). Tasks are stored by chunk_id so order is preserved on join.",
+      "nodes": [
+        "chunker",
+        "pipeline",
+        "stt",
+        "groq"
+      ]
+    },
+    {
+      "phase": "RECORDING → PROCESSING",
+      "step": 6,
+      "title": "Hotkey press again",
+      "where": "pipeline._advance → state=PROCESSING → _end",
+      "detail": "InputStream stopped + closed. chunker.flush() emits the tail before _session is cleared. visualizer.set_state(\"processing\") swaps the donut for the pulsing ring.",
+      "nodes": [
+        "user",
+        "os_kbd",
+        "pipeline",
+        "chunker",
+        "visualizer"
+      ]
+    },
+    {
+      "phase": "PROCESSING",
+      "step": 7,
+      "title": "Join transcripts",
+      "where": "pipeline._end · ordered_ids = sorted(session.chunks)",
+      "detail": "await each STT task in chunk order; concatenate with spaces. Failed chunks are logged and skipped — the dictation doesn't fail because one chunk timed out.",
+      "nodes": [
+        "pipeline",
+        "stt",
+        "groq"
+      ]
+    },
+    {
+      "phase": "PROCESSING",
+      "step": 8,
+      "title": "Cleanup pass",
+      "where": "cleanup.cleanup(client, joined, model=cfg.cleanup_model)",
+      "detail": "Single chat completion with the locked French prompt (config.DEFAULT_PROMPT). Falls back to the raw transcript on any error.",
+      "nodes": [
+        "pipeline",
+        "cleanup",
+        "groq"
+      ]
+    },
+    {
+      "phase": "PROCESSING",
+      "step": 9,
+      "title": "Paste",
+      "where": "asyncio.to_thread(paste, cleaned)",
+      "detail": "Place text on clipboard (wl-copy / xclip / pbcopy / SetClipboardData) then synthesise Ctrl+Shift+V (Linux) / Cmd+V (macOS) / Ctrl+V (Windows). 20 ms sleep before the keystroke lets the focused app see the new clipboard.",
+      "nodes": [
+        "pipeline",
+        "output",
+        "os_paste"
+      ]
+    },
+    {
+      "phase": "PROCESSING",
+      "step": 10,
+      "title": "Persist + resume",
+      "where": "stats.record · audio_session.resume_players",
+      "detail": "Append one JSONL line with recording_ms / process_ms / stt_ms / cleanup_ms / chunks. Resume every MPRIS player paused at step 3.",
+      "nodes": [
+        "stats",
+        "fs_stats",
+        "audio_session",
+        "os_mpris"
+      ]
+    },
+    {
+      "phase": "PROCESSING → IDLE",
+      "step": 11,
+      "title": "Back to idle",
+      "where": "visualizer.set_state(\"idle\") · state_lock: state=IDLE",
+      "detail": "Donut disappears via XShape (window never re-mapped → no focus theft). Log line `dictation: N chars · recording=Ams · process=Bms (stt=Cms cleanup=Dms) · chunks=K`.",
+      "nodes": [
+        "pipeline",
+        "visualizer"
+      ]
+    }
+  ],
+  "invariants": [
+    "pipeline.py is the only module that owns runtime lifecycle. Domain logic that grows there must be extracted to a sibling — 500 LOC cap enforced by scripts/check.sh lint.",
+    "One httpx.AsyncClient (http2=True) is shared by stt.py and cleanup.py — same TLS handshake, same multiplexed connection. Do not open a second client.",
+    "State transitions go through pipeline._advance(can_start: bool) under self._state_lock. Never mutate self._state directly.",
+    "The donut window is never show()/hide()'d — visibility is driven by the XShape mask so the visualizer never steals input focus.",
+    "audio_session.resume_players() must run on both the happy path (pipeline._end) and the shutdown path (pipeline.stop) — otherwise the user's music stays paused after a crash.",
+    "cleanup.cleanup() must fall back to the raw transcript on any exception. A cleanup error never costs the user their dictation."
+  ],
+  "external_contracts": {
+    "groq_endpoints": [
+      "GET  https://api.groq.com/openai/v1/models   (prewarm + wizard)",
+      "POST https://api.groq.com/openai/v1/audio/transcriptions  (stt.transcribe)",
+      "POST https://api.groq.com/openai/v1/chat/completions      (cleanup.cleanup)"
+    ],
+    "config_path": "$XDG_CONFIG_HOME/dicton/config.toml (chmod 600)",
+    "stats_path": "$XDG_CONFIG_HOME/dicton/stats.jsonl",
+    "lock_path": "$XDG_RUNTIME_DIR/dicton/dicton.lock",
+    "systemd_unit": "~/.config/systemd/user/dicton.service",
+    "launchd_plist": "~/Library/LaunchAgents/cat.dicton.plist",
+    "windows_run": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\\dicton"
+  },
+  "tuning_knobs": {
+    "chunker": {
+      "min_chunk_s": 6.0,
+      "max_chunk_s": 20.0,
+      "overlap_s": 0.4,
+      "silence_threshold_dbfs": -40.0,
+      "silence_window_s": 0.35,
+      "rationale": "Empirically tuned in refonte-v2. Below 6 s the silence cut is too eager; above 20 s a single chunk blocks the join."
+    },
+    "fn_key": {
+      "DOUBLE_TAP_WINDOW_S": 0.3,
+      "FN_KEYCODES": [
+        143,
+        464,
+        465,
+        466
+      ]
+    },
+    "audio": {
+      "sample_rate_hz": 16000,
+      "blocksize_s": 0.05,
+      "dtype": "int16"
+    }
+  },
+  "module_apis": {
+    "__main__": {
+      "file": "src/dicton/__main__.py",
+      "doc": null,
+      "constants": [],
+      "classes": [],
+      "functions": [
+        {
+          "name": "main",
+          "kind": "def",
+          "signature": "() -> None",
+          "doc": null,
+          "visibility": "public"
+        }
+      ]
+    },
+    "audio_session": {
+      "file": "src/dicton/audio_session.py",
+      "doc": "Pause/resume MPRIS-aware players while a dictation is recording.",
+      "constants": [],
+      "classes": [],
+      "functions": [
+        {
+          "name": "pause_active_players",
+          "kind": "def",
+          "signature": "() -> list[str]",
+          "doc": "Pause every MPRIS player currently ``Playing``. Returns the names so",
+          "visibility": "public"
+        },
+        {
+          "name": "resume_players",
+          "kind": "def",
+          "signature": "(paused: list[str]) -> None",
+          "doc": "Resume each previously-paused player. Best-effort — a player that",
+          "visibility": "public"
+        },
+        {
+          "name": "_run",
+          "kind": "def",
+          "signature": "(args: list[str]) -> subprocess.CompletedProcess[str] | None",
+          "doc": null,
+          "visibility": "private"
+        }
+      ]
+    },
+    "chunker": {
+      "file": "src/dicton/chunker.py",
+      "doc": "Silence-based audio chunker — emits chunks while recording is in progress.",
+      "constants": [],
+      "classes": [
+        {
+          "name": "ChunkParams",
+          "bases": [],
+          "doc": null,
+          "methods": []
+        },
+        {
+          "name": "Chunker",
+          "bases": [],
+          "doc": "Maintains a rolling int16 PCM buffer and cuts at silence boundaries.",
+          "methods": [
+            {
+              "name": "__init__",
+              "kind": "def",
+              "signature": "(params: ChunkParams, on_chunk: EmitFn) -> None",
+              "doc": null,
+              "visibility": "public"
+            },
+            {
+              "name": "chunks_emitted",
+              "kind": "def",
+              "signature": "() -> int",
+              "doc": null,
+              "visibility": "public"
+            },
+            {
+              "name": "reset",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "public"
+            },
+            {
+              "name": "feed",
+              "kind": "def",
+              "signature": "(frame: np.ndarray) -> None",
+              "doc": "Append a frame of int16 mono samples and possibly emit a chunk.",
+              "visibility": "public"
+            },
+            {
+              "name": "flush",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": "Emit whatever audio is left as a final chunk.",
+              "visibility": "public"
+            },
+            {
+              "name": "_emit",
+              "kind": "def",
+              "signature": "(cut: int) -> None",
+              "doc": null,
+              "visibility": "private"
+            }
+          ]
+        }
+      ],
+      "functions": [
+        {
+          "name": "_rms_dbfs",
+          "kind": "def",
+          "signature": "(samples: np.ndarray) -> float",
+          "doc": null,
+          "visibility": "private"
+        }
+      ]
+    },
+    "cleanup": {
+      "file": "src/dicton/cleanup.py",
+      "doc": "Groq LLM cleanup pass — single call on the joined transcript.",
+      "constants": [],
+      "classes": [],
+      "functions": [
+        {
+          "name": "cleanup",
+          "kind": "async",
+          "signature": "(client: httpx.AsyncClient, text: str, *, api_key: str, model: str, timeout: float = 30.0, prompt: str = DEFAULT_PROMPT) -> str",
+          "doc": "Send the raw transcript to Groq Chat and return the cleaned string.",
+          "visibility": "public"
+        },
+        {
+          "name": "_strip_wrapping_quotes",
+          "kind": "def",
+          "signature": "(s: str) -> str",
+          "doc": null,
+          "visibility": "private"
+        }
+      ]
+    },
+    "cli": {
+      "file": "src/dicton/cli.py",
+      "doc": "dicton CLI — five commands via typer.",
+      "constants": [],
+      "classes": [],
+      "functions": [
+        {
+          "name": "_entry",
+          "kind": "def",
+          "signature": "(ctx: typer.Context, version: bool = typer.Option(False, '--version', '-V', help='Show version and exit.'), foreground: bool = typer.Option(False, '--foreground', help='Run inline (block the terminal) instead of via systemd.')) -> None",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "run",
+          "kind": "def",
+          "signature": "() -> None",
+          "doc": "Run the dictation daemon in foreground (legacy; prefer bare `dicton`).",
+          "visibility": "public"
+        },
+        {
+          "name": "wizard_cmd",
+          "kind": "def",
+          "signature": "(foreground: bool = typer.Option(False, '--foreground', help='Run inline instead of via systemd after the wizard.')) -> None",
+          "doc": "Re-run the first-launch wizard, then start the daemon.",
+          "visibility": "public"
+        },
+        {
+          "name": "config_cmd",
+          "kind": "def",
+          "signature": "() -> None",
+          "doc": "Re-pick the cleanup model and write to the TOML.",
+          "visibility": "public"
+        },
+        {
+          "name": "stats_cmd",
+          "kind": "def",
+          "signature": "() -> None",
+          "doc": "Show lifetime usage summary.",
+          "visibility": "public"
+        },
+        {
+          "name": "update_cmd",
+          "kind": "def",
+          "signature": "(source: str | None = typer.Argument(None, help='Local path (development install). Omit to upgrade from PyPI.'), no_restart: bool = typer.Option(False, '--no-restart', help='Skip restarting the systemd unit after install.')) -> None",
+          "doc": "Reinstall dicton, then restart the daemon to pick up the new code.",
+          "visibility": "public"
+        },
+        {
+          "name": "_smart_start",
+          "kind": "def",
+          "signature": "(*, foreground: bool) -> None",
+          "doc": "Run wizard if no config, then start the daemon via systemd (default) or inline.",
+          "visibility": "private"
+        },
+        {
+          "name": "_start_after_config",
+          "kind": "def",
+          "signature": "(cfg, *, foreground: bool) -> None",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_systemd_unit_active",
+          "kind": "def",
+          "signature": "() -> bool",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_restart_systemd_unit",
+          "kind": "def",
+          "signature": "() -> bool",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_which",
+          "kind": "def",
+          "signature": "(name: str) -> str | None",
+          "doc": null,
+          "visibility": "private"
+        }
+      ]
+    },
+    "config": {
+      "file": "src/dicton/config.py",
+      "doc": "TOML configuration at the XDG config path.",
+      "constants": [
+        {
+          "name": "CONFIG_DIR",
+          "value": "Path(user_config_dir('dicton'))"
+        },
+        {
+          "name": "CONFIG_PATH",
+          "value": "CONFIG_DIR / 'config.toml'"
+        },
+        {
+          "name": "STATS_PATH",
+          "value": "CONFIG_DIR / 'stats.jsonl'"
+        },
+        {
+          "name": "CLEANUP_MODELS",
+          "value": "('openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile', 'lla..."
+        },
+        {
+          "name": "DEFAULT_PROMPT",
+          "value": "\"Tu es un nettoyeur de transcription française. Ton SEUL et UNIQUE rôle est d..."
+        }
+      ],
+      "classes": [
+        {
+          "name": "ChunkParams",
+          "bases": [],
+          "doc": null,
+          "methods": []
+        },
+        {
+          "name": "Config",
+          "bases": [],
+          "doc": null,
+          "methods": [
+            {
+              "name": "save",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "public"
+            }
+          ]
+        }
+      ],
+      "functions": [
+        {
+          "name": "load",
+          "kind": "def",
+          "signature": "() -> Config",
+          "doc": null,
+          "visibility": "public"
+        },
+        {
+          "name": "exists",
+          "kind": "def",
+          "signature": "() -> bool",
+          "doc": null,
+          "visibility": "public"
+        },
+        {
+          "name": "_to_toml",
+          "kind": "def",
+          "signature": "(cfg: Config) -> str",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_fmt",
+          "kind": "def",
+          "signature": "(value: object) -> str",
+          "doc": null,
+          "visibility": "private"
+        }
+      ]
+    },
+    "fn_key": {
+      "file": "src/dicton/fn_key.py",
+      "doc": "Linux Fn-key listener via evdev — optional, Linux-only.",
+      "constants": [
+        {
+          "name": "FN_KEYCODES",
+          "value": "{143, 464, 465, 466}"
+        },
+        {
+          "name": "DOUBLE_TAP_WINDOW_S",
+          "value": "0.3"
+        }
+      ],
+      "classes": [
+        {
+          "name": "FnKeyListener",
+          "bases": [],
+          "doc": "Background thread that emits an `on_press(is_double_tap)` event per Fn",
+          "methods": [
+            {
+              "name": "__init__",
+              "kind": "def",
+              "signature": "(on_press: Callable[[bool], None]) -> None",
+              "doc": null,
+              "visibility": "public"
+            },
+            {
+              "name": "start",
+              "kind": "def",
+              "signature": "() -> bool",
+              "doc": null,
+              "visibility": "public"
+            },
+            {
+              "name": "stop",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "public"
+            },
+            {
+              "name": "_handle_key_down",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "private"
+            },
+            {
+              "name": "_handle_key_up",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "private"
+            },
+            {
+              "name": "_run",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "private"
+            }
+          ]
+        }
+      ],
+      "functions": []
+    },
+    "output": {
+      "file": "src/dicton/output.py",
+      "doc": "Cross-platform clipboard + paste.",
+      "constants": [],
+      "classes": [],
+      "functions": [
+        {
+          "name": "paste",
+          "kind": "def",
+          "signature": "(text: str) -> None",
+          "doc": "Place text on the clipboard and synthesise the paste keystroke.",
+          "visibility": "public"
+        },
+        {
+          "name": "_paste_linux",
+          "kind": "def",
+          "signature": "(text: str) -> None",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_send_keys_linux",
+          "kind": "def",
+          "signature": "() -> None",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_log_active_window",
+          "kind": "def",
+          "signature": "(label: str) -> None",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_paste_darwin",
+          "kind": "def",
+          "signature": "(text: str) -> None",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_paste_windows",
+          "kind": "def",
+          "signature": "(text: str) -> None",
+          "doc": null,
+          "visibility": "private"
+        }
+      ]
+    },
+    "pipeline": {
+      "file": "src/dicton/pipeline.py",
+      "doc": "Pipeline orchestrator — the only file that owns the full lifecycle.",
+      "constants": [],
+      "classes": [
+        {
+          "name": "State",
+          "bases": [
+            "Enum"
+          ],
+          "doc": null,
+          "methods": []
+        },
+        {
+          "name": "_Session",
+          "bases": [],
+          "doc": null,
+          "methods": []
+        },
+        {
+          "name": "Pipeline",
+          "bases": [],
+          "doc": "Wires hotkey + audio + chunker + Groq HTTP + paste. Long-lived.",
+          "methods": [
+            {
+              "name": "__init__",
+              "kind": "def",
+              "signature": "(cfg: Config, *, viz: Visualizer | None = None) -> None",
+              "doc": null,
+              "visibility": "public"
+            },
+            {
+              "name": "_chunk_params",
+              "kind": "def",
+              "signature": "() -> ChunkParams",
+              "doc": null,
+              "visibility": "private"
+            },
+            {
+              "name": "start",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "public"
+            },
+            {
+              "name": "stop",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "public"
+            },
+            {
+              "name": "_run_loop",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "private"
+            },
+            {
+              "name": "_start_hotkeys",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "private"
+            },
+            {
+              "name": "_toggle",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "private"
+            },
+            {
+              "name": "_on_fn_press",
+              "kind": "def",
+              "signature": "(is_double_tap: bool) -> None",
+              "doc": null,
+              "visibility": "private"
+            },
+            {
+              "name": "_advance",
+              "kind": "def",
+              "signature": "(*, can_start: bool) -> None",
+              "doc": null,
+              "visibility": "private"
+            },
+            {
+              "name": "_begin",
+              "kind": "async",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "private"
+            },
+            {
+              "name": "_audio_cb",
+              "kind": "def",
+              "signature": "(indata: np.ndarray, frames: int, time_info, status) -> None",
+              "doc": null,
+              "visibility": "private"
+            },
+            {
+              "name": "_on_chunk_ready",
+              "kind": "def",
+              "signature": "(chunk_id: int, wav: bytes) -> None",
+              "doc": null,
+              "visibility": "private"
+            },
+            {
+              "name": "_end",
+              "kind": "async",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "private"
+            }
+          ]
+        }
+      ],
+      "functions": [
+        {
+          "name": "_parse_key",
+          "kind": "def",
+          "signature": "(name: str) -> object | None",
+          "doc": "Map a config string ('f2', 'ctrl', 'space') to a pynput key.",
+          "visibility": "private"
+        },
+        {
+          "name": "_normalize",
+          "kind": "def",
+          "signature": "(key: object) -> object",
+          "doc": null,
+          "visibility": "private"
+        }
+      ]
+    },
+    "platform": {
+      "file": "src/dicton/platform.py",
+      "doc": "Cross-platform autostart toggle.",
+      "constants": [
+        {
+          "name": "SYSTEMD_UNIT",
+          "value": "'[Unit]\\nDescription=dicton voice dictation\\n\\n[Service]\\nType=simple\\nExecSt..."
+        },
+        {
+          "name": "LAUNCHD_PLIST",
+          "value": "'<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\n<!DOCTYPE plist PUBLIC \"-//Apple//DT..."
+        }
+      ],
+      "classes": [],
+      "functions": [
+        {
+          "name": "_exec_path",
+          "kind": "def",
+          "signature": "() -> str",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "enable_autostart",
+          "kind": "def",
+          "signature": "() -> bool",
+          "doc": null,
+          "visibility": "public"
+        },
+        {
+          "name": "disable_autostart",
+          "kind": "def",
+          "signature": "() -> bool",
+          "doc": null,
+          "visibility": "public"
+        },
+        {
+          "name": "_enable_systemd",
+          "kind": "def",
+          "signature": "() -> bool",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_disable_systemd",
+          "kind": "def",
+          "signature": "() -> bool",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_enable_launchd",
+          "kind": "def",
+          "signature": "() -> bool",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_disable_launchd",
+          "kind": "def",
+          "signature": "() -> bool",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_enable_windows",
+          "kind": "def",
+          "signature": "() -> bool",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_disable_windows",
+          "kind": "def",
+          "signature": "() -> bool",
+          "doc": null,
+          "visibility": "private"
+        }
+      ]
+    },
+    "runtime": {
+      "file": "src/dicton/runtime.py",
+      "doc": "Daemon entrypoint — singleton lock + Pipeline + main-thread pygame loop.",
+      "constants": [],
+      "classes": [],
+      "functions": [
+        {
+          "name": "run",
+          "kind": "def",
+          "signature": "(cfg: Config) -> None",
+          "doc": "Blocking entrypoint. Acquires the singleton lock, starts the pipeline,",
+          "visibility": "public"
+        }
+      ]
+    },
+    "singleton": {
+      "file": "src/dicton/singleton.py",
+      "doc": "Single-instance file-lock to prevent two daemons paste-racing each other.",
+      "constants": [],
+      "classes": [],
+      "functions": [
+        {
+          "name": "acquire",
+          "kind": "def",
+          "signature": "() -> IO[str] | None",
+          "doc": "Try to acquire the exclusive lock. Returns the held file handle, or None",
+          "visibility": "public"
+        },
+        {
+          "name": "_acquire_posix",
+          "kind": "def",
+          "signature": "() -> IO[str] | None",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_acquire_win",
+          "kind": "def",
+          "signature": "() -> IO[str] | None",
+          "doc": null,
+          "visibility": "private"
+        }
+      ]
+    },
+    "stats": {
+      "file": "src/dicton/stats.py",
+      "doc": "Local JSONL stats — append per-dictation, summarise on demand.",
+      "constants": [
+        {
+          "name": "TYPING_CPM",
+          "value": "210.0"
+        }
+      ],
+      "classes": [
+        {
+          "name": "Dictation",
+          "bases": [],
+          "doc": null,
+          "methods": []
+        },
+        {
+          "name": "Summary",
+          "bases": [],
+          "doc": null,
+          "methods": []
+        }
+      ],
+      "functions": [
+        {
+          "name": "record",
+          "kind": "def",
+          "signature": "(d: Dictation, path: Path = STATS_PATH) -> None",
+          "doc": null,
+          "visibility": "public"
+        },
+        {
+          "name": "now_iso",
+          "kind": "def",
+          "signature": "() -> str",
+          "doc": null,
+          "visibility": "public"
+        },
+        {
+          "name": "summarise",
+          "kind": "def",
+          "signature": "(path: Path = STATS_PATH) -> Summary",
+          "doc": null,
+          "visibility": "public"
+        }
+      ]
+    },
+    "stt": {
+      "file": "src/dicton/stt.py",
+      "doc": "Groq Whisper STT via direct httpx call.",
+      "constants": [
+        {
+          "name": "GROQ_BASE",
+          "value": "'https://api.groq.com/openai/v1'"
+        }
+      ],
+      "classes": [],
+      "functions": [
+        {
+          "name": "pcm16_to_wav",
+          "kind": "def",
+          "signature": "(pcm: np.ndarray, sample_rate: int) -> bytes",
+          "doc": "Encode mono int16 PCM samples as a WAV byte string.",
+          "visibility": "public"
+        },
+        {
+          "name": "transcribe",
+          "kind": "async",
+          "signature": "(client: httpx.AsyncClient, wav_bytes: bytes, *, api_key: str, model: str = 'whisper-large-v3-turbo', language: str = 'fr', timeout: float = 30.0) -> str",
+          "doc": "POST audio to Groq Whisper and return the raw transcript.",
+          "visibility": "public"
+        },
+        {
+          "name": "prewarm",
+          "kind": "async",
+          "signature": "(client: httpx.AsyncClient, *, api_key: str) -> None",
+          "doc": "Warm the TLS + HTTP/2 connection to api.groq.com with a cheap GET.",
+          "visibility": "public"
+        }
+      ]
+    },
+    "visualizer": {
+      "file": "src/dicton/visualizer.py",
+      "doc": "Circular donut audio visualizer — pygame on the main thread.",
+      "constants": [
+        {
+          "name": "SIZE",
+          "value": "160"
+        },
+        {
+          "name": "WAVE_POINTS",
+          "value": "90"
+        },
+        {
+          "name": "TRANSPARENT_COLORKEY",
+          "value": "(255, 0, 255)"
+        },
+        {
+          "name": "COLOR_MAIN",
+          "value": "(188, 82, 21)"
+        },
+        {
+          "name": "COLOR_MID",
+          "value": "(150, 65, 17)"
+        },
+        {
+          "name": "COLOR_DIM",
+          "value": "(95, 42, 11)"
+        },
+        {
+          "name": "COLOR_GLOW",
+          "value": "(218, 112, 44)"
+        },
+        {
+          "name": "DEFAULT_GAIN",
+          "value": "0.7"
+        },
+        {
+          "name": "MIN_GAIN",
+          "value": "0.3"
+        },
+        {
+          "name": "MAX_GAIN",
+          "value": "1.5"
+        },
+        {
+          "name": "GAIN_ATTACK",
+          "value": "0.02"
+        },
+        {
+          "name": "GAIN_RELEASE",
+          "value": "0.005"
+        },
+        {
+          "name": "PEAK_HOLD_FRAMES",
+          "value": "30"
+        },
+        {
+          "name": "RMS_NORMALIZATION",
+          "value": "32768"
+        },
+        {
+          "name": "IS_LINUX",
+          "value": "sys.platform.startswith('linux')"
+        },
+        {
+          "name": "IS_WINDOWS",
+          "value": "sys.platform.startswith('win')"
+        },
+        {
+          "name": "IS_X11",
+          "value": "IS_LINUX and bool(os.environ.get('DISPLAY'))"
+        }
+      ],
+      "classes": [
+        {
+          "name": "Visualizer",
+          "bases": [],
+          "doc": "Same draw code as main; hide/show driven by state.",
+          "methods": [
+            {
+              "name": "__init__",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "public"
+            },
+            {
+              "name": "push_frame",
+              "kind": "def",
+              "signature": "(frame: np.ndarray) -> None",
+              "doc": null,
+              "visibility": "public"
+            },
+            {
+              "name": "set_state",
+              "kind": "def",
+              "signature": "(state: str) -> None",
+              "doc": null,
+              "visibility": "public"
+            },
+            {
+              "name": "stop",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "public"
+            },
+            {
+              "name": "run",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "public"
+            },
+            {
+              "name": "_sdl_window",
+              "kind": "def",
+              "signature": "(pygame)",
+              "doc": null,
+              "visibility": "private"
+            },
+            {
+              "name": "_set_sdl_opacity",
+              "kind": "def",
+              "signature": "(pygame, opacity: float) -> None",
+              "doc": "Per-window opacity via SDL (requires a running compositor; picom on i3).",
+              "visibility": "private"
+            },
+            {
+              "name": "_drain_frames",
+              "kind": "def",
+              "signature": "() -> None",
+              "doc": null,
+              "visibility": "private"
+            },
+            {
+              "name": "_draw",
+              "kind": "def",
+              "signature": "(pygame, screen) -> None",
+              "doc": null,
+              "visibility": "private"
+            },
+            {
+              "name": "_set_x11_floating_hint",
+              "kind": "def",
+              "signature": "(pygame) -> None",
+              "doc": "Mark as UTILITY (auto-float on i3), tell the WM we don't want",
+              "visibility": "private"
+            },
+            {
+              "name": "_init_x11_shape",
+              "kind": "def",
+              "signature": "(pygame) -> None",
+              "doc": "Open a long-lived X11 connection so we can toggle the shape mask",
+              "visibility": "private"
+            },
+            {
+              "name": "_apply_shape",
+              "kind": "def",
+              "signature": "(*, visible: bool) -> None",
+              "doc": "Visible (state transition only): permissive circle so the donut can",
+              "visibility": "private"
+            },
+            {
+              "name": "_set_donut_shape",
+              "kind": "def",
+              "signature": "(outer_pts: list[tuple[float, float]], inner_pts: list[tuple[float, float]]) -> None",
+              "doc": "Per-frame XShape: clip everything except the donut polygon, so the",
+              "visibility": "private"
+            },
+            {
+              "name": "_set_windows_colorkey_transparency",
+              "kind": "def",
+              "signature": "(pygame, screen) -> None",
+              "doc": null,
+              "visibility": "private"
+            }
+          ]
+        }
+      ],
+      "functions": [
+        {
+          "name": "_soft_compress",
+          "kind": "def",
+          "signature": "(value: float) -> float",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_dilate_radially",
+          "kind": "def",
+          "signature": "(pts: list[tuple[float, float]], cx: float, cy: float, margin: float) -> list[tuple[int, int]]",
+          "doc": "Push each polygon point ``margin`` pixels away from (cx, cy) along its",
+          "visibility": "private"
+        }
+      ]
+    },
+    "wizard": {
+      "file": "src/dicton/wizard.py",
+      "doc": "First-launch wizard — rich terminal, 5 steps, with 4-model self-test.",
+      "constants": [
+        {
+          "name": "TEST_PHRASE_HINT",
+          "value": "'le rapide renard brun saute par-dessus le chien paresseux'"
+        },
+        {
+          "name": "RECORD_SECONDS",
+          "value": "3.0"
+        }
+      ],
+      "classes": [],
+      "functions": [
+        {
+          "name": "run_wizard",
+          "kind": "def",
+          "signature": "(existing: Config | None) -> Config",
+          "doc": "Walk asi0 through the 5 wizard steps. Returns the resulting Config.",
+          "visibility": "public"
+        },
+        {
+          "name": "_step_system_check",
+          "kind": "def",
+          "signature": "() -> None",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_step_api_key",
+          "kind": "def",
+          "signature": "(current: str) -> str",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_step_hotkeys",
+          "kind": "def",
+          "signature": "(primary: str, secondary: str) -> tuple[str, str]",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_step_self_test",
+          "kind": "async",
+          "signature": "(cfg: Config) -> str",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_record_seconds",
+          "kind": "def",
+          "signature": "(seconds: float, sample_rate: int) -> np.ndarray",
+          "doc": null,
+          "visibility": "private"
+        },
+        {
+          "name": "_step_autostart",
+          "kind": "def",
+          "signature": "(current: bool) -> bool",
+          "doc": null,
+          "visibility": "private"
+        }
+      ]
+    }
+  }
+}

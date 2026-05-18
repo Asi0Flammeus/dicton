@@ -1,0 +1,983 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Glossaire utilisateur local — Recherche de design — dicton</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,50;1,9..144,400..700,50&family=Inter:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #ebe3d2;
+        --paper: #f3ecdd;
+        --ink: #2b2217;
+        --sub: #6b5d45;
+        --rule: #c9bea4;
+        --accent: #a14a28;
+        --accent-2: #3d5a3d;
+        --serif: "Fraunces", Georgia, "Times New Roman", serif;
+        --sans:
+          "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --mono:
+          "DM Mono", "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: var(--sans);
+        font-size: 16px;
+        line-height: 1.6;
+        color: var(--ink);
+        background-color: var(--bg);
+        background-image:
+          radial-gradient(
+            ellipse at top,
+            rgba(161, 74, 40, 0.06),
+            transparent 60%
+          ),
+          radial-gradient(
+            ellipse at bottom,
+            rgba(61, 90, 61, 0.04),
+            transparent 60%
+          ),
+          repeating-linear-gradient(
+            0deg,
+            rgba(43, 34, 23, 0.025) 0 1px,
+            transparent 1px 3px
+          );
+        background-attachment: fixed;
+        font-variation-settings: "SOFT" 50;
+      }
+
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 64px 32px 96px;
+      }
+
+      /* Header */
+      header.masthead {
+        border-bottom: 1px solid var(--rule);
+        padding-bottom: 32px;
+        margin-bottom: 56px;
+      }
+      .eyebrow {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--sub);
+        margin: 0 0 16px;
+      }
+      h1 {
+        font-family: var(--serif);
+        font-weight: 500;
+        font-size: clamp(2.4rem, 5.5vw, 3.8rem);
+        line-height: 1.05;
+        letter-spacing: -0.02em;
+        margin: 0 0 16px;
+        font-variation-settings:
+          "SOFT" 50,
+          "opsz" 144;
+        font-style: italic;
+      }
+      h1 .nonital {
+        font-style: normal;
+      }
+      .lead {
+        font-family: var(--serif);
+        font-size: clamp(1.05rem, 2vw, 1.25rem);
+        color: var(--sub);
+        max-width: 60ch;
+        font-style: italic;
+      }
+      .meta {
+        font-family: var(--mono);
+        font-size: 11.5px;
+        color: var(--sub);
+        margin-top: 20px;
+      }
+      .meta span + span::before {
+        content: " · ";
+        margin: 0 4px;
+      }
+
+      /* Sections */
+      section {
+        margin: 64px 0;
+      }
+      h2 {
+        font-family: var(--serif);
+        font-weight: 500;
+        font-size: clamp(1.6rem, 3.2vw, 2.2rem);
+        letter-spacing: -0.015em;
+        margin: 0 0 8px;
+        font-variation-settings:
+          "SOFT" 50,
+          "opsz" 144;
+        font-style: italic;
+      }
+      h2 .num {
+        font-family: var(--mono);
+        font-size: 0.55em;
+        font-style: normal;
+        color: var(--accent);
+        margin-right: 12px;
+        vertical-align: middle;
+        letter-spacing: 0.1em;
+      }
+      h3 {
+        font-family: var(--serif);
+        font-weight: 500;
+        font-size: 1.35rem;
+        margin: 0 0 4px;
+        letter-spacing: -0.01em;
+      }
+      .section-sub {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--sub);
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin: 0 0 32px;
+      }
+
+      p {
+        margin: 0 0 14px;
+      }
+      p + p {
+        margin-top: 0;
+      }
+
+      code,
+      .kbd {
+        font-family: var(--mono);
+        font-size: 0.88em;
+        background: rgba(43, 34, 23, 0.07);
+        padding: 1px 6px;
+        border-radius: 2px;
+        color: var(--ink);
+      }
+      .kbd {
+        border: 1px solid var(--rule);
+        background: var(--paper);
+        padding: 1px 5px;
+      }
+
+      /* Manifeste / pull quote */
+      .manifeste {
+        border-top: 1px dashed var(--rule);
+        border-bottom: 1px dashed var(--rule);
+        background: var(--paper);
+        padding: 28px 32px;
+        margin: 32px 0;
+        position: relative;
+      }
+      .manifeste__delim {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--accent);
+        display: block;
+      }
+      .manifeste__body {
+        font-family: var(--serif);
+        font-style: italic;
+        font-size: clamp(1.1rem, 2.2vw, 1.4rem);
+        line-height: 1.45;
+        color: var(--ink);
+        margin: 8px 0;
+      }
+      .manifeste__sig {
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--sub);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+
+      /* Corner card */
+      .corner-card {
+        position: relative;
+        border: 2px solid var(--ink);
+        background: var(--paper);
+        padding: 36px 32px 32px;
+        margin: 24px 0;
+      }
+      .corner-card::before,
+      .corner-card::after,
+      .corner-card > .cc-tr,
+      .corner-card > .cc-bl {
+        content: "";
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        pointer-events: none;
+      }
+      .corner-card::before {
+        top: -8px;
+        left: -8px;
+        background: var(--accent);
+      }
+      .corner-card::after {
+        bottom: -8px;
+        right: -8px;
+        background: var(--accent);
+      }
+      .corner-card > .cc-tr {
+        top: -8px;
+        right: -8px;
+        background: var(--accent-2);
+      }
+      .corner-card > .cc-bl {
+        bottom: -8px;
+        left: -8px;
+        background: var(--accent-2);
+      }
+
+      /* Proposal cards */
+      .proposals {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 36px;
+        margin-top: 32px;
+      }
+      @media (min-width: 880px) {
+        .proposals {
+          grid-template-columns: 1fr 1fr;
+          gap: 40px;
+        }
+      }
+      .prop__num {
+        font-family: var(--mono);
+        font-size: 11px;
+        letter-spacing: 0.18em;
+        color: var(--accent);
+        text-transform: uppercase;
+        margin: 0 0 8px;
+      }
+      .prop__tagline {
+        font-family: var(--serif);
+        font-style: italic;
+        font-size: 1rem;
+        color: var(--sub);
+        margin: 6px 0 20px;
+      }
+
+      .prop__row {
+        display: grid;
+        grid-template-columns: 100px 1fr;
+        gap: 12px;
+        padding: 10px 0;
+        border-top: 1px solid var(--rule);
+        align-items: baseline;
+      }
+      .prop__row:first-of-type {
+        border-top: 1px solid var(--ink);
+      }
+      .prop__row:last-of-type {
+        border-bottom: 1px solid var(--rule);
+      }
+      .prop__label {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        color: var(--sub);
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+      .prop__val {
+        font-size: 14.5px;
+        line-height: 1.5;
+      }
+      .prop__val ul {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .prop__val li {
+        margin: 2px 0;
+      }
+
+      .pros,
+      .cons {
+        padding: 0;
+        margin: 14px 0 0;
+        list-style: none;
+      }
+      .pros li,
+      .cons li {
+        padding: 4px 0 4px 22px;
+        position: relative;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+      .pros li::before {
+        content: "+";
+        position: absolute;
+        left: 4px;
+        color: var(--accent-2);
+        font-family: var(--mono);
+        font-weight: 500;
+      }
+      .cons li::before {
+        content: "−";
+        position: absolute;
+        left: 4px;
+        color: var(--accent);
+        font-family: var(--mono);
+        font-weight: 500;
+      }
+
+      /* Comparison matrix */
+      .matrix-wrap {
+        overflow-x: auto;
+        margin-top: 24px;
+      }
+      table.matrix {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        background: var(--paper);
+      }
+      table.matrix th,
+      table.matrix td {
+        padding: 14px 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--rule);
+        vertical-align: top;
+      }
+      table.matrix thead th {
+        font-family: var(--mono);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: var(--sub);
+        border-bottom: 1.5px solid var(--ink);
+        font-weight: 400;
+      }
+      table.matrix tbody td:first-child {
+        font-family: var(--serif);
+        font-style: italic;
+        font-weight: 500;
+        color: var(--ink);
+      }
+      table.matrix tbody tr:hover {
+        background: rgba(161, 74, 40, 0.04);
+      }
+
+      /* Score chips */
+      .score {
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 11px;
+        padding: 1px 7px;
+        border: 1px solid var(--rule);
+        border-radius: 2px;
+        background: var(--bg);
+      }
+      .score-1 {
+        color: var(--sub);
+        border-color: var(--sub);
+      }
+      .score-2 {
+        color: var(--sub);
+        border-color: var(--rule);
+      }
+      .score-3 {
+        color: var(--ink);
+        border-color: var(--ink);
+      }
+      .score-4 {
+        color: var(--accent-2);
+        border-color: var(--accent-2);
+      }
+      .score-5 {
+        color: var(--accent);
+        border-color: var(--accent);
+        background: rgba(161, 74, 40, 0.08);
+      }
+
+      /* Recommendation */
+      .reco {
+        background: var(--ink);
+        color: var(--paper);
+        padding: 40px 36px;
+        margin-top: 48px;
+        position: relative;
+      }
+      .reco h2 {
+        color: var(--paper);
+        font-style: italic;
+      }
+      .reco h2 .num {
+        color: #d4a07b;
+      }
+      .reco p {
+        color: #d4c6a8;
+      }
+      .reco strong {
+        color: var(--paper);
+        font-weight: 500;
+      }
+      .reco .pixel-deco {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        width: 14px;
+        height: 14px;
+        background: var(--accent);
+      }
+      .reco .pixel-deco-2 {
+        position: absolute;
+        bottom: -8px;
+        left: -8px;
+        width: 14px;
+        height: 14px;
+        background: var(--accent-2);
+      }
+      .reco ol {
+        padding-left: 22px;
+      }
+      .reco ol li {
+        margin: 8px 0;
+      }
+
+      /* Footer */
+      footer {
+        margin-top: 80px;
+        padding-top: 24px;
+        border-top: 1px solid var(--rule);
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--sub);
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      /* Inline path refs */
+      .path {
+        font-family: var(--mono);
+        font-size: 0.85em;
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="masthead">
+        <p class="eyebrow">Recherche de design · dicton</p>
+        <h1>
+          <span class="nonital">Glossaire</span> utilisateur local
+          <span class="nonital">&</span> intelligent
+        </h1>
+        <p class="lead">
+          Comment apprendre, une fois, qu'<em>alysis</em> s'écrit avec un
+          <em>y</em> — sans jamais avoir à le redire.
+        </p>
+        <p class="meta">
+          <span>2026-05-14</span>
+          <span>auteur · kaïros</span>
+          <span>pour · asi0</span>
+          <span>status · pré-décision</span>
+        </p>
+      </header>
+
+      <section>
+        <h2><span class="num">00</span>Contexte</h2>
+        <p class="section-sub">Le problème, en une dictée</p>
+        <p>
+          <strong>dicton</strong> est un pipeline de dictée sub-seconde en
+          français : capture audio → Groq Whisper
+          (<code>whisper-large-v3-turbo</code>) → cleanup LLM (Groq Chat) →
+          injection clavier. Aujourd'hui, aucun mécanisme ne permet à
+          l'utilisateur d'enseigner au système ses propres termes : noms propres
+          (<code>alysis</code>, <code>asi0</code>, <code>centaur-infra</code>),
+          jargon métier, abréviations idiosyncrasiques.
+        </p>
+        <p>
+          Quand Whisper transcrit <code>alisis</code> au lieu
+          d'<code>alysis</code>, l'utilisateur doit corriger à la main — à
+          chaque dictée. La friction est légère mais cumulative, et elle érode
+          la promesse « tape à la vitesse de la pensée ».
+        </p>
+
+        <div class="manifeste">
+          <span class="manifeste__delim">/*</span>
+          <p class="manifeste__body">
+            Corriger une fois. Que la faute ne réapparaisse plus. Que le système
+            se souvienne — localement, sans cloud, sans abonnement, sans rituel.
+          </p>
+          <span class="manifeste__delim">*/</span>
+          <p class="manifeste__sig">— cahier des charges, asi0</p>
+        </div>
+
+        <h3>Points d'insertion identifiés</h3>
+        <ul>
+          <li>
+            <strong>Pre-STT</strong> : <code>initial_prompt</code> de Whisper
+            (non exploité — <span class="path">stt.py:30-56</span>)
+          </li>
+          <li>
+            <strong>Pendant cleanup</strong> : prompt système Groq Chat (<span
+              class="path"
+              >cleanup.py:22</span
+            >, <span class="path">config.py:28-43</span>)
+          </li>
+          <li>
+            <strong>Post-cleanup</strong> : interception du texte retourné avant
+            clipboard (<span class="path">pipeline.py:254-261</span>)
+          </li>
+          <li>
+            <strong>Stockage</strong> : section TOML dans
+            <code>~/.config/dicton/config.toml</code> (<span class="path"
+              >config.py:17-18</span
+            >)
+          </li>
+        </ul>
+      </section>
+
+      <section>
+        <h2><span class="num">01</span>Quatre approches</h2>
+        <p class="section-sub">
+          Quatre mécanismes orthogonaux — pas quatre variations du même
+        </p>
+
+        <div class="proposals">
+          <!-- Approche 1 -->
+          <article class="corner-card">
+            <span class="cc-tr"></span><span class="cc-bl"></span>
+            <p class="prop__num">Approche 01 · KISS</p>
+            <h3>Substitution déterministe post-cleanup</h3>
+            <p class="prop__tagline">
+              Un dictionnaire plat, regex, à la toute fin du pipeline.
+            </p>
+
+            <div class="prop__row">
+              <div class="prop__label">Mécanisme</div>
+              <div class="prop__val">
+                Section <code>[glossary]</code> en TOML, dict
+                <code>{bad: good}</code>. Boucle de
+                <code
+                  >re.sub(r'\balisis\b', 'alysis', text, flags=IGNORECASE)</code
+                >
+                avec préservation de casse, appliquée juste avant injection
+                clavier.
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Stockage</div>
+              <div class="prop__val">
+                <code>~/.config/dicton/config.toml</code> · section
+                <code>[glossary]</code> · format clé-valeur.
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Input user</div>
+              <div class="prop__val">
+                CLI explicite : <code>dicton correct alisis alysis</code>.
+                Append-only, persisté immédiatement.
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Touche</div>
+              <div class="prop__val">
+                <code>config.py</code> (+section),
+                <code>pipeline.py:254</code> (+5 LOC),
+                <code>cli.py</code> (+commande). ~40 LOC total.
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Latence</div>
+              <div class="prop__val">0 ms perceptible.</div>
+            </div>
+
+            <ul class="pros">
+              <li>Déterministe, débogable, prévisible.</li>
+              <li>Zéro dépendance externe, zéro coût API supplémentaire.</li>
+              <li>Implémentable en une après-midi, testable trivialement.</li>
+            </ul>
+            <ul class="cons">
+              <li>
+                Non-contextuel : si l'utilisateur dicte un texte sur la Grèce
+                antique mentionnant « Alisis » comme nom de personnage, il sera
+                écrasé.
+              </li>
+              <li>
+                Pas de variantes morphologiques (alisis / alisi / alysien…) sans
+                entrées multiples.
+              </li>
+              <li>
+                Friction d'apprentissage : l'utilisateur doit penser à lancer la
+                commande.
+              </li>
+            </ul>
+          </article>
+
+          <!-- Approche 2 -->
+          <article class="corner-card">
+            <span class="cc-tr"></span><span class="cc-bl"></span>
+            <p class="prop__num">Approche 02 · À la source</p>
+            <h3>Whisper <code>initial_prompt</code> biasing</h3>
+            <p class="prop__tagline">
+              Apprendre au modèle de reconnaissance, pas réparer après.
+            </p>
+
+            <div class="prop__row">
+              <div class="prop__label">Mécanisme</div>
+              <div class="prop__val">
+                Section <code>[vocabulary]</code> = liste de termes. Injectée
+                dans <code>initial_prompt</code> de l'API Groq Whisper à chaque
+                chunk :
+                <em>« Vocabulaire courant : alysis, asi0, centaur-infra… »</em>.
+                Le STT biaise sa décodage vers ces tokens.
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Stockage</div>
+              <div class="prop__val">
+                TOML <code>[vocabulary]</code> · liste plate de mots-clés (pas
+                de paires bad→good).
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Input user</div>
+              <div class="prop__val">
+                <code>dicton vocab add alysis</code>. Optionnel : auto-collecte
+                des mots les plus fréquents dans <code>stats.jsonl</code>.
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Touche</div>
+              <div class="prop__val">
+                <code>stt.py:30-56</code> (+param <code>initial_prompt</code>),
+                <code>config.py</code> (+section),
+                <code>pipeline.py</code> (passage du prompt). ~30 LOC.
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Latence</div>
+              <div class="prop__val">
+                Négligeable côté serveur Groq ; pas d'overhead local.
+              </div>
+            </div>
+
+            <ul class="pros">
+              <li>
+                Corrige à la racine : le STT lui-même reconnaît mieux le terme,
+                plutôt que de patcher l'erreur en aval.
+              </li>
+              <li>
+                Aide aussi les variantes morphologiques (le modèle entend mieux
+                le radical).
+              </li>
+              <li>
+                Aucune correction post-hoc : pas de faux positifs sur du texte
+                qui ressemble mais n'est pas le bon mot.
+              </li>
+            </ul>
+            <ul class="cons">
+              <li>
+                Biais probabiliste, pas garantie : Whisper peut quand même se
+                tromper.
+              </li>
+              <li>
+                Budget tokens limité dans le prompt (~224 tokens chez OpenAI ;
+                comportement Groq à vérifier).
+              </li>
+              <li>
+                Pas de mapping bad→good : ne résout pas le cas où l'utilisateur
+                veut un mot rare au lieu d'un mot fréquent homophone.
+              </li>
+            </ul>
+          </article>
+
+          <!-- Approche 3 -->
+          <article class="corner-card">
+            <span class="cc-tr"></span><span class="cc-bl"></span>
+            <p class="prop__num">Approche 03 · Contextuel</p>
+            <h3>Glossaire injecté dans le prompt cleanup LLM</h3>
+            <p class="prop__tagline">
+              Confier la substitution au modèle qui nettoie déjà — il sait quand
+              <em>ne pas</em> remplacer.
+            </p>
+
+            <div class="prop__row">
+              <div class="prop__label">Mécanisme</div>
+              <div class="prop__val">
+                Section <code>[glossary]</code> avec entrées enrichies :
+                <code>{bad, good, note}</code>. À chaque appel cleanup, ajout au
+                prompt système d'un bloc :
+                <em
+                  >« Termes spécifiques utilisateur : remplace systématiquement
+                  “alisis” par “alysis” (nom de marque). N'applique pas la
+                  substitution si le contexte indique clairement un autre sens.
+                  »</em
+                >
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Stockage</div>
+              <div class="prop__val">
+                TOML <code>[[glossary]]</code> en table-of-tables (entrées
+                riches avec note de contexte).
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Input user</div>
+              <div class="prop__val">
+                <code>dicton correct alisis alysis --note "nom de marque"</code
+                >. La note de contexte est optionnelle mais améliore le jugement
+                du LLM.
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Touche</div>
+              <div class="prop__val">
+                <code>cleanup.py:22</code> (templating prompt),
+                <code>config.py</code> (+structure riche). ~50 LOC ; attention
+                au cap 500 LOC de <code>pipeline.py</code>.
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Latence</div>
+              <div class="prop__val">
+                +50–200 tokens prompt par appel ; coût Groq marginal.
+              </div>
+            </div>
+
+            <ul class="pros">
+              <li>
+                Contextuel : le LLM peut épargner les faux positifs (le « Alisis
+                » grec antique survit).
+              </li>
+              <li>Gère les variantes morphologiques sans entrée explicite.</li>
+              <li>
+                Cohérent avec l'architecture existante (cleanup est déjà
+                LLM-based).
+              </li>
+            </ul>
+            <ul class="cons">
+              <li>
+                Non-déterministe : le LLM peut rater une substitution (rare mais
+                possible).
+              </li>
+              <li>
+                Si le glossaire grossit, la fenêtre de contexte se sature et le
+                coût grimpe linéairement.
+              </li>
+              <li>
+                Surface d'attaque prompt-injection élargie (à mitiger comme dans
+                le commit 6a42c2e).
+              </li>
+            </ul>
+          </article>
+
+          <!-- Approche 4 -->
+          <article class="corner-card">
+            <span class="cc-tr"></span><span class="cc-bl"></span>
+            <p class="prop__num">Approche 04 · Zéro friction</p>
+            <h3>Auto-apprentissage par détection de re-dictée</h3>
+            <p class="prop__tagline">
+              L'utilisateur corrige naturellement ; dicton observe et propose.
+            </p>
+
+            <div class="prop__row">
+              <div class="prop__label">Mécanisme</div>
+              <div class="prop__val">
+                Dicton enregistre dans <code>stats.jsonl</code> chaque dictée
+                (déjà partiellement le cas). Quand deux dictées consécutives
+                dans une courte fenêtre (&lt;30 s) ont une distance Levenshtein
+                faible mais un mot diffère, c'est probablement une correction. À
+                la fin de session (ou via un hotkey), un mini-prompt CLI propose
+                :
+                <em
+                  >« Tu sembles avoir corrigé alisis → alysis. L'ajouter au
+                  glossaire ? [o/N] »</em
+                >.
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Stockage</div>
+              <div class="prop__val">
+                Détection en mémoire ; ajout in fine dans
+                <code>[glossary]</code> (réutilise un des trois mécanismes
+                ci-dessus pour l'application).
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Input user</div>
+              <div class="prop__val">
+                Aucun input explicite. Confirmation en mode lazy (résumé de
+                session) ou eager (notification après chaque détection).
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Touche</div>
+              <div class="prop__val">
+                <code>stats.py</code> (+champ contenu), nouveau
+                <code>learner.py</code> (~80 LOC),
+                <code>cli.py</code> (+commande review). ~130 LOC, plus complexe
+                à tester.
+              </div>
+            </div>
+            <div class="prop__row">
+              <div class="prop__label">Latence</div>
+              <div class="prop__val">
+                0 sur le chemin chaud ; analyse offline.
+              </div>
+            </div>
+
+            <ul class="pros">
+              <li>
+                Friction nulle : l'utilisateur fait ce qu'il ferait de toute
+                façon (corriger à la main).
+              </li>
+              <li>
+                Capture les corrections qu'on oublierait d'enregistrer
+                manuellement.
+              </li>
+              <li>
+                Données déjà disponibles dans le pipeline ; bonne synergie avec
+                <code>stats.jsonl</code>.
+              </li>
+            </ul>
+            <ul class="cons">
+              <li>
+                Heuristique imparfaite : faux positifs (l'utilisateur a juste
+                changé d'avis sur la phrase, pas corrigé un mot).
+              </li>
+              <li>
+                Nécessite logging du contenu transcrit — implications vie privée
+                à clarifier (opt-in obligatoire).
+              </li>
+              <li>
+                Ne s'applique pas seule : couche d'apprentissage qui doit
+                déléguer l'application à 01, 02, ou 03.
+              </li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <h2><span class="num">02</span>Matrice comparative</h2>
+        <p class="section-sub">Cinq axes — pour décider sans relire</p>
+
+        <div class="matrix-wrap">
+          <table class="matrix">
+            <thead>
+              <tr>
+                <th>Approche</th>
+                <th>Friction user</th>
+                <th>Déterminisme</th>
+                <th>Sens du contexte</th>
+                <th>Effort impl.</th>
+                <th>Coût récurrent</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>01 · Regex post-cleanup</td>
+                <td><span class="score score-3">moyen</span></td>
+                <td><span class="score score-5">total</span></td>
+                <td><span class="score score-1">nul</span></td>
+                <td><span class="score score-5">~½ jour</span></td>
+                <td><span class="score score-5">nul</span></td>
+              </tr>
+              <tr>
+                <td>02 · Whisper initial_prompt</td>
+                <td><span class="score score-3">moyen</span></td>
+                <td><span class="score score-2">probabiliste</span></td>
+                <td><span class="score score-3">implicite</span></td>
+                <td><span class="score score-4">~1 jour</span></td>
+                <td><span class="score score-5">nul</span></td>
+              </tr>
+              <tr>
+                <td>03 · Cleanup LLM-aware</td>
+                <td><span class="score score-3">moyen</span></td>
+                <td><span class="score score-3">élevé</span></td>
+                <td><span class="score score-5">fort</span></td>
+                <td><span class="score score-3">~1–2 jours</span></td>
+                <td><span class="score score-4">tokens +</span></td>
+              </tr>
+              <tr>
+                <td>04 · Auto-apprentissage</td>
+                <td><span class="score score-5">nulle</span></td>
+                <td><span class="score score-2">hérité</span></td>
+                <td><span class="score score-3">hérité</span></td>
+                <td><span class="score score-2">~3 jours</span></td>
+                <td><span class="score score-4">stockage</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="reco">
+        <span class="pixel-deco"></span>
+        <span class="pixel-deco-2"></span>
+        <h2><span class="num">03</span>Recommandation</h2>
+        <p class="section-sub" style="color: #b5a88a">
+          Une composition, pas un choix unique
+        </p>
+
+        <p>
+          Les quatre approches ne sont pas mutuellement exclusives. Elles
+          opèrent à des étages différents du pipeline et se renforcent. Plan
+          d'implémentation incrémental, du plus rentable au plus ambitieux :
+        </p>
+
+        <ol>
+          <li>
+            <strong>Phase 1 — Approche 01 (KISS).</strong> Livre la valeur en
+            une après-midi. Établit le format <code>[glossary]</code> en TOML et
+            la commande <code>dicton correct</code>. Couvre 80% du cas
+            <em>alisis → alysis</em>.
+          </li>
+          <li>
+            <strong>Phase 2 — Approche 02 (initial_prompt).</strong> Ajoute le
+            biais à la source avec un coût marginal (~30 LOC). Les deux
+            mécanismes se complètent : Whisper essaie d'éviter l'erreur, le
+            regex la rattrape.
+          </li>
+          <li>
+            <strong>Phase 3 — Approche 04 (auto-apprentissage), opt-in.</strong>
+            Réduit la friction d'ajout au glossaire ; s'appuie sur les phases 1
+            et 2 pour appliquer ce qu'elle apprend.
+          </li>
+          <li>
+            <strong>Phase 4 (optionnelle) — Approche 03.</strong> À considérer
+            seulement si les phases 1+2 montrent des faux positifs contextuels
+            gênants en pratique. Sinon, ajouter de la complexité LLM pour
+            résoudre un problème qui n'existe pas serait un anti-pattern.
+          </li>
+        </ol>
+
+        <p>
+          <strong>Décision à valider avec asi0 avant tout code</strong> : (a) le
+          mapping <code>[glossary]</code> doit-il être case-sensitive ou
+          insensitive ? (b) la commande de correction prend-elle un argument
+          (CLI) ou un raccourci clavier global (capture le presse-papier) ? (c)
+          le contenu des dictées peut-il être loggé pour la phase 4, ou hash
+          uniquement ?
+        </p>
+      </section>
+
+      <footer>
+        <span>dicton · recherche de design · 2026-05-14</span>
+        <span>thème · alysis.cat</span>
+      </footer>
+    </div>
+  </body>
+</html>
