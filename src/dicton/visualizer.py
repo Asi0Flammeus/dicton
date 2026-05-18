@@ -444,25 +444,44 @@ class Visualizer:
                 return
             user32 = ctypes.windll.user32
 
-            # Hide, flip the extended style, then show without activating.
-            # The style change only takes effect on a window-state cycle, and
-            # if we Show normally the donut steals focus from the user's app.
+            # We need three things on Windows:
+            #   - LAYERED + colorkey: chroma-key transparency for the bg.
+            #   - TOOLWINDOW: no taskbar / Alt+Tab entry.
+            #   - TOPMOST: stay above the user's app so the donut is actually
+            #     visible. Setting only the EXSTYLE bit isn't enough — the
+            #     existing z-order doesn't change retroactively, so we also
+            #     SetWindowPos(HWND_TOPMOST). The hide/show cycle is what
+            #     forces Windows to re-evaluate TOOLWINDOW for the taskbar.
             GWL_EXSTYLE = -20  # noqa: N806
             WS_EX_LAYERED = 0x00080000  # noqa: N806
-            WS_EX_TOOLWINDOW = 0x00000080  # noqa: N806  (no taskbar / Alt+Tab)
-            WS_EX_NOACTIVATE = 0x08000000  # noqa: N806
+            WS_EX_TOOLWINDOW = 0x00000080  # noqa: N806
+            WS_EX_TOPMOST = 0x00000008  # noqa: N806
             SW_HIDE = 0  # noqa: N806
             SW_SHOWNOACTIVATE = 4  # noqa: N806
+            HWND_TOPMOST = -1  # noqa: N806
+            SWP_NOMOVE = 0x0002  # noqa: N806
+            SWP_NOSIZE = 0x0001  # noqa: N806
+            SWP_NOACTIVATE = 0x0010  # noqa: N806
+            SWP_SHOWWINDOW = 0x0040  # noqa: N806
 
             user32.ShowWindow(hwnd, SW_HIDE)
             style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
             user32.SetWindowLongW(
                 hwnd,
                 GWL_EXSTYLE,
-                style | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+                style | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_TOPMOST,
             )
             user32.SetLayeredWindowAttributes(hwnd, 0xFF | (0x00 << 8) | (0xFF << 16), 0, 0x1)
             user32.ShowWindow(hwnd, SW_SHOWNOACTIVATE)
+            user32.SetWindowPos(
+                hwnd,
+                HWND_TOPMOST,
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW,
+            )
         except Exception:
             pass
 
