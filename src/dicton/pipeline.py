@@ -260,8 +260,13 @@ class Pipeline:
         )
         cleanup_ms = int((time.monotonic() - t_cl_start) * 1000)
 
+        paste_error: Exception | None = None
         if cleaned:
-            await asyncio.to_thread(paste, cleaned)
+            try:
+                await asyncio.to_thread(paste, cleaned)
+            except Exception as exc:  # noqa: BLE001
+                paste_error = exc
+                log.error("paste failed: %s", exc, exc_info=True)
 
         process_ms = int((time.monotonic() - recording_ended_at) * 1000)
         try:
@@ -282,18 +287,21 @@ class Pipeline:
             log.warning("stats append failed: %s", exc)
 
         audio_session.resume_players(session.paused_players)
+        # Always return to IDLE even if paste blew up — otherwise F2 stops
+        # working and the visualizer is stuck on "processing" forever.
         if self.viz is not None:
             self.viz.set_state("idle")
         with self._state_lock:
             self._state = State.IDLE
         log.info(
-            "dictation: %d chars · recording=%dms · process=%dms (stt=%dms cleanup=%dms) · chunks=%d",
+            "dictation: %d chars · recording=%dms · process=%dms (stt=%dms cleanup=%dms) · chunks=%d%s",
             len(cleaned),
             recording_ms,
             process_ms,
             stt_ms,
             cleanup_ms,
             len(session.chunks),
+            " · PASTE FAILED" if paste_error else "",
         )
 
 
