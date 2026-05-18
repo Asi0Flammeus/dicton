@@ -132,9 +132,12 @@ def update_cmd(
     if sys.platform == "win32":
         # We can't replace our own running dicton.exe in place — Windows
         # holds an exclusive lock on it. Spawn a detached PowerShell that
-        # waits for us to exit, then runs uv upgrade.
-        _spawn_detached_uv_on_windows(cmd)
+        # waits for us to exit, then runs uv upgrade and (unless
+        # --no-restart) starts dictonw back up so the daemon is live again.
+        _spawn_detached_uv_on_windows(cmd, restart_daemon=not no_restart)
         console.print("[cyan]Upgrade started in a new window — close this one.[/cyan]")
+        if not no_restart:
+            console.print("[dim]dictonw will be restarted once the upgrade succeeds.[/dim]")
         return
 
     console.print(f"Running [cyan]{' '.join(cmd)}[/cyan]…")
@@ -270,19 +273,37 @@ def _kill_stale_dicton_on_windows() -> None:
         )
 
 
-def _spawn_detached_uv_on_windows(cmd: list[str]) -> None:
+def _spawn_detached_uv_on_windows(cmd: list[str], *, restart_daemon: bool) -> None:
     """Launch a PowerShell window that waits for us to exit, then runs `cmd`.
 
     Self-replacement is impossible on Windows: the running dicton.exe
     holds an exclusive lock on the file uv wants to overwrite. The
     helper waits on our PID, then runs the upgrade once the lock drops.
+    With ``restart_daemon=True`` it also kills any surviving dictonw.exe
+    and ``Start-Process dictonw`` afterwards so the daemon is live again.
     """
     quoted = " ".join(_ps_quote(a) for a in cmd)
+    restart_block = ""
+    if restart_daemon:
+        restart_block = (
+            "if ($LASTEXITCODE -eq 0) { "
+            "Write-Host ''; "
+            "Write-Host 'Killing any surviving dictonw...' -ForegroundColor Cyan; "
+            "taskkill /F /IM dictonw.exe 2>$null | Out-Null; "
+            "Start-Sleep -Milliseconds 300; "
+            "Write-Host 'Starting dictonw...' -ForegroundColor Cyan; "
+            "Start-Process dictonw; "
+            "Write-Host 'Daemon restarted.' -ForegroundColor Green "
+            "} else { "
+            "Write-Host 'Upgrade failed; daemon not restarted.' -ForegroundColor Red "
+            "}; "
+        )
     script = (
         f"$p = Get-Process -Id {os.getpid()} -ErrorAction SilentlyContinue; "
         f"if ($p) {{ $p.WaitForExit() }}; Start-Sleep -Milliseconds 500; "
         f"Write-Host 'Running: {quoted}' -ForegroundColor Cyan; "
         f"{quoted}; "
+        f"{restart_block}"
         f"Write-Host ''; Read-Host 'Press Enter to close'"
     )
     CREATE_NEW_CONSOLE = 0x00000010  # noqa: N806
