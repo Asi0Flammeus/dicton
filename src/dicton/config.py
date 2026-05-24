@@ -41,7 +41,14 @@ DEFAULT_PROMPT = (
     "sans préfixe, sans commentaire. Conserve le sens et le registre. Garde "
     "les anglicismes et termes techniques anglais tels quels (« workflow », "
     "« commit », « review », « meeting », « pull request ») — ne traduis "
-    "jamais."
+    "jamais.\n\n"
+    "Supprime aussi silencieusement les hallucinations classiques de "
+    "Whisper si tu en croises (génériques de sous-titrage type "
+    "« Sous-titrage Société Radio-Canada », « Sous-titres réalisés par la "
+    "communauté d'Amara.org », « ❤️ par SousTitreur.com », appels à "
+    "« abonnez-vous », « merci d'avoir regardé cette vidéo », etc.). Si la "
+    "transcription est entièrement constituée de tels artefacts, renvoie "
+    "une chaîne vide."
 )
 
 
