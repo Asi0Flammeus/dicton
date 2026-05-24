@@ -102,7 +102,7 @@ def stats_cmd() -> None:
 def update_cmd(
     source: str | None = typer.Argument(
         None,
-        help="Local path (development install). Omit to upgrade from PyPI.",
+        help="Local path (development install). Omit to pull the latest main from GitHub.",
     ),
     no_restart: bool = typer.Option(
         False, "--no-restart", help="Skip restarting the systemd unit after install."
@@ -110,7 +110,13 @@ def update_cmd(
 ) -> None:
     """Reinstall dicton, then restart the daemon to pick up the new code.
 
-    Without arguments, upgrades the published release via ``uv tool upgrade``.
+    Without arguments, reinstalls from the latest ``main`` on GitHub via
+    ``uv tool install --force --reinstall git+<repo>@main``. We force a full
+    reinstall (not a bare ``uv tool upgrade``) because ``main`` is a moving
+    git ref: uv caches the resolved commit, so only ``--reinstall`` (which
+    implies ``--refresh``) re-fetches the branch HEAD. This also self-heals an
+    install whose recorded source path has gone missing.
+
     With a path, rebuilds from local sources via ``uv tool install --force
     --reinstall`` — the standard dev loop. Either way, if the systemd unit is
     active it is restarted automatically so the new binary takes effect.
@@ -128,7 +134,14 @@ def update_cmd(
     else:
         if not _check_for_updates():
             return
-        cmd = ["uv", "tool", "upgrade", "dicton"]
+        cmd = [
+            "uv",
+            "tool",
+            "install",
+            "--force",
+            "--reinstall",
+            f"git+{GITHUB_REMOTE_URL}@main",
+        ]
 
     _kill_stale_dicton_on_windows()
     if sys.platform == "win32":
