@@ -25,6 +25,7 @@ from pynput import keyboard
 from . import audio_session, fn_key, stats, stt
 from . import cleanup as cleanup_mod
 from .chunker import Chunker, ChunkParams
+from .hallucinations import strip_hallucinations
 from .config import Config
 from .output import paste
 from .visualizer import Visualizer
@@ -249,6 +250,7 @@ class Pipeline:
             except Exception as exc:
                 log.warning("chunk %d failed: %s", cid, exc)
         joined = " ".join(t for t in texts if t).strip()
+        joined = strip_hallucinations(joined)
         stt_ms = int((time.monotonic() - t_stt_start) * 1000)
 
         t_cl_start = time.monotonic()
