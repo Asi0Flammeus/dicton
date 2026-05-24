@@ -53,6 +53,14 @@ Chaque commande fait, dans l'ordre :
 
 À la fin du wizard, si tu as accepté l'autostart, le daemon tourne en arrière-plan via systemd/launchd et te rend la main sur le terminal. F2 marche immédiatement.
 
+### Mise à jour
+
+```bash
+dicton update   # réinstalle le dernier main depuis GitHub + restart systemd
+```
+
+`dicton update` (sans argument) fait `uv tool install --force --reinstall git+https://github.com/Asi0Flammeus/dicton.git@main`. Il tire donc le code depuis GitHub, pas depuis le clone local — pas besoin de garder le dossier cloné, et un clone déplacé/supprimé ne casse plus la commande. `main` étant une branche mouvante, le `--reinstall` est indispensable (uv cache sinon le commit résolu et ne re-fetch jamais le HEAD). Pour itérer sur des sources locales en dev, utilise `dicton update <path>`.
+
 ## Usage
 
 | Geste                          | Effet                    |
@@ -74,7 +82,7 @@ Pendant l'enregistrement, un petit anneau orange flotte en haut à droite. Il pa
 | `dicton wizard`        | Re-lance le setup complet (clé, hotkey, modèle, autostart)                         |
 | `dicton config`        | Change uniquement le modèle de cleanup                                             |
 | `dicton stats`         | Affiche les totaux : nombre de dictées, latence moyenne, temps de frappe économisé |
-| `dicton update`        | Upgrade depuis PyPI + restart systemd                                              |
+| `dicton update`        | Réinstalle le dernier `main` depuis GitHub + restart systemd                       |
 | `dicton update <path>` | Reinstall depuis un repo local + restart systemd (dev)                             |
 
 ## Performance
