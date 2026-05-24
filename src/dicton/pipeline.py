@@ -25,8 +25,8 @@ from pynput import keyboard
 from . import audio_session, fn_key, stats, stt
 from . import cleanup as cleanup_mod
 from .chunker import Chunker, ChunkParams
-from .hallucinations import strip_hallucinations
 from .config import Config
+from .hallucinations import strip_hallucinations
 from .output import paste
 from .visualizer import Visualizer
 

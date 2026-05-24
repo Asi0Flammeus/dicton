@@ -15,14 +15,19 @@ import re
 
 _PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"sous-titrage\s+(?:de\s+la\s+)?soci[ée]t[ée]\s+radio-canada\.?", re.I),
-    re.compile(r"sous-titres?\s+(?:r[ée]alis[ée]s?\s+)?par\s+(?:la\s+)?communaut[ée]\s+d['’]?amara\.org\.?", re.I),
+    re.compile(
+        r"sous-titres?\s+(?:r[ée]alis[ée]s?\s+)?par\s+(?:la\s+)?communaut[ée]\s+d['’]?amara\.org\.?",
+        re.I,
+    ),
     re.compile(r"sous-titres?\s+(?:r[ée]alis[ée]s?\s+)?par\s+[^\n]{0,80}?\.org\.?", re.I),
     re.compile(r"sous-titres?\s+(?:r[ée]alis[ée]s?\s+)?par\s+[^\n.]{0,60}\.?", re.I),
     re.compile(r"❤️?\s*par\s+soustitreur\.com\.?", re.I),
     re.compile(r"merci\s+d['’]?avoir\s+regard[ée]\s+(?:cette\s+vid[ée]o|la\s+vid[ée]o)\.?", re.I),
     re.compile(r"n['’]?oubliez\s+pas\s+de\s+vous\s+abonner\.?", re.I),
     re.compile(r"abonnez-vous\s+(?:à\s+(?:la\s+)?chaîne|et\s+activez[^\n.]{0,40})?\.?", re.I),
-    re.compile(r"merci\s+(?:beaucoup\s+)?(?:à\s+(?:tous|vous)|d['’]avoir\s+(?:écouté|regardé))\.?", re.I),
+    re.compile(
+        r"merci\s+(?:beaucoup\s+)?(?:à\s+(?:tous|vous)|d['’]avoir\s+(?:écouté|regardé))\.?", re.I
+    ),
     re.compile(r"musique\s+(?:de\s+fin|d['’]?intro)\.?", re.I),
     re.compile(r"\[\s*(?:musique|applaudissements|silence)\s*\]", re.I),
 )
