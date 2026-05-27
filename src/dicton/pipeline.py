@@ -26,7 +26,6 @@ from . import audio_session, fn_key, stats, stt
 from . import cleanup as cleanup_mod
 from .chunker import Chunker, ChunkParams
 from .config import Config
-from .hallucinations import strip_hallucinations
 from .output import paste
 from .visualizer import Visualizer
 
@@ -244,13 +243,18 @@ class Pipeline:
         t_stt_start = time.monotonic()
         ordered_ids = sorted(session.chunks)
         texts: list[str] = []
+        dropped = 0
         for cid in ordered_ids:
             try:
-                texts.append(await session.chunks[cid])
+                transcript = await session.chunks[cid]
             except Exception as exc:
                 log.warning("chunk %d failed: %s", cid, exc)
+                continue
+            dropped += transcript.dropped
+            texts.append(transcript.clean_text())
         joined = " ".join(t for t in texts if t).strip()
-        joined = strip_hallucinations(joined)
+        if dropped:
+            log.info("dropped %d hallucinated segment(s)", dropped)
         stt_ms = int((time.monotonic() - t_stt_start) * 1000)
 
         t_cl_start = time.monotonic()

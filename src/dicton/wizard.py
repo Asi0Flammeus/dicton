@@ -197,17 +197,18 @@ async def _step_self_test(cfg: Config) -> str:
             model=cfg.stt_model,
             language=cfg.language,
         )
+        raw_text = transcript.clean_text()
         stt_ms = int((time.monotonic() - t) * 1000)
         console.print(f"  STT         {stt_ms} ms")
         console.print(f"  prewarm     {prewarm_ms} ms")
-        console.print(f"  brut: [italic]{transcript}[/italic]")
+        console.print(f"  brut: [italic]{raw_text}[/italic]")
 
         rows = []
         for model in CLEANUP_MODELS:
             t = time.monotonic()
             cleaned = await cleanup_mod.cleanup(
                 client,
-                transcript,
+                raw_text,
                 api_key=cfg.groq_api_key,
                 model=model,
             )
