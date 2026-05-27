@@ -9,10 +9,12 @@ Restores the prior clipboard content after pasting.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 
 
 def paste(text: str) -> None:
@@ -29,32 +31,55 @@ def paste(text: str) -> None:
         raise RuntimeError(f"unsupported platform: {sys.platform}")
 
 
+def _is_wayland() -> bool:
+    # Pick clipboard tools by the *session*, not by which binary happens to be
+    # installed: wl-copy/wtype exit non-zero without a live Wayland socket, so
+    # preferring them on an X11 session (or from a systemd user service that
+    # only inherited DISPLAY/XWayland, not WAYLAND_DISPLAY) breaks paste.
+    return bool(os.environ.get("WAYLAND_DISPLAY"))
+
+
 def _paste_linux(text: str) -> None:
     # No clipboard restore: the focused app may still be reading the new
     # clipboard content when we send the key event, so an immediate restore
     # races and pastes the *old* content instead. Main's adapter behaves the
     # same way — the dictation simply replaces the clipboard.
+    #
+    # Try the session-native (copy, send) pair first, then fall back to the
+    # other — covers X11, Wayland, and the mixed XWayland-from-systemd case.
+    data = text.encode("utf-8")
+    errors: list[str] = []
+    for copy_cmd, send in _paste_strategies():
+        try:
+            subprocess.run(copy_cmd, input=data, check=True, capture_output=True)
+        except (OSError, subprocess.CalledProcessError) as exc:
+            errors.append(f"{copy_cmd[0]} ({exc})")
+            continue
+        time.sleep(0.02)
+        send()
+        return
+    raise RuntimeError(
+        "clipboard copy failed — tried " + ", ".join(errors)
+        if errors
+        else "install wl-clipboard (Wayland) or xclip (X11)"
+    )
+
+
+def _paste_strategies() -> list[tuple[list[str], Callable[[], None]]]:
+    """Ordered (copy command, keystroke sender) pairs, session-native first."""
+    wayland: list[tuple[list[str], Callable[[], None]]] = []
+    x11: list[tuple[list[str], Callable[[], None]]] = []
     if shutil.which("wl-copy"):
-        subprocess.run(["wl-copy"], input=text.encode("utf-8"), check=True)
-        time.sleep(0.02)
-        _send_keys_linux()
-        return
+        wayland.append((["wl-copy"], _send_keys_wayland))
     if shutil.which("xclip"):
-        subprocess.run(
-            ["xclip", "-selection", "clipboard"],
-            input=text.encode("utf-8"),
-            check=True,
-        )
-        time.sleep(0.02)
-        _send_keys_linux()
-        return
-    raise RuntimeError("install wl-clipboard (Wayland) or xclip+xdotool (X11)")
+        x11.append((["xclip", "-selection", "clipboard"], _send_keys_x11))
+    return wayland + x11 if _is_wayland() else x11 + wayland
 
 
-def _send_keys_linux() -> None:
-    # Ctrl+Shift+V is the universal paste shortcut: it works in browsers,
-    # editors *and* terminals (gnome-terminal, kitty, alacritty…). Plain
-    # Ctrl+V hits "quoted-insert" in zsh/vim and is intercepted by tmux.
+# Ctrl+Shift+V is the universal paste shortcut: it works in browsers, editors
+# *and* terminals (gnome-terminal, kitty, alacritty…). Plain Ctrl+V hits
+# "quoted-insert" in zsh/vim and is intercepted by tmux.
+def _send_keys_wayland() -> None:
     if shutil.which("wtype"):
         subprocess.run(["wtype", "-M", "ctrl", "-M", "shift", "v"], check=False)
         return
@@ -64,6 +89,10 @@ def _send_keys_linux() -> None:
             ["ydotool", "key", "29:1", "42:1", "47:1", "47:0", "42:0", "29:0"], check=False
         )
         return
+    _send_keys_x11()  # last resort: xdotool can still reach XWayland windows
+
+
+def _send_keys_x11() -> None:
     if shutil.which("xdotool"):
         _log_active_window("paste target")
         subprocess.run(
@@ -71,7 +100,7 @@ def _send_keys_linux() -> None:
             check=False,
         )
         return
-    raise RuntimeError("install wtype (Wayland) or xdotool (X11) to send keystrokes")
+    raise RuntimeError("install xdotool (X11) or wtype/ydotool (Wayland) to send keystrokes")
 
 
 def _log_active_window(label: str) -> None:
