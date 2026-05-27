@@ -80,6 +80,25 @@ def config_cmd() -> None:
     console.print(f"[green]Saved[/green] cleanup_model = {cfg.cleanup_model}")
 
 
+@app.command(name="hotkey")
+def hotkey_cmd() -> None:
+    """Re-capture the trigger keys (primary double-tap + optional secondary)."""
+    if not config.exists():
+        console.print("[red]No config yet[/red] — run `dicton wizard` first.")
+        raise typer.Exit(1)
+    cfg = config.load()
+    cfg.hotkey_primary, cfg.hotkey_secondary, cfg.hotkey_fn_keycode = wizard._step_hotkeys(cfg)
+    cfg.save()
+    secondary = cfg.hotkey_secondary or "—"
+    console.print(
+        f"[green]Saved[/green] primaire={cfg.hotkey_primary} (double-tap) · secondaire={secondary}"
+    )
+    console.print(
+        "Restart the daemon to apply: [cyan]dicton update --no-restart[/cyan] then "
+        "[cyan]systemctl --user restart dicton[/cyan]"
+    )
+
+
 @app.command(name="stats")
 def stats_cmd() -> None:
     """Show lifetime usage summary."""

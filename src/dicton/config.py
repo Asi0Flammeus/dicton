@@ -67,8 +67,12 @@ class Config:
     cleanup_model: str = "openai/gpt-oss-20b"
     stt_model: str = "whisper-large-v3"
     language: str = "fr"
-    hotkey_primary: str = "f2"
+    hotkey_primary: str = "fn"
     hotkey_secondary: str = "f2"
+    # Learned evdev keycode for the primary trigger (Linux). Captured live in
+    # the wizard so Fn double-tap works regardless of the laptop vendor's code.
+    # None => fall back to the built-in FN_KEYCODES guess set.
+    hotkey_fn_keycode: int | None = None
     sample_rate: int = 16000
     input_device: int | None = None
     visualizer: bool = True

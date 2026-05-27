@@ -116,11 +116,14 @@ class Pipeline:
     # ---- hotkey wiring ----
 
     def _start_hotkeys(self) -> None:
-        primary = _parse_key(self.cfg.hotkey_primary)
+        fn_keycode = self.cfg.hotkey_fn_keycode
         secondary = _parse_key(self.cfg.hotkey_secondary)
-        watched = {primary, secondary} - {None}
+        # The primary is double-tap-to-start. On Linux it rides the evdev
+        # path (FnKeyListener) using the learned keycode, so we don't also
+        # bind it via pynput. Elsewhere (no evdev) pynput drives it.
+        primary = None if fn_keycode is not None else _parse_key(self.cfg.hotkey_primary)
         held: set[object] = set()
-        fn_last_release = [0.0]
+        primary_last_release = [0.0]
 
         # Only pynput's macOS backend exposes Key.fn. Windows and Linux
         # X11 backends don't define it — Linux uses evdev (KEY_WAKEUP on
@@ -128,30 +131,36 @@ class Pipeline:
         # at all. getattr keeps this robust if pynput's API shifts.
         pynput_fn = getattr(keyboard.Key, "fn", None) if sys.platform == "darwin" else None
 
+        def _is_primary(norm: object) -> bool:
+            return norm == primary or (pynput_fn is not None and norm == pynput_fn)
+
         def on_press(key: object) -> None:
             norm = _normalize(key)
             if norm in held:
                 return  # ignore X11 / Quartz autorepeat
-            if pynput_fn is not None and norm == pynput_fn:
+            if _is_primary(norm):
                 held.add(norm)
-                is_double = (time.monotonic() - fn_last_release[0]) < fn_key.DOUBLE_TAP_WINDOW_S
-                self._on_fn_press(is_double)
+                is_double = (
+                    time.monotonic() - primary_last_release[0]
+                ) < fn_key.DOUBLE_TAP_WINDOW_S
+                self._advance(can_start=is_double)
                 return
-            if norm in watched:
+            if secondary is not None and norm == secondary:
                 held.add(norm)
                 self._toggle()
 
         def on_release(key: object) -> None:
             norm = _normalize(key)
-            if pynput_fn is not None and norm == pynput_fn:
-                fn_last_release[0] = time.monotonic()
+            if _is_primary(norm):
+                primary_last_release[0] = time.monotonic()
             held.discard(norm)
 
         self._listener = keyboard.Listener(on_press=on_press, on_release=on_release)
         self._listener.daemon = True
         self._listener.start()
 
-        self._fn_listener = fn_key.FnKeyListener(self._on_fn_press)
+        keycodes = fn_key.FN_KEYCODES | ({fn_keycode} if fn_keycode is not None else set())
+        self._fn_listener = fn_key.FnKeyListener(self._on_fn_press, keycodes=keycodes)
         self._fn_listener.start()
 
     # ---- state transitions ----

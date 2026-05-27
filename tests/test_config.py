@@ -34,3 +34,27 @@ def test_load_returns_defaults_when_missing(tmp_path: Path) -> None:
         cfg = config.load()
     assert cfg.groq_api_key == ""
     assert cfg.cleanup_model == "openai/gpt-oss-20b"
+
+
+def test_fn_keycode_round_trip(tmp_path: Path) -> None:
+    custom_path = tmp_path / "config.toml"
+    cfg = config.Config(hotkey_primary="fn", hotkey_secondary="", hotkey_fn_keycode=190)
+    with (
+        mock.patch.object(config, "CONFIG_PATH", custom_path),
+        mock.patch.object(config, "CONFIG_DIR", custom_path.parent),
+    ):
+        cfg.save()
+        loaded = config.load()
+    assert loaded.hotkey_fn_keycode == 190
+    assert loaded.hotkey_secondary == ""
+
+
+def test_fn_keycode_omitted_when_none(tmp_path: Path) -> None:
+    custom_path = tmp_path / "config.toml"
+    with (
+        mock.patch.object(config, "CONFIG_PATH", custom_path),
+        mock.patch.object(config, "CONFIG_DIR", custom_path.parent),
+    ):
+        config.Config().save()
+        loaded = config.load()
+    assert loaded.hotkey_fn_keycode is None

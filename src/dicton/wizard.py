@@ -16,8 +16,8 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from . import cleanup as cleanup_mod
+from . import fn_key, stt
 from . import platform as platform_mod
-from . import stt
 from .config import CLEANUP_MODELS, ChunkParams, Config
 from .stt import GROQ_BASE, pcm16_to_wav
 
@@ -42,16 +42,16 @@ def run_wizard(existing: Config | None) -> Config:
 
     _step_system_check(cfg)
     cfg.groq_api_key = _step_api_key(cfg.groq_api_key)
-    cfg.hotkey_primary, cfg.hotkey_secondary = _step_hotkeys(
-        cfg.hotkey_primary, cfg.hotkey_secondary
-    )
+    cfg.hotkey_primary, cfg.hotkey_secondary, cfg.hotkey_fn_keycode = _step_hotkeys(cfg)
     cfg.cleanup_model = asyncio.run(_step_self_test(cfg))
     cfg.autostart = _step_autostart(cfg.autostart)
 
+    secondary_label = cfg.hotkey_secondary or "—"
     console.print(
         Panel.fit(
             f"[green]Configuration prête.[/green]\n"
-            f"Hotkey [cyan]{cfg.hotkey_primary}[/cyan] / [cyan]{cfg.hotkey_secondary}[/cyan] · "
+            f"Primaire [cyan]{cfg.hotkey_primary}[/cyan] (double-tap) · "
+            f"secondaire [cyan]{secondary_label}[/cyan] (simple) · "
             f"cleanup [cyan]{cfg.cleanup_model}[/cyan]",
             border_style="green",
         )
@@ -161,12 +161,53 @@ def _step_api_key(current: str) -> str:
 # ---- 3. hotkey ----
 
 
-def _step_hotkeys(primary: str, secondary: str) -> tuple[str, str]:
+def _step_hotkeys(cfg: Config) -> tuple[str, str, int | None]:
     console.rule("[bold]3 · Hotkey[/bold]")
-    console.print("Raccourcis globaux. Défaut [cyan]F2[/cyan] sur les deux.")
-    p = Prompt.ask("Touche primaire", default=primary or "f2")
-    s = Prompt.ask("Touche secondaire", default=secondary or "f2")
-    return p, s
+    console.print(
+        "Touche [bold]primaire[/bold] : [cyan]double-tap[/cyan] pour démarrer "
+        "(comme la touche Fn).\n"
+        "Touche [bold]secondaire[/bold] (optionnelle) : une touche Fx en "
+        "[cyan]simple appui[/cyan]."
+    )
+
+    primary, keycode = _capture_primary(cfg.hotkey_primary, cfg.hotkey_fn_keycode)
+    secondary = _ask_secondary(cfg.hotkey_secondary)
+    return primary, secondary, keycode
+
+
+def _capture_primary(current: str, current_code: int | None) -> tuple[str, int | None]:
+    """Live-capture the primary trigger on Linux (any key, including Fn) and
+    learn its evdev keycode. Falls back to a typed key name elsewhere or when
+    nothing is captured."""
+    if sys.platform != "linux":
+        name = Prompt.ask("Touche primaire (double-tap)", default=current or "fn")
+        return name, None
+
+    Prompt.ask("⏎ puis appuie une fois sur ta touche primaire", default="")
+    console.print("  [red]●[/red] en écoute (5 s)...")
+    captured = fn_key.capture_keycode(timeout_s=5.0)
+    if captured is None:
+        console.print(
+            "  [yellow]rien capturé[/yellow] "
+            "(droits /dev/input ? ajoute-toi au groupe `input`) — saisie manuelle"
+        )
+        name = Prompt.ask("Touche primaire (double-tap)", default=current or "fn")
+        return name, current_code if name == current else None
+
+    code, label = captured
+    console.print(f"  capturé : [cyan]{label}[/cyan] [dim](code {code})[/dim]")
+    return label, code
+
+
+def _ask_secondary(current: str) -> str:
+    if not Confirm.ask("Ajouter une touche secondaire (Fx, simple appui) ?", default=bool(current)):
+        return ""
+    while True:
+        raw = Prompt.ask("Touche secondaire (ex. f2, f9)", default=current or "f2")
+        name = raw.strip().lower()
+        if len(name) >= 2 and name[0] == "f" and name[1:].isdigit() and 1 <= int(name[1:]) <= 12:
+            return name
+        console.print("  [yellow]Entre une touche fonction F1–F12 (ex. f2).[/yellow]")
 
 
 # ---- 4. self-test ----
