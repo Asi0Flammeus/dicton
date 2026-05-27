@@ -60,27 +60,6 @@ def test_overlap_carries_audio_into_next_chunk() -> None:
     assert sizes[1] > 0
 
 
-def test_silent_chunk_is_not_emitted() -> None:
-    emitted: list[int] = []
-    p = ChunkParams(min_chunk_s=2.0, max_chunk_s=3.0, silence_threshold_dbfs=-40.0, sample_rate=SR)
-    c = Chunker(p, lambda i, w: emitted.append(i))
-    # 4s of pure silence — a max-cut would fire but the slice has no speech,
-    # so nothing should reach STT.
-    c.feed(_silence(4.0))
-    c.flush()
-    assert emitted == []
-
-
-def test_speech_after_silent_drop_still_emits() -> None:
-    emitted: list[int] = []
-    p = ChunkParams(min_chunk_s=2.0, max_chunk_s=3.0, silence_window_s=0.2, sample_rate=SR)
-    c = Chunker(p, lambda i, w: emitted.append(i))
-    c.feed(_silence(4.0))  # dropped
-    c.feed(_tone(2.5))
-    c.feed(_silence(0.4))
-    assert len(emitted) >= 1
-
-
 def test_flush_emits_remaining_audio() -> None:
     emitted: list[int] = []
     p = ChunkParams(min_chunk_s=5.0, max_chunk_s=20.0, sample_rate=SR)

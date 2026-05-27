@@ -100,27 +100,9 @@ class Chunker:
             return
         self._emit(self._buf.size)
 
-    def _has_speech(self, samples: np.ndarray) -> bool:
-        """True if any silence-window-sized frame rises above the threshold.
-
-        A slice with no voiced frame is room tone / breath / noise — Whisper
-        hallucinates canned phrases on it, so we never send it to STT.
-        """
-        win = max(1, int(self.p.silence_window_s * self.p.sample_rate))
-        for i in range(0, samples.size, win):
-            if _rms_dbfs(samples[i : i + win]) >= self.p.silence_threshold_dbfs:
-                return True
-        return False
-
     def _emit(self, cut: int) -> None:
         slice_samples = self._buf[self._boundary : cut]
         if slice_samples.size == 0:
-            return
-        if not self._has_speech(slice_samples):
-            # Drop the silent slice without spending an STT call. Advance past
-            # it (no overlap — there is nothing to carry) so it can't re-fire.
-            self._boundary = cut
-            self._silent_samples = 0
             return
         wav = pcm16_to_wav(slice_samples, self.p.sample_rate)
         chunk_id = self._chunk_count
