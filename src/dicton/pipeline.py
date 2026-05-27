@@ -275,6 +275,13 @@ class Pipeline:
         )
         cleanup_ms = int((time.monotonic() - t_cl_start) * 1000)
 
+        # Hide the donut just before the text lands — it shouldn't sit on
+        # screen over the freshly pasted text. The pipeline stays in
+        # PROCESSING (state machine) until the end so a stray hotkey can't
+        # start a new recording mid-paste; only the visual goes idle here.
+        if self.viz is not None:
+            self.viz.set_state("idle")
+
         paste_error: Exception | None = None
         if cleaned:
             try:
@@ -302,10 +309,8 @@ class Pipeline:
             log.warning("stats append failed: %s", exc)
 
         audio_session.resume_players(session.paused_players)
-        # Always return to IDLE even if paste blew up — otherwise F2 stops
-        # working and the visualizer is stuck on "processing" forever.
-        if self.viz is not None:
-            self.viz.set_state("idle")
+        # Always return to IDLE even if paste blew up — otherwise the hotkey
+        # stops working. The visualizer was already hidden before the paste.
         with self._state_lock:
             self._state = State.IDLE
         log.info(

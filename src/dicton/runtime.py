@@ -26,14 +26,19 @@ def run(cfg: Config) -> None:
     pipe.start()
     try:
         if viz is not None:
-            # viz.run() owns the main thread (required on macOS) and returns
-            # on stop, on window close, or after it gives up on a wedged
-            # display. If the pipeline is still live when it returns, the
-            # visualizer merely died — keep serving dictations (record +
-            # paste) without the animation rather than tearing down the daemon.
+            # viz.run() owns the main thread (required on macOS). It returns
+            # on a shutdown request (SDL QUIT / SIGTERM → quit_requested) OR
+            # after the visualizer crashed/gave up on a wedged display. Only
+            # in the latter case do we keep serving dictations (record +
+            # paste) without animation; a real shutdown must fall through to
+            # the finally so systemd's `restart` doesn't hang.
             viz.run()
-        while not pipe._stop.is_set():
-            time.sleep(0.5)
+            if not viz.quit_requested:
+                while not pipe._stop.is_set():
+                    time.sleep(0.5)
+        else:
+            while not pipe._stop.is_set():
+                time.sleep(0.5)
     except KeyboardInterrupt:
         pass
     finally:

@@ -59,6 +59,10 @@ class Visualizer:
         self._frames: queue.Queue[np.ndarray] = queue.Queue(maxsize=128)
         self._state = "idle"  # idle | recording | processing
         self._stop = threading.Event()
+        # True only when the loop exited because shutdown was requested (SDL
+        # QUIT / SIGTERM), as opposed to a crash. The daemon uses this to know
+        # whether to exit or keep serving dictations without animation.
+        self.quit_requested = False
         self._lock = threading.Lock()
         self.levels = np.zeros(WAVE_POINTS, dtype=np.float32)
         self.smooth_levels = np.zeros(WAVE_POINTS, dtype=np.float32)
@@ -101,13 +105,14 @@ class Visualizer:
         # Always-mapped window: we never call show()/hide() because each
         # remap on i3 grabs input focus, sending xdotool's Ctrl+Shift+V to
         # the donut instead of the user's app. Visibility is driven via the
-        # XShape mask, which doesn't trigger focus events.
+        # XShape mask (i3) and window opacity (portable), neither of which
+        # triggers focus events.
         screen = pygame.display.set_mode((SIZE, SIZE), pygame.NOFRAME)
         if IS_LINUX and IS_X11:
             self._set_x11_floating_hint(pygame)
             self._init_x11_shape(pygame)
             self._apply_shape(visible=False)  # start fully clipped (invisible)
-            self._set_sdl_opacity(pygame, 0.85)  # semi-transparent voile over the dark bg
+            self._set_sdl_opacity(pygame, 0.0)  # start hidden; raised on first frame
         elif IS_WINDOWS:
             self._set_windows_colorkey_transparency(pygame, screen)
 
@@ -126,34 +131,23 @@ class Visualizer:
                 pygame.quit()
 
     def _loop(self, pygame, screen) -> None:
-        shape_visible = False
-        was_showing = False
+        visible = False
         consecutive_errors = 0
         clock = pygame.time.Clock()
         while not self._stop.is_set():
             try:
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
+                        self.quit_requested = True
                         self._stop.set()
                 should_show = self._state in ("recording", "processing")
-                if IS_LINUX and IS_X11 and should_show != shape_visible:
-                    self._apply_shape(visible=should_show)
-                    shape_visible = should_show
+                if should_show != visible:
+                    self._set_visible(pygame, screen, should_show)
+                    visible = should_show
                 if should_show:
                     self._drain_frames()
                     self._draw(pygame, screen)
                     self.frame += 1
-                elif was_showing and not (IS_LINUX and IS_X11):
-                    # On Windows / macOS / non-X11 Linux there is no XShape
-                    # mask to clip the stale frame away when we go back to
-                    # idle. Paint one frame of pure colorkey/background so the
-                    # donut actually disappears.
-                    if IS_WINDOWS:
-                        screen.fill(TRANSPARENT_COLORKEY)
-                    else:
-                        screen.fill((15, 15, 18))
-                    pygame.display.flip()
-                was_showing = should_show
                 consecutive_errors = 0
             except Exception:
                 consecutive_errors += 1
@@ -167,6 +161,24 @@ class Visualizer:
                     )
                     return
             clock.tick(60 if self._state in ("recording", "processing") else 20)
+
+    def _set_visible(self, pygame, screen, visible: bool) -> None:
+        """Show/hide without remapping the window (which would steal focus).
+
+        Belt-and-suspenders because no single mechanism works on every WM:
+        XShape clips the donut silhouette on i3; window opacity is the
+        portable hide that stacking compositors (Mutter/XWayland) honor even
+        when they ignore XShape — without it the last donut frame lingered on
+        screen after the dictation finished; and on Windows / compositor-less
+        setups we additionally paint a clear frame so nothing is left behind."""
+        if IS_LINUX and IS_X11:
+            self._apply_shape(visible=visible)
+        if not IS_WINDOWS:
+            self._set_sdl_opacity(pygame, 0.85 if visible else 0.0)
+        if not visible:
+            screen.fill(TRANSPARENT_COLORKEY if IS_WINDOWS else (15, 15, 18))
+            with contextlib.suppress(Exception):
+                pygame.display.flip()
 
     @staticmethod
     def _sdl_window(pygame):
