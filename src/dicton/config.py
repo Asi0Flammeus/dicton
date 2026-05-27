@@ -65,7 +65,7 @@ class ChunkParams:
 class Config:
     groq_api_key: str = ""
     cleanup_model: str = "openai/gpt-oss-20b"
-    stt_model: str = "whisper-large-v3-turbo"
+    stt_model: str = "whisper-large-v3"
     language: str = "fr"
     hotkey_primary: str = "f2"
     hotkey_secondary: str = "f2"
