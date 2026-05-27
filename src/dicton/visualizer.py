@@ -12,6 +12,7 @@ The window is initially hidden and only shown when the pipeline state is
 from __future__ import annotations
 
 import contextlib
+import logging
 import math
 import os
 import queue
@@ -19,6 +20,13 @@ import sys
 import threading
 
 import numpy as np
+
+log = logging.getLogger("dicton")
+
+# After this many consecutive frame errors, stop animating rather than
+# busy-spin on a wedged display (e.g. an X server that dropped the window).
+# The daemon keeps recording/pasting — it just loses the visual feedback.
+MAX_CONSECUTIVE_ERRORS = 30
 
 SIZE = 160
 WAVE_POINTS = 90
@@ -103,34 +111,62 @@ class Visualizer:
         elif IS_WINDOWS:
             self._set_windows_colorkey_transparency(pygame, screen)
 
+        # Crash isolation: a single bad frame (transient X error, lost
+        # surface, …) must not kill the loop — that previously froze the
+        # window and, because run() is on the main thread, could take the
+        # whole daemon down. We log the first failure with a traceback so the
+        # real cause is recoverable from dicton.log, count consecutive
+        # failures, and give up animating only if the display is truly wedged.
+        try:
+            self._loop(pygame, screen)
+        except Exception:
+            log.exception("visualizer loop crashed — daemon continues without animation")
+        finally:
+            with contextlib.suppress(Exception):
+                pygame.quit()
+
+    def _loop(self, pygame, screen) -> None:
         shape_visible = False
         was_showing = False
+        consecutive_errors = 0
         clock = pygame.time.Clock()
         while not self._stop.is_set():
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self._stop.set()
-            should_show = self._state in ("recording", "processing")
-            if IS_LINUX and IS_X11 and should_show != shape_visible:
-                self._apply_shape(visible=should_show)
-                shape_visible = should_show
-            if should_show:
-                self._drain_frames()
-                self._draw(pygame, screen)
-                self.frame += 1
-            elif was_showing and not (IS_LINUX and IS_X11):
-                # On Windows / macOS / non-X11 Linux there is no XShape mask
-                # to clip the stale frame away when we go back to idle. Paint
-                # one frame of pure colorkey/background so the donut actually
-                # disappears.
-                if IS_WINDOWS:
-                    screen.fill(TRANSPARENT_COLORKEY)
-                else:
-                    screen.fill((15, 15, 18))
-                pygame.display.flip()
-            was_showing = should_show
-            clock.tick(60 if should_show else 20)
-        pygame.quit()
+            try:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        self._stop.set()
+                should_show = self._state in ("recording", "processing")
+                if IS_LINUX and IS_X11 and should_show != shape_visible:
+                    self._apply_shape(visible=should_show)
+                    shape_visible = should_show
+                if should_show:
+                    self._drain_frames()
+                    self._draw(pygame, screen)
+                    self.frame += 1
+                elif was_showing and not (IS_LINUX and IS_X11):
+                    # On Windows / macOS / non-X11 Linux there is no XShape
+                    # mask to clip the stale frame away when we go back to
+                    # idle. Paint one frame of pure colorkey/background so the
+                    # donut actually disappears.
+                    if IS_WINDOWS:
+                        screen.fill(TRANSPARENT_COLORKEY)
+                    else:
+                        screen.fill((15, 15, 18))
+                    pygame.display.flip()
+                was_showing = should_show
+                consecutive_errors = 0
+            except Exception:
+                consecutive_errors += 1
+                if consecutive_errors == 1:
+                    log.warning("visualizer frame failed", exc_info=True)
+                if consecutive_errors >= MAX_CONSECUTIVE_ERRORS:
+                    log.error(
+                        "visualizer giving up after %d consecutive frame errors "
+                        "— daemon continues without animation",
+                        consecutive_errors,
+                    )
+                    return
+            clock.tick(60 if self._state in ("recording", "processing") else 20)
 
     @staticmethod
     def _sdl_window(pygame):
@@ -394,7 +430,7 @@ class Visualizer:
             self._xd.sync()
             pixmap.free()
         except Exception:
-            pass
+            log.debug("XShape apply failed (visible=%s)", visible, exc_info=True)
 
     def _set_donut_shape(
         self,
