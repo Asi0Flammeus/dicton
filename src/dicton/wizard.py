@@ -75,20 +75,19 @@ def _step_system_check(cfg: Config) -> None:
     try:
         default = sd.query_devices(kind="input")
         console.print(f"  Audio (sounddevice): [green]OK[/green] — défaut: {default['name']}")
-        default_idx = _resolve_default_input_index(default)
     except sd.PortAudioError as exc:
         console.print(f"  Audio: [yellow]défaut indisponible ({exc})[/yellow]")
-        cfg.input_device = _pick_input_device(default_idx=None)
-        default_idx = None
+        cfg.input_device = _pick_input_device(cfg.input_device)
     except Exception as exc:
         console.print(f"  Audio: [red]{exc}[/red]")
         raise SystemExit(1) from exc
     else:
         # Default mic is fine, but offer a picker if there's more than one
-        # input so the user can switch (e.g. webcam mic vs headset).
+        # input so the user can switch (e.g. webcam mic vs headset). The
+        # picker defaults to "système par défaut" (None) — the stable choice.
         inputs = _list_input_devices()
         if len(inputs) > 1:
-            cfg.input_device = _pick_input_device(default_idx=default_idx)
+            cfg.input_device = _pick_input_device(cfg.input_device)
 
     if sys.platform == "linux":
         missing = [c for c in ("wl-copy", "xclip") if not shutil.which(c)]
@@ -102,38 +101,35 @@ def _list_input_devices() -> list[tuple[int, dict]]:
     return [(i, d) for i, d in enumerate(sd.query_devices()) if d.get("max_input_channels", 0) > 0]
 
 
-def _resolve_default_input_index(default_info: dict) -> int | None:
-    name = default_info.get("name")
-    for idx, d in _list_input_devices():
-        if d.get("name") == name:
-            return idx
-    return None
-
-
-def _pick_input_device(default_idx: int | None) -> int:
+def _pick_input_device(current: int | None) -> int | None:
+    """Offer the input picker. Choice 0 = follow the system default mic
+    (returns None — the stable, recommended option, since PortAudio device
+    indices shift across reboots and hot-plugs). Returns a fixed index only
+    if the user explicitly pins one."""
     inputs = _list_input_devices()
     if not inputs:
         console.print("  [red]Aucun périphérique d'entrée détecté.[/red]")
         raise SystemExit(1)
 
-    default_choice = "1"
     table = Table(title="Périphériques d'entrée disponibles")
     table.add_column("#")
     table.add_column("Nom")
     table.add_column("Canaux", justify="right")
+    table.add_row("0", "Micro système par défaut [dim](recommandé)[/dim]", "—")
+    default_choice = "0"
     for n, (idx, d) in enumerate(inputs, 1):
-        marker = " [dim](défaut)[/dim]" if idx == default_idx else ""
+        marker = " [dim](actuel)[/dim]" if idx == current else ""
         table.add_row(str(n), d["name"] + marker, str(d["max_input_channels"]))
-        if idx == default_idx:
+        if idx == current:
             default_choice = str(n)
     console.print(table)
 
     raw = Prompt.ask(
         "Quel micro veux-tu utiliser ?",
-        choices=[str(i) for i in range(1, len(inputs) + 1)],
+        choices=[str(i) for i in range(0, len(inputs) + 1)],
         default=default_choice,
     )
-    return inputs[int(raw) - 1][0]
+    return None if raw == "0" else inputs[int(raw) - 1][0]
 
 
 # ---- 2. Groq API key ----

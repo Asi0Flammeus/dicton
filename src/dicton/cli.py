@@ -93,10 +93,25 @@ def hotkey_cmd() -> None:
     console.print(
         f"[green]Saved[/green] primaire={cfg.hotkey_primary} (double-tap) · secondaire={secondary}"
     )
-    console.print(
-        "Restart the daemon to apply: [cyan]dicton update --no-restart[/cyan] then "
-        "[cyan]systemctl --user restart dicton[/cyan]"
-    )
+    _restart_hint()
+
+
+@app.command(name="mic")
+def mic_cmd() -> None:
+    """Re-pick the input device (or follow the system default mic)."""
+    if not config.exists():
+        console.print("[red]No config yet[/red] — run `dicton wizard` first.")
+        raise typer.Exit(1)
+    cfg = config.load()
+    cfg.input_device = wizard._pick_input_device(cfg.input_device)
+    cfg.save()
+    label = "système par défaut" if cfg.input_device is None else f"index {cfg.input_device}"
+    console.print(f"[green]Saved[/green] micro = {label}")
+    _restart_hint()
+
+
+def _restart_hint() -> None:
+    console.print("Restart the daemon to apply: [cyan]systemctl --user restart dicton[/cyan]")
 
 
 @app.command(name="stats")
