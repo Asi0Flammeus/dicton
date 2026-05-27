@@ -29,19 +29,19 @@ Une seule ligne par plateforme :
 ### Linux (Debian / Ubuntu / Mint)
 
 ```bash
-sudo apt install -y build-essential python3-dev libportaudio2 xclip xdotool playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
+sudo apt install -y build-essential python3-dev libportaudio2 xclip xdotool wl-clipboard wtype playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
 ```
 
 ### Linux (Arch / Manjaro)
 
 ```bash
-sudo pacman -S --needed base-devel python portaudio xclip xdotool playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
+sudo pacman -S --needed base-devel python portaudio xclip xdotool wl-clipboard wtype playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
 ```
 
 ### Linux (Fedora)
 
 ```bash
-sudo dnf install -y gcc python3-devel portaudio xclip xdotool playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
+sudo dnf install -y gcc python3-devel portaudio xclip xdotool wl-clipboard wtype playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
 ```
 
 ### macOS

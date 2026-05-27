@@ -39,6 +39,11 @@ install_system_deps() {
         die "OS non supporté par cet installeur : $os (voir README pour Windows)"
     fi
 
+    # Clipboard/paste tools for BOTH session types: xclip+xdotool (X11) and
+    # wl-clipboard+wtype (Wayland). xdotool is X11-only and can't inject into
+    # native Wayland windows, so without wtype the paste silently fails in
+    # Wayland-native apps. dicton prefers wl-copy/wtype when present.
+    #
     # Detect the package manager rather than the distro name.
     if need_cmd apt-get; then
         info "Dépendances système (apt)"
@@ -46,25 +51,25 @@ install_system_deps() {
         # build-essential + python3-dev: compile the evdev C extension (Python.h).
         sudo apt-get install -y \
             git build-essential python3-dev \
-            libportaudio2 xclip xdotool playerctl
+            libportaudio2 xclip xdotool wl-clipboard wtype playerctl
     elif need_cmd pacman; then
         info "Dépendances système (pacman)"
         # base-devel provides gcc/make; python headers ship with the python pkg.
         sudo pacman -S --needed --noconfirm \
             git base-devel python \
-            portaudio xclip xdotool playerctl
+            portaudio xclip xdotool wl-clipboard wtype playerctl
     elif need_cmd dnf; then
         info "Dépendances système (dnf)"
         sudo dnf install -y \
             git gcc python3-devel \
-            portaudio xclip xdotool playerctl
+            portaudio xclip xdotool wl-clipboard wtype playerctl
     elif need_cmd zypper; then
         info "Dépendances système (zypper)"
         sudo zypper install -y \
             git gcc python3-devel \
-            portaudio xclip xdotool playerctl
+            portaudio xclip xdotool wl-clipboard wtype playerctl
     else
-        die "Gestionnaire de paquets non reconnu. Installe à la main : git, gcc/make, python3-dev, portaudio, xclip, xdotool, playerctl"
+        die "Gestionnaire de paquets non reconnu. Installe à la main : git, gcc/make, python3-dev, portaudio, xclip, xdotool, wl-clipboard, wtype, playerctl"
     fi
 }
 
