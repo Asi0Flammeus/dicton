@@ -10,26 +10,38 @@ Appuie sur F2 (ou tape Fn deux fois), parle, appuie à nouveau pour stopper. Le 
 
 ## Installation
 
-Prérequis universel : **[uv](https://docs.astral.sh/uv/getting-started/installation/)** (gestionnaire Python d'Astral) et **[git](https://git-scm.com/downloads)**.
+### Recommandé — une seule ligne (Linux & macOS)
+
+Zéro prérequis. Le script installe `uv`, `git`, les libs système **et la toolchain C** (nécessaire pour compiler `evdev`), clone le repo, installe `dicton` et lance le wizard :
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Asi0Flammeus/dicton/main/install.sh | bash
+```
+
+Détecte la distro (apt / pacman / dnf / zypper) ou Homebrew sur macOS. Relancer la même commande met à jour une install existante.
+
+### Manuel
+
+Prérequis : **[uv](https://docs.astral.sh/uv/getting-started/installation/)** (gestionnaire Python d'Astral) et **[git](https://git-scm.com/downloads)**.
 
 Une seule ligne par plateforme :
 
 ### Linux (Debian / Ubuntu / Mint)
 
 ```bash
-sudo apt install -y libportaudio2 xclip xdotool playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
+sudo apt install -y build-essential python3-dev libportaudio2 xclip xdotool playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
 ```
 
 ### Linux (Arch / Manjaro)
 
 ```bash
-sudo pacman -S --needed portaudio xclip xdotool playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
+sudo pacman -S --needed base-devel python portaudio xclip xdotool playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
 ```
 
 ### Linux (Fedora)
 
 ```bash
-sudo dnf install -y portaudio xclip xdotool playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
+sudo dnf install -y gcc python3-devel portaudio xclip xdotool playerctl && git clone https://github.com/Asi0Flammeus/dicton.git && cd dicton && uv tool install --force . && dicton
 ```
 
 ### macOS
@@ -46,7 +58,7 @@ git clone https://github.com/Asi0Flammeus/dicton.git; cd dicton; uv tool install
 
 Chaque commande fait, dans l'ordre :
 
-1. installe les dépendances système nécessaires (PortAudio pour la capture audio + utilitaires clipboard/paste),
+1. installe les dépendances système nécessaires (toolchain C pour compiler `evdev`, PortAudio pour la capture audio + utilitaires clipboard/paste),
 2. clone le repo,
 3. installe `dicton` dans `~/.local/bin` (ou équivalent),
 4. lance le daemon — au premier run il enchaîne le **wizard** : check système → clé Groq (à créer sur [console.groq.com/keys](https://console.groq.com/keys)) → choix du hotkey → self-test live des 4 modèles de cleanup avec timings → activation de l'autostart.
