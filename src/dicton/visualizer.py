@@ -345,9 +345,15 @@ class Visualizer:
 
     def _set_x11_floating_hint(self, pygame) -> None:
         """Mark as UTILITY (auto-float on i3), tell the WM we don't want
-        keyboard focus, and pin the window across every workspace (sticky).
+        keyboard focus, pin the window across every workspace (sticky), and
+        keep it above other windows (above).
+
         Without sticky, i3 leaves the visualizer on workspace 1 so the user
-        loses sight of it when they switch workspace."""
+        loses sight of it when they switch workspace. Without ABOVE, stacking
+        desktops (GNOME/Mutter, Cinnamon, …) let the focused app cover the
+        donut — since we deliberately never take focus, it stays hidden
+        behind whatever the user is typing into. i3 floats UTILITY windows
+        above tiles anyway, so this only changes behaviour on stacking WMs."""
         try:
             from Xlib import X, Xutil, display, protocol
 
@@ -367,18 +373,20 @@ class Visualizer:
             # focus rotation as a result.
             win.set_wm_hints(flags=Xutil.InputHint, input=False)
 
-            # _NET_WM_STATE_STICKY: float on every workspace, not just the
-            # one where the daemon was started. We set the property *and*
-            # send the EWMH ClientMessage to root — the property covers the
-            # case where the window is still being mapped, the message
-            # covers the case where it's already mapped.
+            # _NET_WM_STATE_STICKY (every workspace) + _NET_WM_STATE_ABOVE
+            # (keep over the focused app). We set the property *and* send the
+            # EWMH ClientMessage to root — the property covers the window
+            # still being mapped, the message covers it already mapped.
             wm_state = d.intern_atom("_NET_WM_STATE")
             sticky = d.intern_atom("_NET_WM_STATE_STICKY")
-            win.change_property(wm_state, d.intern_atom("ATOM"), 32, [sticky])
+            above = d.intern_atom("_NET_WM_STATE_ABOVE")
+            win.change_property(wm_state, d.intern_atom("ATOM"), 32, [sticky, above])
+            # _NET_WM_STATE_ADD=1; two props in one message (data[1], data[2]);
+            # source=app(1). EWMH allows toggling two states per message.
             ev = protocol.event.ClientMessage(
                 window=win,
                 client_type=wm_state,
-                data=(32, [1, sticky, 0, 1, 0]),  # _NET_WM_STATE_ADD=1, source=app
+                data=(32, [1, sticky, above, 1, 0]),
             )
             d.screen().root.send_event(
                 ev,
@@ -386,7 +394,7 @@ class Visualizer:
             )
             d.sync()
         except Exception:
-            pass
+            log.debug("X11 floating/above hint failed", exc_info=True)
 
     def _init_x11_shape(self, pygame) -> None:
         """Open a long-lived X11 connection so we can toggle the shape mask
