@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -27,7 +26,7 @@ from . import stats, stt
 from .chunker import Chunker, ChunkParams
 from .config import Config
 from .gesture import DoubleTapRecognizer
-from .os_ import audio_session, fn_key
+from .os_ import audio_session, fn_key, hotkey
 from .os_.paste import paste
 from .visualizer import Visualizer
 
@@ -140,8 +139,8 @@ class Pipeline:
         # Only pynput's macOS backend exposes Key.fn. Windows and Linux
         # X11 backends don't define it — Linux uses evdev (KEY_WAKEUP on
         # ThinkPads, KEY_FN elsewhere), Windows has no userland Fn path
-        # at all. getattr keeps this robust if pynput's API shifts.
-        pynput_fn = getattr(keyboard.Key, "fn", None) if sys.platform == "darwin" else None
+        # at all. The OS-specific lookup lives in os_.hotkey.
+        pynput_fn = hotkey.pynput_primary_key()
 
         def _is_primary(norm: object) -> bool:
             return norm == primary or (pynput_fn is not None and norm == pynput_fn)
