@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from unittest import mock
 
-from dicton import output
+from dicton.os_.paste import _linux as paste_linux_mod
 
 
 def _all_tools_present(cmd: str) -> str | None:
@@ -14,20 +14,20 @@ def _all_tools_present(cmd: str) -> str | None:
 
 def test_wayland_session_prefers_wl_copy() -> None:
     with (
-        mock.patch.object(output.shutil, "which", _all_tools_present),
+        mock.patch.object(paste_linux_mod.shutil, "which", _all_tools_present),
         mock.patch.dict(os.environ, {"WAYLAND_DISPLAY": "wayland-0"}),
     ):
-        strategies = output._paste_strategies()
+        strategies = paste_linux_mod._paste_strategies()
     assert strategies[0][0] == ["wl-copy"]
 
 
 def test_x11_session_prefers_xclip() -> None:
     env = {k: v for k, v in os.environ.items() if k != "WAYLAND_DISPLAY"}
     with (
-        mock.patch.object(output.shutil, "which", _all_tools_present),
+        mock.patch.object(paste_linux_mod.shutil, "which", _all_tools_present),
         mock.patch.dict(os.environ, env, clear=True),
     ):
-        strategies = output._paste_strategies()
+        strategies = paste_linux_mod._paste_strategies()
     assert strategies[0][0] == ["xclip", "-selection", "clipboard"]
 
 
@@ -38,16 +38,16 @@ def test_paste_falls_back_when_first_copier_fails() -> None:
     def fake_run(cmd, **kwargs):
         calls.append(cmd[0])
         if cmd[0] == "wl-copy":
-            raise output.subprocess.CalledProcessError(1, cmd)
+            raise paste_linux_mod.subprocess.CalledProcessError(1, cmd)
         return mock.Mock()
 
     with (
-        mock.patch.object(output.shutil, "which", _all_tools_present),
+        mock.patch.object(paste_linux_mod.shutil, "which", _all_tools_present),
         mock.patch.dict(os.environ, {"WAYLAND_DISPLAY": "wayland-0"}),
-        mock.patch.object(output.subprocess, "run", side_effect=fake_run),
-        mock.patch.object(output.time, "sleep"),
+        mock.patch.object(paste_linux_mod.subprocess, "run", side_effect=fake_run),
+        mock.patch.object(paste_linux_mod.time, "sleep"),
     ):
-        output._paste_linux("hello")
+        paste_linux_mod.paste_linux("hello")
 
     # Tried wl-copy first, fell back to xclip, then sent the keystroke.
     assert calls[0] == "wl-copy"

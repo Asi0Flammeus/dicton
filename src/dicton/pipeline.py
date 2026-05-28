@@ -27,7 +27,7 @@ from . import fn_key, stats, stt
 from .chunker import Chunker, ChunkParams
 from .config import Config
 from .os_ import audio_session
-from .output import paste
+from .os_.paste import paste
 from .visualizer import Visualizer
 
 log = logging.getLogger("dicton")
