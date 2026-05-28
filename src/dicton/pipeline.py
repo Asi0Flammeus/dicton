@@ -23,10 +23,11 @@ import sounddevice as sd
 from pynput import keyboard
 
 from . import cleanup as cleanup_mod
-from . import fn_key, stats, stt
+from . import stats, stt
 from .chunker import Chunker, ChunkParams
 from .config import Config
-from .os_ import audio_session
+from .gesture import DoubleTapRecognizer
+from .os_ import audio_session, fn_key
 from .os_.paste import paste
 from .visualizer import Visualizer
 
@@ -69,7 +70,7 @@ class Pipeline:
         self._session: _Session | None = None
         self._stop = threading.Event()
         self._fn_listener: fn_key.FnKeyListener | None = None
-        self._primary_taps = fn_key.DoubleTapRecognizer(self._trigger)
+        self._primary_taps = DoubleTapRecognizer(self._trigger)
         self._secondary_last = 0.0
         self._state = State.IDLE
         self._state_lock = threading.Lock()
