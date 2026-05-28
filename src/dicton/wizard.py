@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import shutil
 import sys
 import time
 
@@ -19,7 +18,7 @@ from . import cleanup as cleanup_mod
 from . import stt
 from .config import CLEANUP_MODELS, ChunkParams, Config
 from .os_ import autostart as platform_mod
-from .os_ import fn_key
+from .os_ import fn_key, probes
 from .stt import GROQ_BASE, pcm16_to_wav
 
 console = Console()
@@ -90,12 +89,11 @@ def _step_system_check(cfg: Config) -> None:
         if len(inputs) > 1:
             cfg.input_device = _pick_input_device(cfg.input_device)
 
-    if sys.platform == "linux":
-        missing = [c for c in ("wl-copy", "xclip") if not shutil.which(c)]
-        if len(missing) == 2:
-            console.print("  Clipboard: [yellow]installez wl-clipboard ou xclip[/yellow]")
-        else:
-            console.print("  Clipboard: [green]OK[/green]")
+    status = probes.clipboard_tools_status()
+    if status == "missing":
+        console.print("  Clipboard: [yellow]installez wl-clipboard ou xclip[/yellow]")
+    elif status == "ok":
+        console.print("  Clipboard: [green]OK[/green]")
 
 
 def _list_input_devices() -> list[tuple[int, dict]]:
@@ -176,7 +174,7 @@ def _capture_primary(current: str, current_code: int | None) -> tuple[str, int |
     """Live-capture the primary trigger on Linux (any key, including Fn) and
     learn its evdev keycode. Falls back to a typed key name elsewhere or when
     nothing is captured."""
-    if sys.platform != "linux":
+    if not probes.capture_primary_key_supported():
         name = Prompt.ask("Touche primaire (double-tap)", default=current or "fn")
         return name, None
 
