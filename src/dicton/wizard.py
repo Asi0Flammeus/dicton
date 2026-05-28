@@ -17,8 +17,8 @@ from rich.table import Table
 
 from . import cleanup as cleanup_mod
 from . import fn_key, stt
-from . import platform as platform_mod
 from .config import CLEANUP_MODELS, ChunkParams, Config
+from .os_ import autostart as platform_mod
 from .stt import GROQ_BASE, pcm16_to_wav
 
 console = Console()
