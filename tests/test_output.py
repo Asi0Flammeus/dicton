@@ -5,7 +5,11 @@ from __future__ import annotations
 import os
 from unittest import mock
 
-from dicton.os_.paste import _linux as paste_linux_mod
+# These tests pin Linux-specific behaviour: strategy ordering by session type
+# (Wayland vs X11) and inter-strategy fallback. The public `paste()` dispatches
+# on sys.platform and exposes none of that internal structure, so we drive the
+# Linux backend directly.
+from dicton.os_.paste import _linux as linux_backend
 
 
 def _all_tools_present(cmd: str) -> str | None:
@@ -14,20 +18,20 @@ def _all_tools_present(cmd: str) -> str | None:
 
 def test_wayland_session_prefers_wl_copy() -> None:
     with (
-        mock.patch.object(paste_linux_mod.shutil, "which", _all_tools_present),
+        mock.patch.object(linux_backend.shutil, "which", _all_tools_present),
         mock.patch.dict(os.environ, {"WAYLAND_DISPLAY": "wayland-0"}),
     ):
-        strategies = paste_linux_mod._paste_strategies()
+        strategies = linux_backend._paste_strategies()
     assert strategies[0][0] == ["wl-copy"]
 
 
 def test_x11_session_prefers_xclip() -> None:
     env = {k: v for k, v in os.environ.items() if k != "WAYLAND_DISPLAY"}
     with (
-        mock.patch.object(paste_linux_mod.shutil, "which", _all_tools_present),
+        mock.patch.object(linux_backend.shutil, "which", _all_tools_present),
         mock.patch.dict(os.environ, env, clear=True),
     ):
-        strategies = paste_linux_mod._paste_strategies()
+        strategies = linux_backend._paste_strategies()
     assert strategies[0][0] == ["xclip", "-selection", "clipboard"]
 
 
@@ -38,16 +42,16 @@ def test_paste_falls_back_when_first_copier_fails() -> None:
     def fake_run(cmd, **kwargs):
         calls.append(cmd[0])
         if cmd[0] == "wl-copy":
-            raise paste_linux_mod.subprocess.CalledProcessError(1, cmd)
+            raise linux_backend.subprocess.CalledProcessError(1, cmd)
         return mock.Mock()
 
     with (
-        mock.patch.object(paste_linux_mod.shutil, "which", _all_tools_present),
+        mock.patch.object(linux_backend.shutil, "which", _all_tools_present),
         mock.patch.dict(os.environ, {"WAYLAND_DISPLAY": "wayland-0"}),
-        mock.patch.object(paste_linux_mod.subprocess, "run", side_effect=fake_run),
-        mock.patch.object(paste_linux_mod.time, "sleep"),
+        mock.patch.object(linux_backend.subprocess, "run", side_effect=fake_run),
+        mock.patch.object(linux_backend.time, "sleep"),
     ):
-        paste_linux_mod.paste_linux("hello")
+        linux_backend.paste_linux("hello")
 
     # Tried wl-copy first, fell back to xclip, then sent the keystroke.
     assert calls[0] == "wl-copy"
