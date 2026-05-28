@@ -84,7 +84,7 @@ def spawn_detached_upgrade(cmd: list[str], *, restart_daemon: bool) -> bool:
     script = (
         f"$p = Get-Process -Id {os.getpid()} -ErrorAction SilentlyContinue; "
         f"if ($p) {{ $p.WaitForExit() }}; Start-Sleep -Milliseconds 500; "
-        f"Write-Host 'Running: {quoted}' -ForegroundColor Cyan; "
+        f"Write-Host 'Running upgrade...' -ForegroundColor Cyan; "
         f"{quoted}; "
         f"{restart_block}"
         f"Write-Host ''; Read-Host 'Press Enter to close'"
