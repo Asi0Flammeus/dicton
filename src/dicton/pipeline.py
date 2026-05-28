@@ -22,10 +22,11 @@ import numpy as np
 import sounddevice as sd
 from pynput import keyboard
 
-from . import audio_session, fn_key, stats, stt
 from . import cleanup as cleanup_mod
+from . import fn_key, stats, stt
 from .chunker import Chunker, ChunkParams
 from .config import Config
+from .os_ import audio_session
 from .output import paste
 from .visualizer import Visualizer
 
