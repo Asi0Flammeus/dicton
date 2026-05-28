@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import sys
 import threading
 import time
 from dataclasses import dataclass, field
@@ -22,11 +21,13 @@ import numpy as np
 import sounddevice as sd
 from pynput import keyboard
 
-from . import audio_session, fn_key, stats, stt
 from . import cleanup as cleanup_mod
+from . import stats, stt
 from .chunker import Chunker, ChunkParams
 from .config import Config
-from .output import paste
+from .gesture import DoubleTapRecognizer
+from .os_ import audio_session, fn_key, hotkey
+from .os_.paste import paste
 from .visualizer import Visualizer
 
 log = logging.getLogger("dicton")
@@ -68,7 +69,7 @@ class Pipeline:
         self._session: _Session | None = None
         self._stop = threading.Event()
         self._fn_listener: fn_key.FnKeyListener | None = None
-        self._primary_taps = fn_key.DoubleTapRecognizer(self._trigger)
+        self._primary_taps = DoubleTapRecognizer(self._trigger)
         self._secondary_last = 0.0
         self._state = State.IDLE
         self._state_lock = threading.Lock()
@@ -135,11 +136,7 @@ class Pipeline:
         primary = None if fn_keycode is not None else _parse_key(self.cfg.hotkey_primary)
         held: set[object] = set()
 
-        # Only pynput's macOS backend exposes Key.fn. Windows and Linux
-        # X11 backends don't define it — Linux uses evdev (KEY_WAKEUP on
-        # ThinkPads, KEY_FN elsewhere), Windows has no userland Fn path
-        # at all. getattr keeps this robust if pynput's API shifts.
-        pynput_fn = getattr(keyboard.Key, "fn", None) if sys.platform == "darwin" else None
+        pynput_fn = hotkey.pynput_primary_key()
 
         def _is_primary(norm: object) -> bool:
             return norm == primary or (pynput_fn is not None and norm == pynput_fn)

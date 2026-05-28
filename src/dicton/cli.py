@@ -13,6 +13,7 @@ from rich.console import Console
 
 from . import __version__, config, stats, wizard
 from .config import CLEANUP_MODELS
+from .os_ import service
 
 app = typer.Typer(
     name="dicton",
@@ -177,13 +178,8 @@ def update_cmd(
             f"git+{GITHUB_REMOTE_URL}@main",
         ]
 
-    _kill_stale_dicton_on_windows()
-    if sys.platform == "win32":
-        # We can't replace our own running dicton.exe in place — Windows
-        # holds an exclusive lock on it. Spawn a detached PowerShell that
-        # waits for us to exit, then runs uv upgrade and (unless
-        # --no-restart) starts dictonw back up so the daemon is live again.
-        _spawn_detached_uv_on_windows(cmd, restart_daemon=not no_restart)
+    service.kill_stale_dicton()
+    if service.spawn_detached_upgrade(cmd, restart_daemon=not no_restart):
         console.print("[cyan]Upgrade started in a new window — close this one.[/cyan]")
         if not no_restart:
             console.print("[dim]dictonw will be restarted once the upgrade succeeds.[/dim]")
@@ -197,9 +193,9 @@ def update_cmd(
     if no_restart:
         console.print("[green]Installed.[/green]  Skipped daemon restart (--no-restart).")
         return
-    if _systemd_unit_active():
+    if service.systemd_unit_active():
         console.print("Restarting [cyan]systemctl --user dicton.service[/cyan]…")
-        if _restart_systemd_unit():
+        if service.restart_systemd_unit():
             console.print("[green]Daemon restarted on the new binary.[/green]")
         else:
             console.print("[yellow]Systemd restart failed.[/yellow]")
@@ -231,7 +227,7 @@ def _start_after_config(cfg, *, foreground: bool) -> None:
         console.print("[red]Missing Groq API key.[/red] Run [cyan]dicton wizard[/cyan].")
         raise typer.Exit(1)
 
-    if not foreground and cfg.autostart and _restart_systemd_unit():
+    if not foreground and cfg.autostart and service.restart_systemd_unit():
         console.print("[green]Daemon running via systemd[/green] — terminal is free.")
         console.print("  status:  [cyan]systemctl --user status dicton[/cyan]")
         console.print("  logs:    [cyan]journalctl --user -u dicton -f[/cyan]")
@@ -239,7 +235,7 @@ def _start_after_config(cfg, *, foreground: bool) -> None:
         return
 
     # Skip the "unit already running" check when we *are* the unit's ExecStart.
-    if "INVOCATION_ID" not in os.environ and _systemd_unit_active():
+    if "INVOCATION_ID" not in os.environ and service.systemd_unit_active():
         console.print(
             "[yellow]dicton.service is already running.[/yellow]\n"
             "Stop it first ([cyan]systemctl --user stop dicton[/cyan]) "
@@ -253,26 +249,6 @@ def _start_after_config(cfg, *, foreground: bool) -> None:
     from .runtime import run as run_pipeline
 
     run_pipeline(cfg)
-
-
-def _systemd_unit_active() -> bool:
-    if sys.platform != "linux" or not _which("systemctl"):
-        return False
-    r = subprocess.run(
-        ["systemctl", "--user", "is-active", "--quiet", "dicton.service"],
-        check=False,
-    )
-    return r.returncode == 0
-
-
-def _restart_systemd_unit() -> bool:
-    if sys.platform != "linux" or not _which("systemctl"):
-        return False
-    r = subprocess.run(
-        ["systemctl", "--user", "restart", "dicton.service"],
-        check=False,
-    )
-    return r.returncode == 0
 
 
 def _which(name: str) -> str | None:
@@ -362,71 +338,6 @@ def _setup_logging() -> None:
         handlers.append(stream_h)
 
     logging.basicConfig(level=logging.INFO, handlers=handlers, force=True)
-
-
-def _kill_stale_dicton_on_windows() -> None:
-    """Kill any *other* dicton.exe / dictonw.exe holding a shim open.
-
-    Windows refuses to overwrite a running .exe, so a daemon launched
-    via autostart (dictonw.exe) or a parallel ``dicton`` shell blocks
-    the upgrade. We exclude our own PID — self-replacement is handled
-    by the detached-helper path which waits for us to exit.
-    """
-    if sys.platform != "win32":
-        return
-    for image in ("dicton.exe", "dictonw.exe"):
-        subprocess.run(
-            ["taskkill", "/F", "/IM", image, "/FI", f"PID ne {os.getpid()}"],
-            check=False,
-            capture_output=True,
-        )
-
-
-def _spawn_detached_uv_on_windows(cmd: list[str], *, restart_daemon: bool) -> None:
-    """Launch a PowerShell window that waits for us to exit, then runs `cmd`.
-
-    Self-replacement is impossible on Windows: the running dicton.exe
-    holds an exclusive lock on the file uv wants to overwrite. The
-    helper waits on our PID, then runs the upgrade once the lock drops.
-    With ``restart_daemon=True`` it also kills any surviving dictonw.exe
-    and ``Start-Process dictonw`` afterwards so the daemon is live again.
-    """
-    quoted = " ".join(_ps_quote(a) for a in cmd)
-    restart_block = ""
-    if restart_daemon:
-        restart_block = (
-            "if ($LASTEXITCODE -eq 0) { "
-            "Write-Host ''; "
-            "Write-Host 'Killing any surviving dictonw...' -ForegroundColor Cyan; "
-            "taskkill /F /IM dictonw.exe 2>$null | Out-Null; "
-            "Start-Sleep -Milliseconds 300; "
-            "Write-Host 'Starting dictonw...' -ForegroundColor Cyan; "
-            "Start-Process dictonw; "
-            "Write-Host 'Daemon restarted.' -ForegroundColor Green "
-            "} else { "
-            "Write-Host 'Upgrade failed; daemon not restarted.' -ForegroundColor Red "
-            "}; "
-        )
-    script = (
-        f"$p = Get-Process -Id {os.getpid()} -ErrorAction SilentlyContinue; "
-        f"if ($p) {{ $p.WaitForExit() }}; Start-Sleep -Milliseconds 500; "
-        f"Write-Host 'Running: {quoted}' -ForegroundColor Cyan; "
-        f"{quoted}; "
-        f"{restart_block}"
-        f"Write-Host ''; Read-Host 'Press Enter to close'"
-    )
-    CREATE_NEW_CONSOLE = 0x00000010  # noqa: N806
-    subprocess.Popen(
-        ["powershell", "-NoProfile", "-Command", script],
-        creationflags=CREATE_NEW_CONSOLE,
-        close_fds=True,
-    )
-
-
-def _ps_quote(s: str) -> str:
-    if not s or any(c in s for c in " \t\"'"):
-        return "'" + s.replace("'", "''") + "'"
-    return s
 
 
 _ = Path  # reserved for future config-path printing

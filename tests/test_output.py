@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from unittest import mock
 
-from dicton import output
+from dicton.os_.paste import _linux as output
 
 
 def _all_tools_present(cmd: str) -> str | None:
