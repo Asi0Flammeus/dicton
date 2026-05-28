@@ -1,11 +1,10 @@
 """Linux Fn-key listener via evdev — optional, Linux-only.
 
 The Fn key on ThinkPads is typically remapped by the kernel to KEY_WAKEUP
-(143); on some Lenovo/ASUS models it surfaces as KEY_FN (464). We listen
-on every keyboard-like device that exposes either code and emit
-`on_press(is_double_tap)` on each key_down event. The pipeline state
-machine decides what to do with it (double-tap only matters in IDLE;
-any tap stops a RECORDING).
+(143); on some Lenovo/ASUS models it surfaces as KEY_FN (464). We listen on
+every keyboard-like device that exposes one of our trigger codes and emit a
+bare `on_tap()` per key_down. Gesture meaning (double-tap vs noise) is decided
+by `DoubleTapRecognizer`, not here.
 """
 
 from __future__ import annotations
@@ -23,6 +22,52 @@ from collections.abc import Callable
 FN_KEYCODES = {143, 464, 465, 466}
 
 DOUBLE_TAP_WINDOW_S = 0.3
+
+
+class DoubleTapRecognizer:
+    """Turns a stream of taps into clean double-tap gestures.
+
+    A gesture is "settled" once no new tap arrives for ``window_s`` after the
+    last one (the timer is reset on every tap). Only a settled count of
+    **exactly two** fires ``on_double_tap``; a single tap, or a burst of three
+    or more rapid taps ("mitraille"), is discarded as noise. This is what makes
+    a deliberate tap-tap meaningful while ignoring stray presses and key
+    chatter.
+    """
+
+    def __init__(
+        self,
+        on_double_tap: Callable[[], None],
+        window_s: float = DOUBLE_TAP_WINDOW_S,
+    ) -> None:
+        self._cb = on_double_tap
+        self._window = window_s
+        self._count = 0
+        self._timer: threading.Timer | None = None
+        self._lock = threading.Lock()
+
+    def feed_tap(self) -> None:
+        with self._lock:
+            self._count += 1
+            if self._timer is not None:
+                self._timer.cancel()
+            self._timer = threading.Timer(self._window, self._settle)
+            self._timer.daemon = True
+            self._timer.start()
+
+    def _settle(self) -> None:
+        with self._lock:
+            count = self._count
+            self._count = 0
+            self._timer = None
+        if count == 2:
+            self._cb()
+
+    def stop(self) -> None:
+        with self._lock:
+            if self._timer is not None:
+                self._timer.cancel()
+                self._timer = None
 
 
 def _keyboard_devices() -> list:
@@ -113,19 +158,18 @@ def capture_keycode(timeout_s: float = 5.0) -> tuple[int, str] | None:
 
 
 class FnKeyListener:
-    """Background thread that emits an `on_press(is_double_tap)` event per Fn
-    key_down. State decisions belong to the caller."""
+    """Background thread that emits a bare `on_tap()` per trigger key_down.
+    Gesture meaning is decided downstream by DoubleTapRecognizer."""
 
     def __init__(
         self,
-        on_press: Callable[[bool], None],
+        on_tap: Callable[[], None],
         keycodes: set[int] | None = None,
     ) -> None:
-        self._on_press = on_press
+        self._on_tap = on_tap
         self._keycodes = keycodes or FN_KEYCODES
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
-        self._last_release_ts = 0.0
 
     def start(self) -> bool:
         if sys.platform != "linux":
@@ -140,14 +184,6 @@ class FnKeyListener:
 
     def stop(self) -> None:
         self._stop.set()
-
-    def _handle_key_down(self) -> None:
-        now = time.monotonic()
-        is_double = (now - self._last_release_ts) < DOUBLE_TAP_WINDOW_S
-        self._on_press(is_double)
-
-    def _handle_key_up(self) -> None:
-        self._last_release_ts = time.monotonic()
 
     def _run(self) -> None:
         try:
@@ -177,8 +213,6 @@ class FnKeyListener:
                             continue
                         key = categorize(event)
                         if key.keystate == key.key_down:
-                            self._handle_key_down()
-                        elif key.keystate == key.key_up:
-                            self._handle_key_up()
+                            self._on_tap()
         except OSError:
             return

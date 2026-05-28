@@ -38,6 +38,14 @@ class State(Enum):
     PROCESSING = "processing"
 
 
+# Reject secondary-key presses arriving within this window of the previous
+# accepted one — covers physical chatter and an impatient finger mashing the
+# key. Wider than the double-tap window because a real start→speak→stop has
+# at least a second between presses; tighter than that would let bounces
+# through.
+SECONDARY_DEBOUNCE_S = 0.5
+
+
 @dataclass
 class _Session:
     chunks: dict[int, asyncio.Task]
@@ -60,6 +68,8 @@ class Pipeline:
         self._session: _Session | None = None
         self._stop = threading.Event()
         self._fn_listener: fn_key.FnKeyListener | None = None
+        self._primary_taps = fn_key.DoubleTapRecognizer(self._trigger)
+        self._secondary_last = 0.0
         self._state = State.IDLE
         self._state_lock = threading.Lock()
 
@@ -98,6 +108,7 @@ class Pipeline:
             self._loop.call_soon_threadsafe(self._loop.stop)
         if self._fn_listener is not None:
             self._fn_listener.stop()
+        self._primary_taps.stop()
         if self.viz is not None:
             self.viz.stop()
 
@@ -118,12 +129,11 @@ class Pipeline:
     def _start_hotkeys(self) -> None:
         fn_keycode = self.cfg.hotkey_fn_keycode
         secondary = _parse_key(self.cfg.hotkey_secondary)
-        # The primary is double-tap-to-start. On Linux it rides the evdev
-        # path (FnKeyListener) using the learned keycode, so we don't also
-        # bind it via pynput. Elsewhere (no evdev) pynput drives it.
+        # Primary = double-tap (taptap), recognised by the recognizer which
+        # discards single taps and 3+ bursts as noise. On Linux it rides the
+        # evdev path (learned keycode), so we don't also bind it via pynput.
         primary = None if fn_keycode is not None else _parse_key(self.cfg.hotkey_primary)
         held: set[object] = set()
-        primary_last_release = [0.0]
 
         # Only pynput's macOS backend exposes Key.fn. Windows and Linux
         # X11 backends don't define it — Linux uses evdev (KEY_WAKEUP on
@@ -140,49 +150,48 @@ class Pipeline:
                 return  # ignore X11 / Quartz autorepeat
             if _is_primary(norm):
                 held.add(norm)
-                is_double = (
-                    time.monotonic() - primary_last_release[0]
-                ) < fn_key.DOUBLE_TAP_WINDOW_S
-                self._advance(can_start=is_double)
+                self._primary_taps.feed_tap()
                 return
             if secondary is not None and norm == secondary:
                 held.add(norm)
-                self._toggle()
+                self._secondary_press()
 
         def on_release(key: object) -> None:
-            norm = _normalize(key)
-            if _is_primary(norm):
-                primary_last_release[0] = time.monotonic()
-            held.discard(norm)
+            held.discard(_normalize(key))
 
         self._listener = keyboard.Listener(on_press=on_press, on_release=on_release)
         self._listener.daemon = True
         self._listener.start()
 
         keycodes = fn_key.FN_KEYCODES | ({fn_keycode} if fn_keycode is not None else set())
-        self._fn_listener = fn_key.FnKeyListener(self._on_fn_press, keycodes=keycodes)
+        self._fn_listener = fn_key.FnKeyListener(self._primary_taps.feed_tap, keycodes=keycodes)
         self._fn_listener.start()
 
     # ---- state transitions ----
 
-    def _toggle(self) -> None:
-        self._advance(can_start=True)
+    def _secondary_press(self) -> None:
+        # Secondary key is a single-tap toggle, but debounced: a deliberate
+        # start→speak→stop has seconds between presses, so both pass; rapid
+        # repeats / chatter within the window are refused as noise.
+        now = time.monotonic()
+        if now - self._secondary_last < SECONDARY_DEBOUNCE_S:
+            return
+        self._secondary_last = now
+        self._trigger()
 
-    def _on_fn_press(self, is_double_tap: bool) -> None:
-        self._advance(can_start=is_double_tap)
-
-    def _advance(self, *, can_start: bool) -> None:
+    def _trigger(self) -> None:
+        """Advance the state machine on a significant gesture (clean taptap, or
+        a debounced secondary press): IDLE→RECORDING→PROCESSING. PROCESSING is
+        locked until it auto-returns to IDLE at the end of _end."""
         with self._state_lock:
             if self._state is State.IDLE:
-                if not can_start:
-                    return
                 self._state = State.RECORDING
                 coro_fn = self._begin
             elif self._state is State.RECORDING:
                 self._state = State.PROCESSING
                 coro_fn = self._end
             else:
-                log.info("locked — state=%s", self._state.value)
+                log.debug("trigger ignored — state=processing")
                 return
         asyncio.run_coroutine_threadsafe(coro_fn(), self._loop)  # type: ignore[arg-type]
 

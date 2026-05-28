@@ -102,16 +102,17 @@ class Visualizer:
         pos_y = 48
         os.environ["SDL_VIDEO_WINDOW_POS"] = f"{pos_x},{pos_y}"
 
-        # Always-mapped window: we never call show()/hide() because each
-        # remap on i3 grabs input focus, sending xdotool's Ctrl+Shift+V to
-        # the donut instead of the user's app. Visibility is driven via the
-        # XShape mask (i3) and window opacity (portable), neither of which
-        # triggers focus events.
+        # Always-mapped window: we never call show()/hide() because each remap
+        # on i3 grabs input focus, sending xdotool's Ctrl+Shift+V to the donut
+        # instead of the user's app. On X11 we set EWMH hints + a one-shot
+        # circle XShape on a SHORT-LIVED python-xlib connection that we close
+        # before entering the loop — a second long-lived xlib connection
+        # racing SDL's own connection over the same window corrupts the X
+        # client state and segfaults (status=11/SEGV) on some WMs. Inside the
+        # loop visibility is driven purely by SDL window opacity.
         screen = pygame.display.set_mode((SIZE, SIZE), pygame.NOFRAME)
         if IS_LINUX and IS_X11:
-            self._set_x11_floating_hint(pygame)
-            self._init_x11_shape(pygame)
-            self._apply_shape(visible=False)  # start fully clipped (invisible)
+            self._init_x11_window(pygame)
             self._set_sdl_opacity(pygame, 0.0)  # start hidden; raised on first frame
         elif IS_WINDOWS:
             self._set_windows_colorkey_transparency(pygame, screen)
@@ -163,31 +164,18 @@ class Visualizer:
             clock.tick(60 if self._state in ("recording", "processing") else 20)
 
     def _set_visible(self, pygame, screen, visible: bool) -> None:
-        """Show/hide without remapping the window (which would steal focus).
-
-        Belt-and-suspenders because no single mechanism works on every WM:
-        XShape clips the donut silhouette on i3; window opacity is the
-        portable hide that stacking compositors (Mutter/XWayland) honor even
-        when they ignore XShape — without it the last donut frame lingered on
-        screen after the dictation finished; and on Windows / compositor-less
-        setups we additionally paint a clear frame so nothing is left behind."""
-        if IS_LINUX and IS_X11:
-            self._apply_shape(visible=visible)
+        """Show/hide WITHOUT touching X11 — purely SDL window opacity (SDL's
+        own connection). We deliberately never reopen a python-xlib connection
+        from inside the loop: that's the race that segfaulted on non-i3 WMs.
+        The circle XShape clip was set once at startup and never changes. On
+        Windows we additionally paint a clear frame so the colorkey wipes the
+        last donut."""
         if not IS_WINDOWS:
             self._set_sdl_opacity(pygame, 0.85 if visible else 0.0)
         if not visible:
             screen.fill(TRANSPARENT_COLORKEY if IS_WINDOWS else (15, 15, 18))
             with contextlib.suppress(Exception):
                 pygame.display.flip()
-
-    @staticmethod
-    def _sdl_window(pygame):
-        try:
-            from pygame._sdl2.video import Window
-
-            return Window.from_display_module()
-        except (ImportError, AttributeError):
-            return None
 
     @staticmethod
     def _set_sdl_opacity(pygame, opacity: float) -> None:
@@ -355,140 +343,79 @@ class Visualizer:
 
     # ---- X11 / Windows window setup ----
 
-    def _set_x11_floating_hint(self, pygame) -> None:
-        """Mark as UTILITY (auto-float on i3), tell the WM we don't want
-        keyboard focus, pin the window across every workspace (sticky), and
-        keep it above other windows (above).
+    def _init_x11_window(self, pygame) -> None:
+        """One-shot X11 setup on a SHORT-LIVED python-xlib connection.
 
-        Without sticky, i3 leaves the visualizer on workspace 1 so the user
-        loses sight of it when they switch workspace. Without ABOVE, stacking
-        desktops (GNOME/Mutter, Cinnamon, …) let the focused app cover the
-        donut — since we deliberately never take focus, it stays hidden
-        behind whatever the user is typing into. i3 floats UTILITY windows
-        above tiles anyway, so this only changes behaviour on stacking WMs."""
+        Does, in order, on a single Display() that we close immediately:
+        - mark as UTILITY (auto-float on i3, also signals 'no taskbar');
+        - WM_HINTS input=False so the WM skips us in focus rotation;
+        - _NET_WM_STATE_STICKY (every workspace) + _NET_WM_STATE_ABOVE (keep
+          over the focused app on stacking WMs);
+        - XShape Bounding to a circle, so the square corners never render;
+        - XShape Input to empty, so all clicks pass through (true overlay,
+          never grabs the pointer).
+
+        We then close this connection. From this point on, SDL is the ONLY
+        process talking X about this window — that single-connection
+        invariant is what removes the segfault we used to hit when a long-
+        lived python-xlib connection raced SDL during the render loop.
+        """
         try:
             from Xlib import X, Xutil, display, protocol
+            from Xlib.ext import shape
 
             wm_info = pygame.display.get_wm_info()
             win_id = wm_info.get("window")
             if not win_id:
                 return
             d = display.Display()
-            win = d.create_resource_object("window", win_id)
+            try:
+                win = d.create_resource_object("window", win_id)
 
-            wm_type = d.intern_atom("_NET_WM_WINDOW_TYPE")
-            utility = d.intern_atom("_NET_WM_WINDOW_TYPE_UTILITY")
-            win.change_property(wm_type, d.intern_atom("ATOM"), 32, [utility])
+                wm_type = d.intern_atom("_NET_WM_WINDOW_TYPE")
+                utility = d.intern_atom("_NET_WM_WINDOW_TYPE_UTILITY")
+                win.change_property(wm_type, d.intern_atom("ATOM"), 32, [utility])
+                win.set_wm_hints(flags=Xutil.InputHint, input=False)
 
-            # WM_HINTS with input=False: ICCCM signal that this window does
-            # not want keyboard input. Most WMs (i3 included) skip it in the
-            # focus rotation as a result.
-            win.set_wm_hints(flags=Xutil.InputHint, input=False)
+                # Property covers the still-mapping case; ClientMessage covers
+                # the already-mapped case. EWMH allows two states per message.
+                wm_state = d.intern_atom("_NET_WM_STATE")
+                sticky = d.intern_atom("_NET_WM_STATE_STICKY")
+                above = d.intern_atom("_NET_WM_STATE_ABOVE")
+                win.change_property(wm_state, d.intern_atom("ATOM"), 32, [sticky, above])
+                ev = protocol.event.ClientMessage(
+                    window=win,
+                    client_type=wm_state,
+                    data=(32, [1, sticky, above, 1, 0]),  # ADD=1, src=app(1)
+                )
+                d.screen().root.send_event(
+                    ev, event_mask=X.SubstructureNotifyMask | X.SubstructureRedirectMask
+                )
 
-            # _NET_WM_STATE_STICKY (every workspace) + _NET_WM_STATE_ABOVE
-            # (keep over the focused app). We set the property *and* send the
-            # EWMH ClientMessage to root — the property covers the window
-            # still being mapped, the message covers it already mapped.
-            wm_state = d.intern_atom("_NET_WM_STATE")
-            sticky = d.intern_atom("_NET_WM_STATE_STICKY")
-            above = d.intern_atom("_NET_WM_STATE_ABOVE")
-            win.change_property(wm_state, d.intern_atom("ATOM"), 32, [sticky, above])
-            # _NET_WM_STATE_ADD=1; two props in one message (data[1], data[2]);
-            # source=app(1). EWMH allows toggling two states per message.
-            ev = protocol.event.ClientMessage(
-                window=win,
-                client_type=wm_state,
-                data=(32, [1, sticky, above, 1, 0]),
-            )
-            d.screen().root.send_event(
-                ev,
-                event_mask=X.SubstructureNotifyMask | X.SubstructureRedirectMask,
-            )
-            d.sync()
-        except Exception:
-            log.debug("X11 floating/above hint failed", exc_info=True)
-
-    def _init_x11_shape(self, pygame) -> None:
-        """Open a long-lived X11 connection so we can toggle the shape mask
-        between 'circle' and 'empty' at state-change time without remapping
-        the window (which would steal input focus)."""
-        try:
-            from Xlib import display
-            from Xlib.ext import shape  # noqa: F401  (extension load side effect)
-
-            wm_info = pygame.display.get_wm_info()
-            win_id = wm_info.get("window")
-            if not win_id:
-                return
-            self._xd = display.Display()
-            self._xwin = self._xd.create_resource_object("window", win_id)
-            self._xshape_ok = True
-        except Exception:
-            self._xshape_ok = False
-
-    def _apply_shape(self, *, visible: bool) -> None:
-        """Visible (state transition only): permissive circle so the donut can
-        always render. Invisible: clip away every pixel. Per-frame refinement
-        to the actual donut polygon happens in ``_set_donut_shape``."""
-        if not self._xshape_ok or not hasattr(self, "_xwin"):
-            return
-        try:
-            from Xlib.ext import shape
-
-            if visible:
-                pixmap = self._xwin.create_pixmap(SIZE, SIZE, 1)
-                gc = pixmap.create_gc(foreground=0, background=0)
-                pixmap.fill_rectangle(gc, 0, 0, SIZE, SIZE)
+                # Bounding mask = filled circle. Input mask = empty, so the
+                # whole window is click-through; the donut never eats clicks
+                # even on its visible pixels.
+                circle = win.create_pixmap(SIZE, SIZE, 1)
+                gc = circle.create_gc(foreground=0, background=0)
+                circle.fill_rectangle(gc, 0, 0, SIZE, SIZE)
                 gc.change(foreground=1)
-                pixmap.fill_arc(gc, 0, 0, SIZE, SIZE, 0, 360 * 64)
-            else:
-                pixmap = self._xwin.create_pixmap(1, 1, 1)
-                gc = pixmap.create_gc(foreground=0, background=0)
-                pixmap.fill_rectangle(gc, 0, 0, 1, 1)
-            self._xwin.shape_mask(shape.SO.Set, shape.SK.Bounding, 0, 0, pixmap)
-            self._xwin.shape_mask(shape.SO.Set, shape.SK.Input, 0, 0, pixmap)
-            self._xd.sync()
-            pixmap.free()
+                circle.fill_arc(gc, 0, 0, SIZE, SIZE, 0, 360 * 64)
+                win.shape_mask(shape.SO.Set, shape.SK.Bounding, 0, 0, circle)
+                circle.free()
+
+                empty = win.create_pixmap(1, 1, 1)
+                gc = empty.create_gc(foreground=0, background=0)
+                empty.fill_rectangle(gc, 0, 0, 1, 1)
+                win.shape_mask(shape.SO.Set, shape.SK.Input, 0, 0, empty)
+                empty.free()
+
+                d.sync()
+                self._xshape_ok = True
+            finally:
+                d.close()
         except Exception:
-            log.debug("XShape apply failed (visible=%s)", visible, exc_info=True)
-
-    def _set_donut_shape(
-        self,
-        outer_pts: list[tuple[float, float]],
-        inner_pts: list[tuple[float, float]],
-    ) -> None:
-        """Per-frame XShape: clip everything except the donut polygon, so the
-        dark background pixels never reach the screen. The polygons are
-        dilated radially by a margin so the mask also captures pygame's
-        outlines, glow halo, and highlight pass that draw slightly outside
-        the bare polygon."""
-        if not self._xshape_ok or not hasattr(self, "_xwin"):
-            return
-        if len(outer_pts) < 3 or len(inner_pts) < 3:
-            return
-        try:
-            from Xlib import X
-            from Xlib.ext import shape
-
-            # Margin 0 on both sides: mask = exact donut polygon. Any positive
-            # outer margin leaves a visible bg halo around the ring; the
-            # outer stroke is half-clipped (≈1 px) but the user doesn't see
-            # any dark pixels.
-            outer_xy = _dilate_radially(outer_pts, SIZE / 2, SIZE / 2, 0)
-            inner_xy = _dilate_radially(inner_pts, SIZE / 2, SIZE / 2, 0)
-
-            pixmap = self._xwin.create_pixmap(SIZE, SIZE, 1)
-            gc = pixmap.create_gc(foreground=0, background=0)
-            pixmap.fill_rectangle(gc, 0, 0, SIZE, SIZE)
-            gc.change(foreground=1)
-            pixmap.fill_poly(gc, X.Complex, X.CoordModeOrigin, outer_xy)
-            gc.change(foreground=0)
-            pixmap.fill_poly(gc, X.Complex, X.CoordModeOrigin, inner_xy)
-            self._xwin.shape_mask(shape.SO.Set, shape.SK.Bounding, 0, 0, pixmap)
-            self._xd.flush()
-            pixmap.free()
-        except Exception:
-            pass
+            log.debug("X11 window setup failed", exc_info=True)
+            self._xshape_ok = False
 
     def _set_windows_colorkey_transparency(self, pygame, screen) -> None:
         try:
@@ -540,22 +467,3 @@ def _soft_compress(value: float) -> float:
     if value < 0.5:
         return value
     return min(1.0, 0.5 + 0.5 * (1.0 - math.exp(-(value - 0.5) * 2.0)))
-
-
-def _dilate_radially(
-    pts: list[tuple[float, float]],
-    cx: float,
-    cy: float,
-    margin: float,
-) -> list[tuple[int, int]]:
-    """Push each polygon point ``margin`` pixels away from (cx, cy) along its
-    radial direction. Positive margin grows the polygon outward; negative
-    shrinks it inward (used to grow the donut hole)."""
-    out: list[tuple[int, int]] = []
-    for x, y in pts:
-        dx = x - cx
-        dy = y - cy
-        r = math.hypot(dx, dy) or 1.0
-        scale = (r + margin) / r
-        out.append((int(cx + dx * scale), int(cy + dy * scale)))
-    return out
