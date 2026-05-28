@@ -24,6 +24,8 @@ def paste_windows(text: str) -> None:
     kernel32.GlobalLock.restype = wintypes.LPVOID
     kernel32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
     kernel32.GlobalUnlock.restype = wintypes.BOOL
+    kernel32.GlobalFree.argtypes = [wintypes.HGLOBAL]
+    kernel32.GlobalFree.restype = wintypes.HGLOBAL
     user32.OpenClipboard.argtypes = [wintypes.HWND]
     user32.OpenClipboard.restype = wintypes.BOOL
     user32.EmptyClipboard.argtypes = []
@@ -42,6 +44,7 @@ def paste_windows(text: str) -> None:
         raise OSError(f"GlobalAlloc failed: {ctypes.get_last_error()}")
     locked = kernel32.GlobalLock(h)
     if not locked:
+        kernel32.GlobalFree(h)
         raise OSError(f"GlobalLock failed: {ctypes.get_last_error()}")
     ctypes.memmove(locked, encoded, len(encoded))
     kernel32.GlobalUnlock(h)
@@ -55,10 +58,15 @@ def paste_windows(text: str) -> None:
             break
         time.sleep(0.01)
     if not opened:
+        kernel32.GlobalFree(h)
         raise OSError(f"OpenClipboard failed: {ctypes.get_last_error()}")
     try:
         user32.EmptyClipboard()
-        if not user32.SetClipboardData(CF_UNICODETEXT, h):
+        # SetClipboardData transfers ownership of h to the system only on
+        # success; on NULL return the caller still owns h and must free it.
+        result = user32.SetClipboardData(CF_UNICODETEXT, h)
+        if not result:
+            kernel32.GlobalFree(h)
             raise OSError(f"SetClipboardData failed: {ctypes.get_last_error()}")
     finally:
         user32.CloseClipboard()
