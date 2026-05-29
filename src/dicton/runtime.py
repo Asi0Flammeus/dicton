@@ -7,6 +7,7 @@ import time
 
 from .config import Config
 from .os_ import single_instance as singleton
+from .os_ import x11
 from .pipeline import Pipeline
 from .visualizer import Visualizer
 
@@ -16,6 +17,9 @@ log = logging.getLogger("dicton")
 def run(cfg: Config) -> None:
     """Blocking entrypoint. Acquires the singleton lock, starts the pipeline,
     then runs the pygame loop on the main thread (required on macOS)."""
+    # Must precede every X connection: pynput's listener (Pipeline.start) and
+    # SDL (visualizer). Without it, concurrent libX11 access segfaults.
+    x11.init_threads()
     lock = singleton.acquire()
     if lock is None:
         log.error("Another dicton instance is already running. Refusing to start.")
