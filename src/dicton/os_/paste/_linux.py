@@ -29,8 +29,22 @@ def paste_linux(text: str) -> None:
     errors: list[str] = []
     for copy_cmd, send in _paste_strategies():
         try:
-            subprocess.run(copy_cmd, input=data, check=True, capture_output=True)
-        except (OSError, subprocess.CalledProcessError) as exc:
+            # DEVNULL, not capture_output: xclip/wl-copy fork a daemon to serve
+            # the selection, and that daemon inherits the stdout/stderr PIPEs.
+            # communicate() then blocks on EOF until the daemon dies (i.e. until
+            # the next copy replaces the selection) — a multi-minute hang that
+            # leaves send() never called, so paste silently never fires. With
+            # DEVNULL there is no pipe to drain: run() returns as soon as the
+            # short-lived parent exits. timeout is a belt-and-suspenders cap.
+            subprocess.run(
+                copy_cmd,
+                input=data,
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=5,
+            )
+        except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
             errors.append(f"{copy_cmd[0]} ({exc})")
             continue
         time.sleep(0.02)
