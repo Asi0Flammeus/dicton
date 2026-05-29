@@ -5,7 +5,7 @@ from __future__ import annotations
 import threading
 import time
 
-from dicton.fn_key import DoubleTapRecognizer
+from dicton.gesture import DoubleTapRecognizer
 
 WINDOW_S = 0.05  # tight window keeps the tests fast and deterministic
 SETTLE_PAD = 0.04  # extra time we wait past the window for the timer to fire

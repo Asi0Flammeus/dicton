@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 import time
 
-from . import singleton
 from .config import Config
+from .os_ import single_instance as singleton
 from .pipeline import Pipeline
 from .visualizer import Visualizer
 
