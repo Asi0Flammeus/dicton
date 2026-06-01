@@ -18,6 +18,7 @@ CONFIG_DIR = Path(user_config_dir("dicton"))
 CONFIG_PATH = CONFIG_DIR / "config.toml"
 STATS_PATH = CONFIG_DIR / "stats.jsonl"
 LOG_PATH = CONFIG_DIR / "dicton.log"
+CRASH_LOG_PATH = CONFIG_DIR / "dicton-crash.log"
 
 CLEANUP_MODELS = (
     "openai/gpt-oss-20b",

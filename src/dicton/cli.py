@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import contextlib
+import faulthandler
 import logging
 import os
+import signal
 import subprocess
 import sys
 from pathlib import Path
@@ -248,8 +251,10 @@ def _start_after_config(cfg, *, foreground: bool) -> None:
         raise typer.Exit(1)
 
     _setup_logging()
+    _setup_crash_diagnostics()
     console.print("[cyan]Starting daemon in foreground…[/cyan]  (Ctrl+C to stop)")
     console.print(f"[dim]Logs: {config.LOG_PATH}[/dim]")
+    console.print(f"[dim]Fatal crash log: {config.CRASH_LOG_PATH}[/dim]")
     from .runtime import run as run_pipeline
 
     run_pipeline(cfg)
@@ -342,6 +347,28 @@ def _setup_logging() -> None:
         handlers.append(stream_h)
 
     logging.basicConfig(level=logging.INFO, handlers=handlers, force=True)
+
+
+_crash_log_file = None
+
+
+def _setup_crash_diagnostics() -> None:
+    """Write Python/native fatal-error diagnostics before a SIGSEGV kills us."""
+    global _crash_log_file
+
+    config.CRASH_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    _crash_log_file = config.CRASH_LOG_PATH.open("a", encoding="utf-8")
+    try:
+        faulthandler.enable(file=_crash_log_file, all_threads=True, c_stack=True)
+    except TypeError:
+        # Python <3.14 has no c_stack parameter.
+        faulthandler.enable(file=_crash_log_file, all_threads=True)
+    logging.getLogger("dicton").info("fatal crash diagnostics enabled: %s", config.CRASH_LOG_PATH)
+
+    if hasattr(signal, "SIGUSR1"):
+        with contextlib.suppress(Exception):
+            faulthandler.register(signal.SIGUSR1, file=_crash_log_file, all_threads=True)
+            logging.getLogger("dicton").info("SIGUSR1 traceback dump enabled")
 
 
 _ = Path  # reserved for future config-path printing

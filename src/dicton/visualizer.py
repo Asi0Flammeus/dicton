@@ -74,6 +74,8 @@ class Visualizer:
         self.peak_hold_counter = 0
         self.frame = 0
         self._xshape_ok = False
+        self._pygame = None
+        self._screen = None
 
     # ---- producer side (any thread) ----
 
@@ -82,6 +84,8 @@ class Visualizer:
             self._frames.put_nowait(frame)
 
     def set_state(self, state: str) -> None:
+        if state != self._state:
+            log.info("visualizer state: %s -> %s", self._state, state)
         self._state = state
 
     def stop(self) -> None:
@@ -89,33 +93,57 @@ class Visualizer:
 
     # ---- main-thread loop ----
 
-    def run(self) -> None:
+    def initialize(self) -> None:
+        """Create and hide the SDL window before any other X client starts."""
+        if self._pygame is not None and self._screen is not None:
+            return
         if IS_LINUX and IS_X11:
             os.environ.setdefault("SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR", "0")
         os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
         os.environ.setdefault("SDL_VIDEO_X11_WMCLASS", "dicton")
+        log.info(
+            "visualizer starting: platform linux=%s x11=%s windows=%s",
+            IS_LINUX,
+            IS_X11,
+            IS_WINDOWS,
+        )
         import pygame
 
         pygame.init()
+        log.info("visualizer pygame initialized")
         pygame.display.set_caption("dicton")
 
         info = pygame.display.Info()
         pos_x = max(0, info.current_w - SIZE - 24)
         pos_y = 48
         os.environ["SDL_VIDEO_WINDOW_POS"] = f"{pos_x},{pos_y}"
-        # Always-mapped window: we never call show()/hide() because each remap
-        # on i3 grabs input focus, sending xdotool's Ctrl+Shift+V to the donut
-        # instead of the user's app. On X11 the circle XShape clip is set once
-        # at startup and never mutated again; runtime XShape changes open an
-        # extra X connection during SDL rendering and have caused SIGSEGV.
-        # Visibility is driven by SDL window opacity, so the compositor must
-        # stay alive while i3 reloads.
+        log.info(
+            "visualizer display: screen=%sx%s pos=%s,%s",
+            info.current_w,
+            info.current_h,
+            pos_x,
+            pos_y,
+        )
+        # X11 shape setup remains one-shot. Runtime visibility uses SDL
+        # hide/show, not python-xlib, so crash breadcrumbs can distinguish SDL
+        # remap crashes from XShape setup crashes.
         screen = pygame.display.set_mode((SIZE, SIZE), pygame.NOFRAME)
+        log.info("visualizer set_mode complete: wm_info=%s", pygame.display.get_wm_info())
         if IS_LINUX and IS_X11:
             self._init_x11_window(pygame)
+            log.info("visualizer X11 setup complete: xshape_ok=%s", self._xshape_ok)
             self._set_visible(pygame, screen, False)  # start hidden; raised on first frame
         elif IS_WINDOWS:
             self._set_windows_colorkey_transparency(pygame, screen)
+            log.info("visualizer Windows colorkey setup complete")
+        self._pygame = pygame
+        self._screen = screen
+
+    def run(self) -> None:
+        if self._pygame is None or self._screen is None:
+            self.initialize()
+        pygame = self._pygame
+        screen = self._screen
 
         # Crash isolation: a single bad frame (transient X error, lost
         # surface, …) must not kill the loop — that previously froze the
@@ -125,11 +153,14 @@ class Visualizer:
         # failures, and give up animating only if the display is truly wedged.
         try:
             self._loop(pygame, screen)
+            log.info("visualizer loop exited")
         except Exception:
             log.exception("visualizer loop crashed — daemon continues without animation")
         finally:
+            log.info("visualizer pygame quit begin")
             with contextlib.suppress(Exception):
                 pygame.quit()
+            log.info("visualizer pygame quit end")
 
     def _loop(self, pygame, screen) -> None:
         visible = False
@@ -143,6 +174,12 @@ class Visualizer:
                         self._stop.set()
                 should_show = self._state in ("recording", "processing")
                 if should_show != visible:
+                    log.info(
+                        "visualizer visibility transition: visible=%s state=%s frame=%s",
+                        should_show,
+                        self._state,
+                        self.frame,
+                    )
                     self._set_visible(pygame, screen, should_show)
                     visible = should_show
                 if should_show:
@@ -173,24 +210,34 @@ class Visualizer:
         on i3, so restore the previous active X11 window immediately after
         remapping.
         """
+        log.info("visualizer set_visible begin: visible=%s", visible)
+        window = None
         if not IS_WINDOWS:
             window = self._sdl_window(pygame)
+            log.info("visualizer sdl window resolved: present=%s", window is not None)
             if visible:
                 previous_focus = self._active_x11_window(pygame)
+                log.info("visualizer previous focus: %s", previous_focus)
                 self._set_sdl_opacity(pygame, 0.85)
                 if window is not None:
                     with contextlib.suppress(Exception):
                         window.show()
+                        log.info("visualizer SDL show complete")
                 self._restore_x11_focus(previous_focus)
+                log.info("visualizer focus restore attempted")
             else:
                 self._set_sdl_opacity(pygame, 0.0)
+                log.info("visualizer SDL opacity set to hidden")
         if not visible:
             screen.fill(TRANSPARENT_COLORKEY if IS_WINDOWS else (15, 15, 18))
             with contextlib.suppress(Exception):
                 pygame.display.flip()
+                log.info("visualizer display flip before hide complete")
             if not IS_WINDOWS and window is not None:
                 with contextlib.suppress(Exception):
                     window.hide()
+                    log.info("visualizer SDL hide complete")
+        log.info("visualizer set_visible end: visible=%s", visible)
 
     @staticmethod
     def _sdl_window(pygame):
@@ -200,13 +247,17 @@ class Visualizer:
             except AttributeError:
                 from pygame._sdl2.video import Window
 
-            return Window.from_display_module()
+            window = Window.from_display_module()
+            log.info("visualizer Window.from_display_module ok")
+            return window
         except (ImportError, AttributeError, Exception):
+            log.info("visualizer Window.from_display_module unavailable", exc_info=True)
             return None
 
     @staticmethod
     def _active_x11_window(pygame) -> str | None:
         if not (IS_LINUX and IS_X11 and shutil.which("xdotool")):
+            log.info("visualizer active x11 window probe skipped")
             return None
         try:
             current_id = str(pygame.display.get_wm_info().get("window", ""))
@@ -217,13 +268,16 @@ class Visualizer:
                 check=False,
                 timeout=0.5,
             ).stdout.strip()
+            log.info("visualizer active x11 window probe: current=%s active=%s", current_id, active)
             return active if active and active != current_id else None
         except Exception:
+            log.info("visualizer active x11 window probe failed", exc_info=True)
             return None
 
     @staticmethod
     def _restore_x11_focus(window_id: str | None) -> None:
         if not (window_id and shutil.which("xdotool")):
+            log.info("visualizer focus restore skipped")
             return
         with contextlib.suppress(Exception):
             subprocess.run(
@@ -233,6 +287,7 @@ class Visualizer:
                 stderr=subprocess.DEVNULL,
                 timeout=1.0,
             )
+            log.info("visualizer focus restored: %s", window_id)
 
     @staticmethod
     def _set_sdl_opacity(pygame, opacity: float) -> None:
@@ -240,9 +295,11 @@ class Visualizer:
         try:
             window = Visualizer._sdl_window(pygame)
             if window is not None:
-                window.opacity = max(0.0, min(1.0, opacity))
+                clamped = max(0.0, min(1.0, opacity))
+                window.opacity = clamped
+                log.info("visualizer SDL opacity set: %.2f", clamped)
         except Exception:
-            pass
+            log.info("visualizer SDL opacity set failed", exc_info=True)
 
     # ---- audio → levels (ported from main `update()`) ----
 
@@ -471,7 +528,7 @@ class Visualizer:
             finally:
                 d.close()
         except Exception:
-            log.debug("X11 window setup failed", exc_info=True)
+            log.info("X11 window setup failed", exc_info=True)
             self._xshape_ok = False
 
     def _set_windows_colorkey_transparency(self, pygame, screen) -> None:
