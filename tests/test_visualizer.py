@@ -38,7 +38,7 @@ def _fake_pygame(window: _FakeWindow, display: _FakeDisplay) -> object:
     )
 
 
-def test_hidden_x11_visualizer_collapses_shape_without_relying_on_opacity_only() -> None:
+def test_hidden_x11_visualizer_does_not_touch_xshape_after_startup() -> None:
     window = _FakeWindow()
     display = _FakeDisplay()
     pygame = _fake_pygame(window, display)
@@ -47,49 +47,30 @@ def test_hidden_x11_visualizer_collapses_shape_without_relying_on_opacity_only()
 
     viz = visualizer.Visualizer()
     viz._xshape_ok = True
-    viz._set_x11_bounding_shape = lambda _pygame, visible: calls.append(visible)  # type: ignore[method-assign]
+    viz._set_x11_bounding_shape = lambda _pygame, visible: calls.append(visible)  # type: ignore[attr-defined]
 
     viz._set_visible(pygame, screen, False)
 
-    assert calls == [False]
+    assert calls == []
     assert window.opacity == 0.0
     assert screen.fills == [(15, 15, 18)]
     assert display.flips == 1
 
 
-def test_visible_x11_visualizer_restores_shape_before_raising_opacity() -> None:
+def test_visible_x11_visualizer_uses_sdl_opacity_only() -> None:
     window = _FakeWindow()
     display = _FakeDisplay()
     pygame = _fake_pygame(window, display)
     screen = _FakeScreen()
-    events: list[str] = []
-
-    class OrderedWindow:
-        @staticmethod
-        def from_display_module() -> object:
-            class Facade:
-                @property
-                def opacity(self) -> float:
-                    return window.opacity
-
-                @opacity.setter
-                def opacity(self, value: float) -> None:
-                    events.append("opacity")
-                    window.opacity = value
-
-            return Facade()
-
-    pygame._sdl2.video.Window = OrderedWindow
+    calls: list[bool] = []
 
     viz = visualizer.Visualizer()
     viz._xshape_ok = True
-    viz._set_x11_bounding_shape = lambda _pygame, visible: events.append(  # type: ignore[method-assign]
-        f"shape:{visible}"
-    )
+    viz._set_x11_bounding_shape = lambda _pygame, visible: calls.append(visible)  # type: ignore[attr-defined]
 
     viz._set_visible(pygame, screen, True)
 
-    assert events == ["shape:True", "opacity"]
+    assert calls == []
     assert window.opacity == 0.85
     assert screen.fills == []
     assert display.flips == 0
