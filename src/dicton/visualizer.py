@@ -101,19 +101,17 @@ class Visualizer:
         pos_x = max(0, info.current_w - SIZE - 24)
         pos_y = 48
         os.environ["SDL_VIDEO_WINDOW_POS"] = f"{pos_x},{pos_y}"
-
         # Always-mapped window: we never call show()/hide() because each remap
         # on i3 grabs input focus, sending xdotool's Ctrl+Shift+V to the donut
-        # instead of the user's app. On X11 we set EWMH hints + a one-shot
-        # circle XShape on a SHORT-LIVED python-xlib connection that we close
-        # before entering the loop — a second long-lived xlib connection
-        # racing SDL's own connection over the same window corrupts the X
-        # client state and segfaults (status=11/SEGV) on some WMs. Inside the
-        # loop visibility is driven purely by SDL window opacity.
+        # instead of the user's app. On X11, hidden means both "opacity 0"
+        # (nice under picom) and "empty Bounding shape" (robust while picom is
+        # restarting during an i3 reload). Visibility changes happen on the
+        # pygame main thread via short-lived XShape calls; no extra X
+        # connection is kept around while SDL renders.
         screen = pygame.display.set_mode((SIZE, SIZE), pygame.NOFRAME)
         if IS_LINUX and IS_X11:
             self._init_x11_window(pygame)
-            self._set_sdl_opacity(pygame, 0.0)  # start hidden; raised on first frame
+            self._set_visible(pygame, screen, False)  # start hidden; raised on first frame
         elif IS_WINDOWS:
             self._set_windows_colorkey_transparency(pygame, screen)
 
@@ -164,13 +162,17 @@ class Visualizer:
             clock.tick(60 if self._state in ("recording", "processing") else 20)
 
     def _set_visible(self, pygame, screen, visible: bool) -> None:
-        """Show/hide WITHOUT touching X11 — purely SDL window opacity (SDL's
-        own connection). We deliberately never reopen a python-xlib connection
-        from inside the loop: that's the race that segfaulted on non-i3 WMs.
-        The circle XShape clip was set once at startup and never changes. On
-        Windows we additionally paint a clear frame so the colorkey wipes the
-        last donut."""
+        """Show/hide without remapping the X11 window.
+
+        Opacity alone depends on a running compositor. The local i3 config
+        restarts picom on reload, and while the compositor is down a
+        zero-opacity X window renders as an ordinary black circle. Collapsing
+        the XShape Bounding mask while idle makes the window server-side
+        invisible even with no compositor.
+        """
         if not IS_WINDOWS:
+            if self._xshape_ok:
+                self._set_x11_bounding_shape(pygame, visible)
             self._set_sdl_opacity(pygame, 0.85 if visible else 0.0)
         if not visible:
             screen.fill(TRANSPARENT_COLORKEY if IS_WINDOWS else (15, 15, 18))
@@ -179,13 +181,49 @@ class Visualizer:
 
     @staticmethod
     def _set_sdl_opacity(pygame, opacity: float) -> None:
-        """Per-window opacity via SDL (requires a running compositor; picom on i3)."""
+        """Per-window opacity via SDL (cosmetic; requires a compositor)."""
         try:
-            from pygame._sdl2.video import Window
+            try:
+                Window = pygame._sdl2.video.Window
+            except AttributeError:
+                from pygame._sdl2.video import Window
 
             Window.from_display_module().opacity = max(0.0, min(1.0, opacity))
         except (ImportError, AttributeError, Exception):
             pass
+
+    def _set_x11_bounding_shape(self, pygame, visible: bool) -> None:
+        """Restore the circular XShape when visible; collapse it when hidden."""
+        if not (IS_LINUX and IS_X11):
+            return
+        try:
+            from Xlib import display
+            from Xlib.ext import shape
+
+            win_id = pygame.display.get_wm_info().get("window")
+            if not win_id:
+                return
+            d = display.Display()
+            try:
+                win = d.create_resource_object("window", win_id)
+                if visible:
+                    mask = win.create_pixmap(SIZE, SIZE, 1)
+                    gc = mask.create_gc(foreground=0, background=0)
+                    mask.fill_rectangle(gc, 0, 0, SIZE, SIZE)
+                    gc.change(foreground=1)
+                    mask.fill_arc(gc, 0, 0, SIZE, SIZE, 0, 360 * 64)
+                else:
+                    mask = win.create_pixmap(1, 1, 1)
+                    gc = mask.create_gc(foreground=0, background=0)
+                    mask.fill_rectangle(gc, 0, 0, 1, 1)
+                win.shape_mask(shape.SO.Set, shape.SK.Bounding, 0, 0, mask)
+                mask.free()
+                d.sync()
+            finally:
+                d.close()
+        except Exception:
+            log.debug("X11 visibility shape update failed", exc_info=True)
+            self._xshape_ok = False
 
     # ---- audio → levels (ported from main `update()`) ----
 
