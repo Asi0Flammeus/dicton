@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil
+import subprocess
 import types
 
 from dicton import visualizer
@@ -20,10 +22,20 @@ class _FakeDisplay:
     def flip(self) -> None:
         self.flips += 1
 
+    def get_wm_info(self) -> dict[str, int]:
+        return {"window": 4242}
+
 
 class _FakeWindow:
     def __init__(self) -> None:
         self.opacity = 1.0
+        self.events: list[str] = []
+
+    def hide(self) -> None:
+        self.events.append("hide")
+
+    def show(self) -> None:
+        self.events.append("show")
 
 
 def _fake_pygame(window: _FakeWindow, display: _FakeDisplay) -> object:
@@ -38,7 +50,7 @@ def _fake_pygame(window: _FakeWindow, display: _FakeDisplay) -> object:
     )
 
 
-def test_hidden_x11_visualizer_does_not_touch_xshape_after_startup() -> None:
+def test_hidden_x11_visualizer_unmaps_window_without_touching_xshape() -> None:
     window = _FakeWindow()
     display = _FakeDisplay()
     pygame = _fake_pygame(window, display)
@@ -53,16 +65,27 @@ def test_hidden_x11_visualizer_does_not_touch_xshape_after_startup() -> None:
 
     assert calls == []
     assert window.opacity == 0.0
+    assert window.events == ["hide"]
     assert screen.fills == [(15, 15, 18)]
     assert display.flips == 1
 
 
-def test_visible_x11_visualizer_uses_sdl_opacity_only() -> None:
+def test_visible_x11_visualizer_remaps_window_and_restores_previous_focus(monkeypatch) -> None:
     window = _FakeWindow()
     display = _FakeDisplay()
     pygame = _fake_pygame(window, display)
     screen = _FakeScreen()
     calls: list[bool] = []
+    commands: list[list[str]] = []
+
+    def fake_run(cmd, **kwargs):  # noqa: ANN001, ANN202
+        commands.append(cmd)
+        if cmd == ["xdotool", "getactivewindow"]:
+            return types.SimpleNamespace(stdout="9001\n")
+        return types.SimpleNamespace(stdout="")
+
+    monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(subprocess, "run", fake_run)
 
     viz = visualizer.Visualizer()
     viz._xshape_ok = True
@@ -72,5 +95,10 @@ def test_visible_x11_visualizer_uses_sdl_opacity_only() -> None:
 
     assert calls == []
     assert window.opacity == 0.85
+    assert window.events == ["show"]
+    assert commands == [
+        ["xdotool", "getactivewindow"],
+        ["xdotool", "windowactivate", "--sync", "9001"],
+    ]
     assert screen.fills == []
     assert display.flips == 0

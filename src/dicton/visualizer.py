@@ -16,6 +16,8 @@ import logging
 import math
 import os
 import queue
+import shutil
+import subprocess
 import sys
 import threading
 
@@ -162,30 +164,84 @@ class Visualizer:
             clock.tick(60 if self._state in ("recording", "processing") else 20)
 
     def _set_visible(self, pygame, screen, visible: bool) -> None:
-        """Show/hide without remapping the X11 window.
+        """Show/hide without runtime XShape mutations.
 
-        Runtime XShape mutations race SDL's X11 client lifecycle on i3 and
-        have caused SIGSEGV. Keep XShape static after startup; visibility is
-        SDL opacity only.
+        Hidden means unmapped, not just opacity=0: opacity depends on picom,
+        so a compositor restart exposes an idle black circle. SDL hide/show
+        uses SDL's own X11 connection, preserving the single-owner invariant
+        that avoids python-xlib/SDL crashes. Showing a window can steal focus
+        on i3, so restore the previous active X11 window immediately after
+        remapping.
         """
         if not IS_WINDOWS:
-            self._set_sdl_opacity(pygame, 0.85 if visible else 0.0)
+            window = self._sdl_window(pygame)
+            if visible:
+                previous_focus = self._active_x11_window(pygame)
+                self._set_sdl_opacity(pygame, 0.85)
+                if window is not None:
+                    with contextlib.suppress(Exception):
+                        window.show()
+                self._restore_x11_focus(previous_focus)
+            else:
+                self._set_sdl_opacity(pygame, 0.0)
         if not visible:
             screen.fill(TRANSPARENT_COLORKEY if IS_WINDOWS else (15, 15, 18))
             with contextlib.suppress(Exception):
                 pygame.display.flip()
+            if not IS_WINDOWS and window is not None:
+                with contextlib.suppress(Exception):
+                    window.hide()
 
     @staticmethod
-    def _set_sdl_opacity(pygame, opacity: float) -> None:
-        """Per-window opacity via SDL (cosmetic; requires a compositor)."""
+    def _sdl_window(pygame):
         try:
             try:
                 Window = pygame._sdl2.video.Window
             except AttributeError:
                 from pygame._sdl2.video import Window
 
-            Window.from_display_module().opacity = max(0.0, min(1.0, opacity))
+            return Window.from_display_module()
         except (ImportError, AttributeError, Exception):
+            return None
+
+    @staticmethod
+    def _active_x11_window(pygame) -> str | None:
+        if not (IS_LINUX and IS_X11 and shutil.which("xdotool")):
+            return None
+        try:
+            current_id = str(pygame.display.get_wm_info().get("window", ""))
+            active = subprocess.run(
+                ["xdotool", "getactivewindow"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=0.5,
+            ).stdout.strip()
+            return active if active and active != current_id else None
+        except Exception:
+            return None
+
+    @staticmethod
+    def _restore_x11_focus(window_id: str | None) -> None:
+        if not (window_id and shutil.which("xdotool")):
+            return
+        with contextlib.suppress(Exception):
+            subprocess.run(
+                ["xdotool", "windowactivate", "--sync", window_id],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=1.0,
+            )
+
+    @staticmethod
+    def _set_sdl_opacity(pygame, opacity: float) -> None:
+        """Per-window opacity via SDL (cosmetic; requires a compositor)."""
+        try:
+            window = Visualizer._sdl_window(pygame)
+            if window is not None:
+                window.opacity = max(0.0, min(1.0, opacity))
+        except Exception:
             pass
 
     # ---- audio → levels (ported from main `update()`) ----
