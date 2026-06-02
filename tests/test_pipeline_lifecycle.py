@@ -89,3 +89,69 @@ def test_trigger_observes_begin_transition() -> None:
     submitted = runner.submitted[0]
     assert asyncio.iscoroutine(submitted)
     submitted.close()
+
+
+async def test_begin_failure_returns_to_idle_and_resumes_players(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    paused = ["spotify"]
+    resumed: list[list[str]] = []
+    monkeypatch.setattr("dicton.pipeline.audio_session.pause_active_players", lambda: paused)
+    monkeypatch.setattr(
+        "dicton.pipeline.audio_session.resume_players",
+        lambda players: resumed.append(list(players)),
+    )
+
+    class BrokenInputStream:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def start(self) -> None:
+            raise RuntimeError("microphone failed")
+
+    monkeypatch.setattr("dicton.pipeline.sd.InputStream", BrokenInputStream)
+    monkeypatch.setattr("dicton.pipeline.stt.prewarm", lambda *args, **kwargs: asyncio.sleep(0))
+
+    pipe = Pipeline(Config())
+    pipe._runner = FakeLoopRunner()
+    pipe._state = State.RECORDING
+
+    with pytest.raises(RuntimeError, match="microphone failed"):
+        await pipe._begin()
+
+    assert pipe._session is None
+    assert pipe._state is State.IDLE
+    assert resumed == [["spotify"]]
+
+
+async def test_end_failure_returns_to_idle_and_resumes_players(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resumed: list[list[str]] = []
+    monkeypatch.setattr(
+        "dicton.pipeline.audio_session.resume_players",
+        lambda players: resumed.append(list(players)),
+    )
+
+    pipe = Pipeline(Config())
+    pipe._runner = FakeLoopRunner()
+    pipe._state = State.PROCESSING
+    pipe._session = types.SimpleNamespace(
+        chunks={},
+        started_at=0.0,
+        paused_players=["spotify"],
+    )
+    pipe._stream = FakeStream()
+
+    async def broken_cleanup(*args: object, **kwargs: object) -> str:
+        raise RuntimeError("cleanup failed")
+
+    monkeypatch.setattr("dicton.pipeline.cleanup_mod.cleanup", broken_cleanup)
+
+    with pytest.raises(RuntimeError, match="cleanup failed"):
+        await pipe._end()
+
+    assert pipe._session is None
+    assert pipe._state is State.IDLE
+    assert pipe._stream is None
+    assert resumed == [["spotify"]]

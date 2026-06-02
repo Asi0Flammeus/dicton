@@ -120,13 +120,24 @@ class Pipeline:
         self._runner.close(timeout=5.0)
 
     def _close_stream(self) -> None:
-        if self._stream is None:
+        stream = self._stream
+        if stream is None:
             return
         try:
-            self._stream.stop()
+            stop = getattr(stream, "stop", None)
+            if stop is not None:
+                stop()
         finally:
-            self._stream.close()
+            close = getattr(stream, "close", None)
+            if close is not None:
+                close()
             self._stream = None
+
+    def _set_idle(self) -> None:
+        with self._state_lock:
+            self._state = State.IDLE
+        if self.viz is not None:
+            self.viz.set_state("idle")
 
     # ---- hotkey wiring ----
 
@@ -204,24 +215,33 @@ class Pipeline:
     async def _begin(self) -> None:
         if self._session is not None:
             return
-        self._chunker.reset()
-        paused = audio_session.pause_active_players()
-        self._session = _Session(chunks={}, started_at=time.monotonic(), paused_players=paused)
-        if self.viz is not None:
-            self.viz.set_state("recording")
-        client = self._runner.client
-        if client is None:
-            raise RuntimeError("async client is not started")
-        asyncio.create_task(stt.prewarm(client, api_key=self.cfg.groq_api_key))
-        self._stream = sd.InputStream(
-            samplerate=self.cfg.sample_rate,
-            channels=1,
-            dtype="int16",
-            blocksize=int(self.cfg.sample_rate * 0.05),
-            callback=self._audio_cb,
-            device=self.cfg.input_device,
-        )
-        self._stream.start()
+        paused: list[str] = []
+        try:
+            self._chunker.reset()
+            paused = audio_session.pause_active_players()
+            self._session = _Session(chunks={}, started_at=time.monotonic(), paused_players=paused)
+            if self.viz is not None:
+                self.viz.set_state("recording")
+            client = self._runner.client
+            if client is None:
+                raise RuntimeError("async client is not started")
+            asyncio.create_task(stt.prewarm(client, api_key=self.cfg.groq_api_key))
+            self._stream = sd.InputStream(
+                samplerate=self.cfg.sample_rate,
+                channels=1,
+                dtype="int16",
+                blocksize=int(self.cfg.sample_rate * 0.05),
+                callback=self._audio_cb,
+                device=self.cfg.input_device,
+            )
+            self._stream.start()
+        except Exception:
+            self._close_stream()
+            if paused:
+                audio_session.resume_players(paused)
+            self._session = None
+            self._set_idle()
+            raise
 
     def _audio_cb(self, indata: np.ndarray, frames: int, time_info, status) -> None:  # type: ignore[no-untyped-def]
         if status:
@@ -248,92 +268,90 @@ class Pipeline:
 
     async def _end(self) -> None:
         if self._session is None:
+            self._set_idle()
             return
         session = self._session
         recording_ended_at = time.monotonic()
         recording_ms = int((recording_ended_at - session.started_at) * 1000)
-
-        if self._stream is not None:
-            self._stream.stop()
-            self._stream.close()
-            self._stream = None
-
-        # Flush BEFORE clearing _session so _on_chunk_ready can still attach
-        # the final chunk's STT task to the active session.
-        self._chunker.flush()
-        self._session = None
-        if self.viz is not None:
-            self.viz.set_state("processing")
-
-        t_stt_start = time.monotonic()
-        ordered_ids = sorted(session.chunks)
-        texts: list[str] = []
-        dropped = 0
-        for cid in ordered_ids:
-            try:
-                transcript = await session.chunks[cid]
-            except Exception as exc:
-                log.warning("chunk %d failed: %s", cid, exc)
-                continue
-            dropped += transcript.dropped
-            texts.append(transcript.clean_text())
-        joined = " ".join(t for t in texts if t).strip()
-        if dropped:
-            log.info("dropped %d hallucinated segment(s)", dropped)
-        stt_ms = int((time.monotonic() - t_stt_start) * 1000)
-
-        t_cl_start = time.monotonic()
-        cleaned = await cleanup_mod.cleanup(
-            self._runner.client,
-            joined,
-            api_key=self.cfg.groq_api_key,
-            model=self.cfg.cleanup_model,
-        )
-        cleanup_ms = int((time.monotonic() - t_cl_start) * 1000)
-
-        # Hide the donut just before the text lands — it shouldn't sit on
-        # screen over the freshly pasted text. The pipeline stays in
-        # PROCESSING (state machine) until the end so a stray hotkey can't
-        # start a new recording mid-paste; only the visual goes idle here.
-        if self.viz is not None:
-            self.viz.set_state("idle")
-
         paste_error: Exception | None = None
-        if cleaned:
-            try:
-                await asyncio.to_thread(paste, cleaned)
-            except Exception as exc:  # noqa: BLE001
-                paste_error = exc
-                log.error("paste failed: %s", exc, exc_info=True)
+        cleaned = ""
+        stt_ms = 0
+        cleanup_ms = 0
 
-        process_ms = int((time.monotonic() - recording_ended_at) * 1000)
         try:
-            stats.record(
-                stats.Dictation(
-                    ts=stats.now_iso(),
-                    duration_s=round(recording_ms / 1000.0, 2),
-                    chars=len(cleaned),
-                    chunks=len(session.chunks),
-                    recording_ms=recording_ms,
-                    process_ms=process_ms,
-                    stt_ms=stt_ms,
-                    cleanup_ms=cleanup_ms,
-                    model=self.cfg.cleanup_model,
-                )
-            )
-        except OSError as exc:
-            log.warning("stats append failed: %s", exc)
+            self._close_stream()
 
-        audio_session.resume_players(session.paused_players)
-        # Always return to IDLE even if paste blew up — otherwise the hotkey
-        # stops working. The visualizer was already hidden before the paste.
-        with self._state_lock:
-            self._state = State.IDLE
+            self._chunker.flush()
+            self._session = None
+            if self.viz is not None:
+                self.viz.set_state("processing")
+
+            t_stt_start = time.monotonic()
+            ordered_ids = sorted(session.chunks)
+            texts: list[str] = []
+            dropped = 0
+            for cid in ordered_ids:
+                try:
+                    transcript = await session.chunks[cid]
+                except Exception as exc:
+                    log.warning("chunk %d failed: %s", cid, exc)
+                    continue
+                dropped += transcript.dropped
+                texts.append(transcript.clean_text())
+            joined = " ".join(t for t in texts if t).strip()
+            if dropped:
+                log.info("dropped %d hallucinated segment(s)", dropped)
+            stt_ms = int((time.monotonic() - t_stt_start) * 1000)
+
+            t_cl_start = time.monotonic()
+            client = self._runner.client
+            if client is None:
+                raise RuntimeError("async client is not started")
+            cleaned = await cleanup_mod.cleanup(
+                client,
+                joined,
+                api_key=self.cfg.groq_api_key,
+                model=self.cfg.cleanup_model,
+            )
+            cleanup_ms = int((time.monotonic() - t_cl_start) * 1000)
+
+            if self.viz is not None:
+                self.viz.set_state("idle")
+
+            if cleaned:
+                try:
+                    await asyncio.to_thread(paste, cleaned)
+                except Exception as exc:  # noqa: BLE001
+                    paste_error = exc
+                    log.error("paste failed: %s", exc, exc_info=True)
+
+            process_ms = int((time.monotonic() - recording_ended_at) * 1000)
+            try:
+                stats.record(
+                    stats.Dictation(
+                        ts=stats.now_iso(),
+                        duration_s=round(recording_ms / 1000.0, 2),
+                        chars=len(cleaned),
+                        chunks=len(session.chunks),
+                        recording_ms=recording_ms,
+                        process_ms=process_ms,
+                        stt_ms=stt_ms,
+                        cleanup_ms=cleanup_ms,
+                        model=self.cfg.cleanup_model,
+                    )
+                )
+            except OSError as exc:
+                log.warning("stats append failed: %s", exc)
+        finally:
+            audio_session.resume_players(session.paused_players)
+            self._session = None
+            self._set_idle()
+
         log.info(
             "dictation: %d chars · recording=%dms · process=%dms (stt=%dms cleanup=%dms) · chunks=%d%s",
             len(cleaned),
             recording_ms,
-            process_ms,
+            int((time.monotonic() - recording_ended_at) * 1000),
             stt_ms,
             cleanup_ms,
             len(session.chunks),
