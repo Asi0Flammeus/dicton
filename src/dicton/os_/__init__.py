@@ -6,6 +6,6 @@ lives under this package. The rest of dicton (`pipeline.py`, `cli.py`,
 `wizard.py`, `runtime.py`, …) calls a neutral API without ever inspecting
 `sys.platform` itself.
 
-The single exemption is `src/dicton/visualizer.py` — explicit display
-coupling (X11/SDL/XShape) that the user wants kept in one file.
+The single exemption is `src/dicton/visualizer.py` — explicit desktop GUI
+coupling that is intentionally kept in one file.
 """

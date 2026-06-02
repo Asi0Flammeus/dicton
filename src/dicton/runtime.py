@@ -1,4 +1,4 @@
-"""Daemon entrypoint — singleton lock + Pipeline + main-thread pygame loop."""
+"""Daemon entrypoint — singleton lock + Pipeline + main-thread GUI loop."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ log = logging.getLogger("dicton")
 
 def run(cfg: Config) -> None:
     """Blocking entrypoint. Acquires the singleton lock, starts the pipeline,
-    then runs the pygame loop on the main thread (required on macOS)."""
+    then runs the Qt visualizer loop on the main thread (required on macOS)."""
     # Must precede every X connection. Keep Pipeline/Visualizer imports below:
     # pipeline imports pynput.keyboard at module import time, and pynput's X11
     # backend opens an X connection immediately. Importing it before
@@ -31,9 +31,9 @@ def run(cfg: Config) -> None:
     viz = None
     if cfg.visualizer:
         viz = Visualizer()
-        # Initialize SDL/X11 before Pipeline.start() starts pynput's XRecord
-        # listener. Running both window creation and XRecord enablement at the
-        # same time has wedged SDL set_mode and preceded SIGSEGV crashes.
+        # Initialize Qt/X11 before Pipeline.start() starts pynput's XRecord
+        # listener. XInitThreads() and GUI creation both need to happen before
+        # other X clients are active in the process.
         try:
             viz.initialize()
         except Exception:
@@ -44,11 +44,10 @@ def run(cfg: Config) -> None:
     try:
         if viz is not None:
             # viz.run() owns the main thread (required on macOS). It returns
-            # on a shutdown request (SDL QUIT / SIGTERM → quit_requested) OR
-            # after the visualizer crashed/gave up on a wedged display. Only
-            # in the latter case do we keep serving dictations (record +
-            # paste) without animation; a real shutdown must fall through to
-            # the finally so systemd's `restart` doesn't hang.
+            # on a shutdown request (quit_requested) OR after the visualizer
+            # crashed. Only in the latter case do we keep serving dictations
+            # without animation; a real shutdown must fall through to finally
+            # so systemd's `restart` doesn't hang.
             viz.run()
             if not viz.quit_requested:
                 while not pipe.stopped:

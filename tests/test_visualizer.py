@@ -1,104 +1,136 @@
 from __future__ import annotations
 
-import shutil
-import subprocess
-import types
+import numpy as np
 
 from dicton import visualizer
 
 
-class _FakeScreen:
+class _FakeApp:
     def __init__(self) -> None:
-        self.fills: list[tuple[int, int, int]] = []
+        self.exec_calls = 0
+        self.quit_calls = 0
 
-    def fill(self, color: tuple[int, int, int]) -> None:
-        self.fills.append(color)
+    def exec(self) -> int:
+        self.exec_calls += 1
+        return 0
 
-
-class _FakeDisplay:
-    def __init__(self) -> None:
-        self.flips = 0
-
-    def flip(self) -> None:
-        self.flips += 1
-
-    def get_wm_info(self) -> dict[str, int]:
-        return {"window": 4242}
+    def quit(self) -> None:
+        self.quit_calls += 1
 
 
 class _FakeWindow:
     def __init__(self) -> None:
-        self.opacity = 1.0
-        self.events: list[str] = []
+        self.states: list[str] = []
+        self.frames: list[np.ndarray] = []
+        self.stop_calls = 0
+        self.visible = True
 
-    def hide(self) -> None:
-        self.events.append("hide")
+    def apply_state(self, state: str) -> None:
+        self.states.append(state)
+        self.visible = state in {"recording", "processing"}
 
-    def show(self) -> None:
-        self.events.append("show")
+    def push_frame(self, frame: np.ndarray) -> None:
+        self.frames.append(frame)
+
+    def stop(self) -> None:
+        self.stop_calls += 1
 
 
-def _fake_pygame(window: _FakeWindow, display: _FakeDisplay) -> object:
-    class WindowFacade:
-        @staticmethod
-        def from_display_module() -> _FakeWindow:
-            return window
+def test_visualizer_initializes_qt_window_hidden(monkeypatch) -> None:
+    app = _FakeApp()
+    window = _FakeWindow()
 
-    return types.SimpleNamespace(
-        display=display,
-        _sdl2=types.SimpleNamespace(video=types.SimpleNamespace(Window=WindowFacade)),
+    monkeypatch.setattr(visualizer.Visualizer, "_create_app", lambda _self: app, raising=False)
+    monkeypatch.setattr(
+        visualizer.Visualizer,
+        "_create_window",
+        lambda _self: window,
+        raising=False,
     )
 
+    viz = visualizer.Visualizer()
+    viz.initialize()
 
-def test_hidden_x11_visualizer_unmaps_window_without_touching_xshape() -> None:
+    assert viz._app is app
+    assert viz._window is window
+    assert window.states == ["idle"]
+    assert window.visible is False
+
+
+def test_visualizer_state_changes_show_recording_processing_and_hide_idle(monkeypatch) -> None:
+    app = _FakeApp()
     window = _FakeWindow()
-    display = _FakeDisplay()
-    pygame = _fake_pygame(window, display)
-    screen = _FakeScreen()
-    calls: list[bool] = []
+    monkeypatch.setattr(visualizer.Visualizer, "_create_app", lambda _self: app, raising=False)
+    monkeypatch.setattr(
+        visualizer.Visualizer,
+        "_create_window",
+        lambda _self: window,
+        raising=False,
+    )
 
     viz = visualizer.Visualizer()
-    viz._xshape_ok = True
-    viz._set_x11_bounding_shape = lambda _pygame, visible: calls.append(visible)  # type: ignore[attr-defined]
+    viz.initialize()
 
-    viz._set_visible(pygame, screen, False)
+    viz.set_state("recording")
+    viz.set_state("processing")
+    viz.set_state("idle")
 
-    assert calls == []
-    assert window.opacity == 0.0
-    assert window.events == ["hide"]
-    assert screen.fills == [(15, 15, 18)]
-    assert display.flips == 1
+    assert window.states == ["idle", "recording", "processing", "idle"]
+    assert window.visible is False
 
 
-def test_visible_x11_visualizer_remaps_window_and_restores_previous_focus(monkeypatch) -> None:
+def test_visualizer_push_frame_reaches_qt_window_without_copying(monkeypatch) -> None:
+    app = _FakeApp()
     window = _FakeWindow()
-    display = _FakeDisplay()
-    pygame = _fake_pygame(window, display)
-    screen = _FakeScreen()
-    calls: list[bool] = []
-    commands: list[list[str]] = []
-
-    def fake_run(cmd, **kwargs):  # noqa: ANN001, ANN202
-        commands.append(cmd)
-        if cmd == ["xdotool", "getactivewindow"]:
-            return types.SimpleNamespace(stdout="9001\n")
-        return types.SimpleNamespace(stdout="")
-
-    monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")
-    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(visualizer.Visualizer, "_create_app", lambda _self: app, raising=False)
+    monkeypatch.setattr(
+        visualizer.Visualizer,
+        "_create_window",
+        lambda _self: window,
+        raising=False,
+    )
+    frame = np.arange(256, dtype=np.int16)
 
     viz = visualizer.Visualizer()
-    viz._xshape_ok = True
-    viz._set_x11_bounding_shape = lambda _pygame, visible: calls.append(visible)  # type: ignore[attr-defined]
+    viz.initialize()
+    viz.push_frame(frame)
 
-    viz._set_visible(pygame, screen, True)
+    assert window.frames == [frame]
+    assert window.frames[0] is frame
 
-    assert calls == []
-    assert window.opacity == 0.85
-    assert window.events == ["show"]
-    assert commands == [
-        ["xdotool", "getactivewindow"],
-        ["xdotool", "windowactivate", "--sync", "9001"],
-    ]
-    assert screen.fills == []
-    assert display.flips == 0
+
+def test_visualizer_stop_quits_qt_event_loop(monkeypatch) -> None:
+    app = _FakeApp()
+    window = _FakeWindow()
+    monkeypatch.setattr(visualizer.Visualizer, "_create_app", lambda _self: app, raising=False)
+    monkeypatch.setattr(
+        visualizer.Visualizer,
+        "_create_window",
+        lambda _self: window,
+        raising=False,
+    )
+
+    viz = visualizer.Visualizer()
+    viz.initialize()
+    viz.stop()
+    viz.run()
+
+    assert window.stop_calls == 1
+    assert app.quit_calls == 1
+    assert app.exec_calls == 0
+    assert viz.quit_requested is True
+
+
+def test_level_model_updates_from_audio_and_decays_without_frames() -> None:
+    model = visualizer._LevelModel(wave_points=16)
+    frame = np.full(1024, 12000, dtype=np.int16)
+
+    model.accept(frame)
+    active_level = model.global_level
+
+    assert active_level > 0.0
+    assert np.any(model.levels > 0.0)
+
+    model.decay()
+
+    assert 0.0 < model.global_level < active_level

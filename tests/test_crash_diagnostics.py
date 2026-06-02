@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import types
 
 from dicton import cli, config
 
@@ -68,37 +67,42 @@ def test_crash_diagnostics_falls_back_on_python_without_c_stack(tmp_path, monkey
     cli._crash_log_file.close()
 
 
-def test_visualizer_visibility_breadcrumbs_are_emitted(caplog) -> None:
+def test_visualizer_state_breadcrumbs_are_emitted(caplog, monkeypatch) -> None:
     from dicton import visualizer
 
-    class FakeScreen:
-        def fill(self, _color: tuple[int, int, int]) -> None:
-            pass
-
-    class FakeDisplay:
-        def flip(self) -> None:
+    class FakeApp:
+        def quit(self) -> None:
             pass
 
     class FakeWindow:
-        opacity = 1.0
-
-        def hide(self) -> None:
+        def apply_state(self, _state: str) -> None:
             pass
 
-    class WindowFacade:
-        @staticmethod
-        def from_display_module() -> FakeWindow:
-            return FakeWindow()
+        def push_frame(self, _frame: object) -> None:
+            pass
 
-    pygame = types.SimpleNamespace(
-        display=FakeDisplay(),
-        _sdl2=types.SimpleNamespace(video=types.SimpleNamespace(Window=WindowFacade)),
+        def stop(self) -> None:
+            pass
+
+    monkeypatch.setattr(
+        visualizer.Visualizer, "_create_app", lambda _self: FakeApp(), raising=False
+    )
+    monkeypatch.setattr(
+        visualizer.Visualizer,
+        "_create_window",
+        lambda _self: FakeWindow(),
+        raising=False,
     )
 
+    viz = visualizer.Visualizer()
+    viz.initialize()
+
     with caplog.at_level(logging.INFO, logger="dicton"):
-        visualizer.Visualizer()._set_visible(pygame, FakeScreen(), False)
+        viz.set_state("recording")
+        viz.set_state("idle")
 
     messages = [record.getMessage() for record in caplog.records]
-    assert "visualizer set_visible begin: visible=False" in messages
-    assert "visualizer SDL hide complete" in messages
-    assert "visualizer set_visible end: visible=False" in messages
+    assert "visualizer state: idle -> recording" in messages
+    assert "visualizer visibility transition: visible=True state=recording" in messages
+    assert "visualizer state: recording -> idle" in messages
+    assert "visualizer visibility transition: visible=False state=idle" in messages
