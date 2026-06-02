@@ -71,7 +71,7 @@ def test_x11_visualizer_is_disabled_by_default_before_pipeline_starts(monkeypatc
     class FakePipeline:
         def __init__(self, cfg: Config, viz: FakeVisualizer | None) -> None:
             calls.append(f"pipeline.__init__:viz={viz is not None}")
-            self._stop = types.SimpleNamespace(is_set=lambda: True)
+            self.stopped = True
 
         def start(self) -> None:
             calls.append("pipeline.start")

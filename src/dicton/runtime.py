@@ -60,10 +60,10 @@ def run(cfg: Config) -> None:
             # the finally so systemd's `restart` doesn't hang.
             viz.run()
             if not viz.quit_requested:
-                while not pipe._stop.is_set():
+                while not pipe.stopped:
                     time.sleep(0.5)
         else:
-            while not pipe._stop.is_set():
+            while not pipe.stopped:
                 time.sleep(0.5)
     except KeyboardInterrupt:
         pass
