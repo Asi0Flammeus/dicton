@@ -61,12 +61,19 @@ def test_visualizer_window_initializes_before_pipeline_hotkeys(monkeypatch) -> N
     ]
 
 
-def test_x11_visualizer_is_disabled_by_default_before_pipeline_starts(monkeypatch) -> None:
+def test_x11_visualizer_is_enabled_by_default_before_pipeline_starts(monkeypatch) -> None:
     calls: list[str] = []
 
     class FakeVisualizer:
         def __init__(self) -> None:
+            self.quit_requested = True
             calls.append("visualizer.__init__")
+
+        def initialize(self) -> None:
+            calls.append("visualizer.initialize")
+
+        def run(self) -> None:
+            calls.append("visualizer.run")
 
     class FakePipeline:
         def __init__(self, cfg: Config, viz: FakeVisualizer | None) -> None:
@@ -99,7 +106,10 @@ def test_x11_visualizer_is_disabled_by_default_before_pipeline_starts(monkeypatc
 
     assert calls == [
         "x11.init_threads",
-        "pipeline.__init__:viz=False",
+        "visualizer.__init__",
+        "visualizer.initialize",
+        "pipeline.__init__:viz=True",
         "pipeline.start",
+        "visualizer.run",
         "pipeline.stop",
     ]

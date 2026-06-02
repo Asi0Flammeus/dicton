@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import os
 import time
 
 from .config import Config
@@ -31,23 +30,15 @@ def run(cfg: Config) -> None:
 
     viz = None
     if cfg.visualizer:
-        if _x11_visualizer_disabled():
-            log.warning(
-                "X11 visualizer disabled by default after SDL set_mode hangs/SIGSEGV; "
-                "set DICTON_ENABLE_X11_VISUALIZER=1 to force it"
-            )
-        else:
-            viz = Visualizer()
-            # Initialize SDL/X11 before Pipeline.start() starts pynput's XRecord
-            # listener. Running both window creation and XRecord enablement at the
-            # same time has wedged SDL set_mode and preceded SIGSEGV crashes.
-            try:
-                viz.initialize()
-            except Exception:
-                log.exception(
-                    "visualizer initialization failed — daemon continues without animation"
-                )
-                viz = None
+        viz = Visualizer()
+        # Initialize SDL/X11 before Pipeline.start() starts pynput's XRecord
+        # listener. Running both window creation and XRecord enablement at the
+        # same time has wedged SDL set_mode and preceded SIGSEGV crashes.
+        try:
+            viz.initialize()
+        except Exception:
+            log.exception("visualizer initialization failed — daemon continues without animation")
+            viz = None
     pipe = Pipeline(cfg, viz=viz)
     pipe.start()
     try:
@@ -70,11 +61,3 @@ def run(cfg: Config) -> None:
     finally:
         pipe.stop()
         lock.close()
-
-
-def _x11_visualizer_disabled() -> bool:
-    return (
-        bool(os.environ.get("DISPLAY"))
-        and not os.environ.get("WAYLAND_DISPLAY")
-        and os.environ.get("DICTON_ENABLE_X11_VISUALIZER") != "1"
-    )
