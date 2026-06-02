@@ -23,6 +23,7 @@ from pynput import keyboard
 
 from . import cleanup as cleanup_mod
 from . import stats, stt
+from .async_lifecycle import AsyncLoopRunner
 from .chunker import Chunker, ChunkParams
 from .config import Config
 from .gesture import DoubleTapRecognizer
@@ -60,15 +61,13 @@ class Pipeline:
     def __init__(self, cfg: Config, *, viz: Visualizer | None = None) -> None:
         self.cfg = cfg
         self.viz = viz
-        self._loop: asyncio.AbstractEventLoop | None = None
-        self._loop_thread: threading.Thread | None = None
-        self._loop_ready = threading.Event()
-        self._client: httpx.AsyncClient | None = None
+        self._runner = AsyncLoopRunner(lambda: httpx.AsyncClient(http2=True, http1=True))
         self._stream: sd.InputStream | None = None
         self._chunker = Chunker(self._chunk_params(), self._on_chunk_ready)
         self._session: _Session | None = None
         self._stop = threading.Event()
         self._fn_listener: fn_key.FnKeyListener | None = None
+        self._listener: keyboard.Listener | None = None
         self._primary_taps = DoubleTapRecognizer(self._trigger)
         self._secondary_last = 0.0
         self._state = State.IDLE
@@ -87,10 +86,12 @@ class Pipeline:
 
     # ---- lifecycle ----
 
+    @property
+    def stopped(self) -> bool:
+        return self._stop.is_set()
+
     def start(self) -> None:
-        self._loop_thread = threading.Thread(target=self._run_loop, daemon=True)
-        self._loop_thread.start()
-        self._loop_ready.wait()
+        self._runner.start()
         self._start_hotkeys()
         log.info(
             "dicton ready: hotkey=%s/%s model=%s",
@@ -100,30 +101,32 @@ class Pipeline:
         )
 
     def stop(self) -> None:
+        if self._stop.is_set():
+            return
         self._stop.set()
-        # If we're shutting down mid-recording, the user's music app is
-        # still paused. Restore before tearing the loop down.
+        self._close_stream()
         if self._session is not None:
             audio_session.resume_players(self._session.paused_players)
-        if self._loop is not None:
-            self._loop.call_soon_threadsafe(self._loop.stop)
+            self._session = None
+        if self._listener is not None:
+            self._listener.stop()
+            self._listener = None
         if self._fn_listener is not None:
             self._fn_listener.stop()
+            self._fn_listener = None
         self._primary_taps.stop()
         if self.viz is not None:
             self.viz.stop()
+        self._runner.close(timeout=5.0)
 
-    def _run_loop(self) -> None:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        self._loop = loop
-        self._client = httpx.AsyncClient(http2=True, http1=True)
-        self._loop_ready.set()
+    def _close_stream(self) -> None:
+        if self._stream is None:
+            return
         try:
-            loop.run_forever()
+            self._stream.stop()
         finally:
-            loop.run_until_complete(self._client.aclose())
-            loop.close()
+            self._stream.close()
+            self._stream = None
 
     # ---- hotkey wiring ----
 
@@ -194,7 +197,7 @@ class Pipeline:
             else:
                 log.debug("trigger ignored — state=processing")
                 return
-        asyncio.run_coroutine_threadsafe(coro_fn(), self._loop)  # type: ignore[arg-type]
+        self._runner.submit(coro_fn())
 
     # ---- session lifecycle (async, on the loop) ----
 
@@ -206,7 +209,10 @@ class Pipeline:
         self._session = _Session(chunks={}, started_at=time.monotonic(), paused_players=paused)
         if self.viz is not None:
             self.viz.set_state("recording")
-        asyncio.create_task(stt.prewarm(self._client, api_key=self.cfg.groq_api_key))  # type: ignore[arg-type]
+        client = self._runner.client
+        if client is None:
+            raise RuntimeError("async client is not started")
+        asyncio.create_task(stt.prewarm(client, api_key=self.cfg.groq_api_key))
         self._stream = sd.InputStream(
             samplerate=self.cfg.sample_rate,
             channels=1,
@@ -223,15 +229,15 @@ class Pipeline:
         mono = indata[:, 0].copy()
         if self.viz is not None:
             self.viz.push_frame(mono)
-        if self._loop is not None:
-            self._loop.call_soon_threadsafe(self._chunker.feed, mono)
+        self._runner.call(self._chunker.feed, mono)
 
     def _on_chunk_ready(self, chunk_id: int, wav: bytes) -> None:
-        if self._session is None or self._client is None:
+        client = self._runner.client
+        if self._session is None or client is None:
             return
         task = asyncio.create_task(
             stt.transcribe(
-                self._client,
+                client,
                 wav,
                 api_key=self.cfg.groq_api_key,
                 model=self.cfg.stt_model,
@@ -278,7 +284,7 @@ class Pipeline:
 
         t_cl_start = time.monotonic()
         cleaned = await cleanup_mod.cleanup(
-            self._client,  # type: ignore[arg-type]
+            self._runner.client,
             joined,
             api_key=self.cfg.groq_api_key,
             model=self.cfg.cleanup_model,
