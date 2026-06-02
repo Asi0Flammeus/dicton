@@ -134,3 +134,34 @@ def test_level_model_updates_from_audio_and_decays_without_frames() -> None:
     model.decay()
 
     assert 0.0 < model.global_level < active_level
+
+
+def _drive_level_model(amplitude: int, frequency_hz: int = 220) -> visualizer._LevelModel:
+    model = visualizer._LevelModel(wave_points=32)
+    samples = np.arange(2400)
+    frame = (np.sin(2 * np.pi * frequency_hz * samples / 48_000) * amplitude).astype(np.int16)
+    for _ in range(12):
+        model.accept(frame)
+        model.smooth()
+    return model
+
+
+def test_level_model_amplifies_quiet_microphones_to_visible_motion() -> None:
+    model = _drive_level_model(amplitude=1000)
+
+    assert model.global_level >= 0.12
+    assert float(model.smooth_levels.max()) >= 0.02
+
+
+def test_level_model_reduces_loud_microphones_to_avoid_saturation() -> None:
+    model = _drive_level_model(amplitude=30_000)
+
+    assert model.global_level <= 0.35
+    assert float(model.smooth_levels.max()) <= 0.5
+
+
+def test_level_model_boosts_bass_energy() -> None:
+    bass = _drive_level_model(amplitude=3000, frequency_hz=120)
+    treble = _drive_level_model(amplitude=3000, frequency_hz=2000)
+
+    assert float(bass.smooth_levels.max()) >= float(treble.smooth_levels.max()) * 1.2

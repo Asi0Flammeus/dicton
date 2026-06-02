@@ -25,13 +25,15 @@ COLOR_DIM = (95, 42, 11)
 COLOR_GLOW = (218, 112, 44)
 BACKGROUND = (20, 20, 24)
 
-DEFAULT_GAIN = 0.7
-MIN_GAIN = 0.3
-MAX_GAIN = 1.5
-GAIN_ATTACK = 0.02
-GAIN_RELEASE = 0.005
+VISUAL_TARGET_RMS = 0.22
+VISUAL_MIN_GAIN = 0.35
+VISUAL_MAX_GAIN = 14.0
+VISUAL_GAIN_ATTACK = 0.28
+VISUAL_GAIN_RELEASE = 0.18
+BASS_BOOST = 0.18
 PEAK_HOLD_FRAMES = 30
 RMS_NORMALIZATION = 32768
+SPECTRUM_NORMALIZATION = 40_000_000
 
 IS_LINUX = sys.platform.startswith("linux")
 IS_WINDOWS = sys.platform.startswith("win")
@@ -58,7 +60,7 @@ class _LevelModel:
         self.levels = np.zeros(wave_points, dtype=np.float32)
         self.smooth_levels = np.zeros(wave_points, dtype=np.float32)
         self.global_level = 0.0
-        self.adaptive_gain = DEFAULT_GAIN
+        self.adaptive_gain = 1.0
         self.peak_level = 0.0
         self.peak_hold_counter = 0
         self._angles = np.linspace(math.pi / 2, math.pi / 2 + math.tau, wave_points, endpoint=False)
@@ -78,22 +80,28 @@ class _LevelModel:
             self.peak_hold_counter -= 1
         else:
             self.peak_level *= 0.995
-        if self.peak_level > 0.7:
-            target = max(MIN_GAIN, min(MAX_GAIN, 0.7 / max(self.peak_level, 0.01)))
-            self.adaptive_gain += (target - self.adaptive_gain) * GAIN_ATTACK
-        else:
-            self.adaptive_gain += (DEFAULT_GAIN - self.adaptive_gain) * GAIN_RELEASE
-        self.adaptive_gain = max(MIN_GAIN, min(MAX_GAIN, self.adaptive_gain))
+        target_gain = VISUAL_TARGET_RMS / max(raw_rms, 0.001)
+        target_gain = max(VISUAL_MIN_GAIN, min(VISUAL_MAX_GAIN, target_gain))
+        rate = VISUAL_GAIN_ATTACK if target_gain > self.adaptive_gain else VISUAL_GAIN_RELEASE
+        self.adaptive_gain += (target_gain - self.adaptive_gain) * rate
+        self.adaptive_gain = max(VISUAL_MIN_GAIN, min(VISUAL_MAX_GAIN, self.adaptive_gain))
         rms = _soft_compress(raw_rms * self.adaptive_gain)
         self.global_level = self.global_level * 0.7 + rms * 0.3
 
         fft = np.abs(np.fft.rfft(data))
         fft_size = len(fft)
-        floor = rms * 0.15
+        bass_end = min(max(2, fft_size // 24), fft_size)
+        bass = 0.0
+        if bass_end > 1:
+            bass = _soft_compress(
+                (float(np.max(fft[1:bass_end])) / SPECTRUM_NORMALIZATION) * self.adaptive_gain
+            )
+        floor = max(rms * 0.15, bass * BASS_BOOST)
+        cap = min(1.0, rms * 2.2 + 0.15)
         for i in range(self.wave_points):
             idx = min(1 + int((i / self.wave_points) * (fft_size - 1) * 0.7), fft_size - 1)
-            level = _soft_compress((float(fft[idx]) / 35000) * self.adaptive_gain)
-            self.levels[i] = self.levels[i] * 0.4 + max(level, floor) * 0.6
+            level = _soft_compress((float(fft[idx]) / SPECTRUM_NORMALIZATION) * self.adaptive_gain)
+            self.levels[i] = self.levels[i] * 0.4 + min(max(level, floor), cap) * 0.6
 
     def decay(self) -> None:
         self.levels *= 0.9
