@@ -77,6 +77,7 @@ class Config:
     sample_rate: int = 16000
     input_device: int | None = None
     visualizer: bool = True
+    max_recording_s: float = 300.0
     autostart: bool = False
     chunk: ChunkParams = field(default_factory=ChunkParams)
 

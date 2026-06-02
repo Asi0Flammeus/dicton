@@ -53,6 +53,7 @@ class _Session:
     chunks: dict[int, asyncio.Task]
     started_at: float
     paused_players: list[str] = field(default_factory=list)
+    max_duration_task: asyncio.Task | None = None
 
 
 class Pipeline:
@@ -106,6 +107,9 @@ class Pipeline:
         self._stop.set()
         self._close_stream()
         if self._session is not None:
+            max_duration_task = getattr(self._session, "max_duration_task", None)
+            if max_duration_task is not None:
+                max_duration_task.cancel()
             audio_session.resume_players(self._session.paused_players)
             self._session = None
         if self._listener is not None:
@@ -212,6 +216,15 @@ class Pipeline:
 
     # ---- session lifecycle (async, on the loop) ----
 
+    async def _stop_after_max_duration(self) -> None:
+        await asyncio.sleep(self.cfg.max_recording_s)
+        with self._state_lock:
+            if self._state is not State.RECORDING:
+                return
+            self._state = State.PROCESSING
+        log.warning("recording exceeded %.1fs; stopping automatically", self.cfg.max_recording_s)
+        await self._end()
+
     async def _begin(self) -> None:
         if self._session is not None:
             return
@@ -220,6 +233,7 @@ class Pipeline:
             self._chunker.reset()
             paused = audio_session.pause_active_players()
             self._session = _Session(chunks={}, started_at=time.monotonic(), paused_players=paused)
+            self._session.max_duration_task = asyncio.create_task(self._stop_after_max_duration())
             if self.viz is not None:
                 self.viz.set_state("recording")
             client = self._runner.client
@@ -236,6 +250,8 @@ class Pipeline:
             )
             self._stream.start()
         except Exception:
+            if self._session is not None and self._session.max_duration_task is not None:
+                self._session.max_duration_task.cancel()
             self._close_stream()
             if paused:
                 audio_session.resume_players(paused)
@@ -271,6 +287,9 @@ class Pipeline:
             self._set_idle()
             return
         session = self._session
+        max_duration_task = getattr(session, "max_duration_task", None)
+        if max_duration_task is not None and max_duration_task is not asyncio.current_task():
+            max_duration_task.cancel()
         recording_ended_at = time.monotonic()
         recording_ms = int((recording_ended_at - session.started_at) * 1000)
         paste_error: Exception | None = None

@@ -58,3 +58,8 @@ def test_fn_keycode_omitted_when_none(tmp_path: Path) -> None:
         config.Config().save()
         loaded = config.load()
     assert loaded.hotkey_fn_keycode is None
+
+
+def test_default_max_recording_duration_is_bounded() -> None:
+    cfg = config.Config()
+    assert cfg.max_recording_s == 300.0

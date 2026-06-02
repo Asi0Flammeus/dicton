@@ -155,3 +155,27 @@ async def test_end_failure_returns_to_idle_and_resumes_players(
     assert pipe._state is State.IDLE
     assert pipe._stream is None
     assert resumed == [["spotify"]]
+
+
+async def test_begin_schedules_max_recording_guard(monkeypatch: pytest.MonkeyPatch) -> None:
+    class StartedInputStream:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+        def start(self) -> None:
+            pass
+
+    monkeypatch.setattr("dicton.pipeline.sd.InputStream", StartedInputStream)
+    monkeypatch.setattr("dicton.pipeline.audio_session.pause_active_players", lambda: [])
+    monkeypatch.setattr("dicton.pipeline.stt.prewarm", lambda *args, **kwargs: asyncio.sleep(0))
+
+    cfg = Config(max_recording_s=0.01)
+    pipe = Pipeline(cfg)
+    pipe._runner = FakeLoopRunner()
+    pipe._state = State.RECORDING
+
+    await pipe._begin()
+
+    assert pipe._session is not None
+    assert pipe._session.max_duration_task is not None
+    pipe._session.max_duration_task.cancel()
