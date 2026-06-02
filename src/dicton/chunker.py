@@ -60,6 +60,10 @@ class Chunker:
     def chunks_emitted(self) -> int:
         return self._chunk_count
 
+    @property
+    def retained_samples(self) -> int:
+        return self._buf.size
+
     def reset(self) -> None:
         self._buf = np.empty(0, dtype=np.int16)
         self._boundary = 0
@@ -108,7 +112,14 @@ class Chunker:
         chunk_id = self._chunk_count
         self._chunk_count += 1
         self._frames_emitted = True
+
         overlap = int(self.p.overlap_s * self.p.sample_rate)
-        self._boundary = max(cut - overlap, self._boundary)
+        keep_from = max(cut - overlap, self._boundary)
+        if keep_from > 0:
+            self._buf = self._buf[keep_from:].copy()
+            self._boundary = 0
+        else:
+            self._boundary = keep_from
+
         self._silent_samples = 0
         self._on_chunk(chunk_id, wav)

@@ -68,3 +68,23 @@ def test_flush_emits_remaining_audio() -> None:
     assert len(emitted) == 0
     c.flush()
     assert len(emitted) == 1
+
+
+def test_retained_buffer_stays_bounded_across_long_recording() -> None:
+    emitted: list[int] = []
+    p = ChunkParams(
+        min_chunk_s=0.5,
+        max_chunk_s=1.0,
+        overlap_s=0.1,
+        silence_window_s=0.2,
+        sample_rate=SR,
+    )
+    c = Chunker(p, lambda i, w: emitted.append(i))
+
+    frame = _tone(0.25)
+    for _ in range(80):
+        c.feed(frame)
+
+    assert len(emitted) >= 15
+    max_retained = int((p.max_chunk_s + p.overlap_s + 0.25) * SR)
+    assert c.retained_samples <= max_retained
