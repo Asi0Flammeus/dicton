@@ -136,11 +136,13 @@ def test_level_model_updates_from_audio_and_decays_without_frames() -> None:
     assert 0.0 < model.global_level < active_level
 
 
-def _drive_level_model(amplitude: int, frequency_hz: int = 220) -> visualizer._LevelModel:
+def _drive_level_model(
+    amplitude: int, frequency_hz: int = 220, iterations: int = 12
+) -> visualizer._LevelModel:
     model = visualizer._LevelModel(wave_points=32)
     samples = np.arange(2400)
     frame = (np.sin(2 * np.pi * frequency_hz * samples / 48_000) * amplitude).astype(np.int16)
-    for _ in range(12):
+    for _ in range(iterations):
         model.accept(frame)
         model.smooth()
     return model
@@ -190,3 +192,43 @@ def test_visual_model_maps_quiet_speech_to_visible_spike_pixels() -> None:
     )
 
     assert spike_px >= 8.0
+
+
+def _rendered_envelope(model: visualizer._LevelModel, max_amplitude: float = 23.0) -> float:
+    return visualizer._visual_spike_pixels(
+        float(model.smooth_levels.max()), max_amplitude, model.visual_drive
+    )
+
+
+def test_level_model_keeps_envelope_stable_across_input_volume() -> None:
+    # The whole point of the AGC: at steady state a soft speaker and a loud
+    # speaker drive the donut to the same size — only the spectral shape differs.
+    quiet = _drive_level_model(amplitude=600, iterations=80)
+    loud = _drive_level_model(amplitude=20_000, iterations=80)
+
+    ratio = _rendered_envelope(loud) / _rendered_envelope(quiet)
+
+    assert 0.9 <= ratio <= 1.1
+
+
+def test_presence_gate_does_not_grow_with_loudness() -> None:
+    # Above the gate's full-open point, getting louder must not open it further.
+    assert visualizer._presence_gate(-30.0) == 1.0
+    assert visualizer._presence_gate(-10.0) == 1.0
+    assert visualizer._presence_gate(visualizer.GATE_FLOOR_DBFS - 5.0) == 0.0
+
+
+def test_visual_spike_pixels_never_exceeds_max_amplitude() -> None:
+    spike_px = visualizer._visual_spike_pixels(level=10.0, max_amplitude=23.0, visual_drive=1.0)
+
+    assert spike_px <= 23.0
+
+
+def test_gain_relaxes_toward_unity_during_silence() -> None:
+    model = _drive_level_model(amplitude=20_000)
+    assert model.adaptive_gain < 0.9  # loud input pulled gain well below unity
+
+    for _ in range(60):
+        model.decay()
+
+    assert model.adaptive_gain > 0.95

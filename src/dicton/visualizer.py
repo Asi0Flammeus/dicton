@@ -25,18 +25,28 @@ COLOR_DIM = (95, 42, 11)
 COLOR_GLOW = (218, 112, 44)
 BACKGROUND = (20, 20, 24)
 
+# Automatic gain control: the visual envelope is normalized toward a constant
+# target loudness so the donut keeps roughly the same shape whatever the input
+# volume — quiet input is amplified, loud input is attenuated. The wide gain
+# range lets soft speech reach the target without leaving loud speech saturated.
 VISUAL_TARGET_RMS = 0.22
 VISUAL_MIN_GAIN = 0.35
-VISUAL_MAX_GAIN = 14.0
+VISUAL_MAX_GAIN = 40.0
 VISUAL_GAIN_ATTACK = 0.28
 VISUAL_GAIN_RELEASE = 0.18
+VISUAL_GAIN_RELAX = 0.08
 BASS_BOOST = 0.25
 PEAK_HOLD_FRAMES = 30
 RMS_NORMALIZATION = 32768
 SPECTRUM_NORMALIZATION = 40_000_000
+SPECTRAL_CAP = 0.45
 DBFS_FLOOR = -55.0
-DBFS_CEILING = -18.0
-MIN_ACTIVE_VISUAL_DRIVE = 0.55
+ACTIVE_RMS_THRESHOLD = 0.001
+# Presence gate (replaces the old loudness ramp): drive stays ≈1 while speech is
+# present and only fades for genuine silence, so loudness no longer scales size.
+GATE_FLOOR_DBFS = -54.0
+GATE_FULL_DBFS = -42.0
+MIN_ACTIVE_VISUAL_DRIVE = 0.8
 VISUAL_DRIVE_ATTACK = 0.35
 VISUAL_DRIVE_RELEASE = 0.12
 VISUAL_SPIKE_SCALE = 2.4
@@ -83,13 +93,17 @@ class _LevelModel:
         data = frame.astype(np.float32, copy=False)
         raw_rms = float(np.sqrt(np.mean(data * data))) / RMS_NORMALIZATION
         self.input_dbfs = _dbfs(raw_rms)
-        target_drive = _visual_drive_from_dbfs(self.input_dbfs)
-        if raw_rms > 0.001:
+        active = raw_rms > ACTIVE_RMS_THRESHOLD
+
+        # Presence gate: ≈1 while speech is present, fades only for true silence.
+        target_drive = _presence_gate(self.input_dbfs)
+        if active:
             target_drive = max(MIN_ACTIVE_VISUAL_DRIVE, target_drive)
         drive_rate = (
             VISUAL_DRIVE_ATTACK if target_drive > self.visual_drive else VISUAL_DRIVE_RELEASE
         )
         self.visual_drive += (target_drive - self.visual_drive) * drive_rate
+
         if raw_rms > self.peak_level:
             self.peak_level = raw_rms
             self.peak_hold_counter = PEAK_HOLD_FRAMES
@@ -97,10 +111,17 @@ class _LevelModel:
             self.peak_hold_counter -= 1
         else:
             self.peak_level *= 0.995
-        target_gain = VISUAL_TARGET_RMS / max(raw_rms, 0.001)
-        target_gain = max(VISUAL_MIN_GAIN, min(VISUAL_MAX_GAIN, target_gain))
-        rate = VISUAL_GAIN_ATTACK if target_gain > self.adaptive_gain else VISUAL_GAIN_RELEASE
-        self.adaptive_gain += (target_gain - self.adaptive_gain) * rate
+
+        # Automatic gain control: amplify quiet input, attenuate loud input toward
+        # a constant target. Gain only tracks while sound is present; during
+        # silence it relaxes back to unity so the next onset is not over-amplified.
+        if active:
+            target_gain = VISUAL_TARGET_RMS / max(raw_rms, 1e-6)
+            target_gain = max(VISUAL_MIN_GAIN, min(VISUAL_MAX_GAIN, target_gain))
+            rate = VISUAL_GAIN_ATTACK if target_gain > self.adaptive_gain else VISUAL_GAIN_RELEASE
+            self.adaptive_gain += (target_gain - self.adaptive_gain) * rate
+        else:
+            self.adaptive_gain += (1.0 - self.adaptive_gain) * VISUAL_GAIN_RELAX
         self.adaptive_gain = max(VISUAL_MIN_GAIN, min(VISUAL_MAX_GAIN, self.adaptive_gain))
         rms = _soft_compress(raw_rms * self.adaptive_gain)
         self.global_level = self.global_level * 0.7 + rms * 0.3
@@ -114,7 +135,7 @@ class _LevelModel:
                 (float(np.max(fft[1:bass_end])) / SPECTRUM_NORMALIZATION) * self.adaptive_gain
             )
         floor = max(rms * 0.06, bass * BASS_BOOST * 0.5)
-        cap = min(1.0, rms * 2.2 + 0.15)
+        cap = SPECTRAL_CAP
         max_bin = max(2, int((fft_size - 1) * 0.7))
         for i in range(self.wave_points):
             start = 1 + int((i / self.wave_points) * (max_bin - 1))
@@ -131,6 +152,7 @@ class _LevelModel:
         self.global_level *= 0.9
         self.visual_drive *= 0.9
         self.peak_level *= 0.995
+        self.adaptive_gain += (1.0 - self.adaptive_gain) * VISUAL_GAIN_RELAX
 
     def smooth(self) -> None:
         self.smooth_levels = self.smooth_levels * 0.82 + self.levels * 0.18
@@ -444,9 +466,19 @@ def _dbfs(raw_rms: float) -> float:
     return max(-120.0, 20.0 * math.log10(raw_rms))
 
 
-def _visual_drive_from_dbfs(dbfs: float) -> float:
-    normalized = (dbfs - DBFS_FLOOR) / (DBFS_CEILING - DBFS_FLOOR)
-    return max(0.0, min(1.0, normalized))
+def _presence_gate(dbfs: float) -> float:
+    """Smooth speech-presence gate — saturates to 1.0 once sound is clearly present.
+
+    Unlike a loudness ramp, the gate does not keep growing with volume: above
+    ``GATE_FULL_DBFS`` it is fully open, so the rendered amplitude stops tracking
+    how loud the speaker is and only the spectral shape modulates the wave.
+    """
+    if dbfs <= GATE_FLOOR_DBFS:
+        return 0.0
+    if dbfs >= GATE_FULL_DBFS:
+        return 1.0
+    t = (dbfs - GATE_FLOOR_DBFS) / (GATE_FULL_DBFS - GATE_FLOOR_DBFS)
+    return t * t * (3.0 - 2.0 * t)
 
 
 def _visual_spike_pixels(level: float, max_amplitude: float, visual_drive: float) -> float:
@@ -454,7 +486,8 @@ def _visual_spike_pixels(level: float, max_amplitude: float, visual_drive: float
         return 0.0
     spectral_pixels = level * max_amplitude * VISUAL_SPIKE_SCALE
     floor_pixels = max_amplitude * MIN_ACTIVE_SPIKE_RATIO
-    return max(spectral_pixels, floor_pixels) * visual_drive
+    pixels = max(spectral_pixels, floor_pixels) * visual_drive
+    return min(max_amplitude, pixels)
 
 
 def _soft_compress(value: float) -> float:
