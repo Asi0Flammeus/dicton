@@ -219,6 +219,25 @@ def test_ring_never_saturates_and_keeps_a_hole() -> None:
     assert visualizer.SPIKE_MAX_RATIO < 1.0
 
 
+def test_broadband_input_renders_a_thin_ring_not_a_solid_disc() -> None:
+    # Real microphone audio (speech + room tone) is broadband: its spectrum is
+    # roughly flat. A flat spectrum must keep the ring thin (a clear hole), not
+    # fill the donut. This is the live-saturation regression that tonal-only
+    # tests missed.
+    model = visualizer._LevelModel(wave_points=visualizer.WAVE_POINTS)
+    rng = np.random.default_rng(0)
+    for _ in range(150):
+        frame = (rng.standard_normal(800) * 4000).astype(np.int16)
+        model.accept(frame)
+        model.smooth()
+
+    ratios = model.amplitude_ratios()
+
+    # Well below the saturation ceiling -> a thin ring with a wide hole.
+    assert float(ratios.max()) <= 0.45
+    assert float(ratios.mean()) <= 0.35
+
+
 def test_ring_shape_keeps_band_contrast() -> None:
     # The per-frame spectral normalization must keep visible band-to-band
     # variation rather than collapsing into a uniform (saturated) ring.

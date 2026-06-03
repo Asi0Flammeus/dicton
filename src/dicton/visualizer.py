@@ -51,13 +51,14 @@ GATE_FULL_DBFS = -42.0
 MIN_ACTIVE_VISUAL_DRIVE = 0.8
 VISUAL_DRIVE_ATTACK = 0.35
 VISUAL_DRIVE_RELEASE = 0.12
-# Ring amplitude as a fraction of the available radius. A thin always-on baseline
-# keeps a visible ring; modulation rides on the per-frame-normalized spectrum,
-# scaled by normalized intensity. SPIKE_MAX_RATIO < 1 guarantees the donut keeps
-# a hole and never saturates, whatever the input volume.
+# Ring amplitude as a fraction of the available radius, mapped from the ABSOLUTE
+# per-band level (already volume-normalized by the AGC). A flat/broadband
+# spectrum has uniformly low levels (~0.013) -> a thin ring; tonal peaks (~0.1+)
+# rise into spikes. SPIKE_MAX_RATIO < 1 guarantees a central hole always remains.
+# (A previous attempt normalized each band to the frame's own peak, which made a
+# flat spectrum saturate every band to the maximum -> a solid ring.)
 SPIKE_BASELINE_RATIO = 0.16
-SPIKE_MODULATION_RATIO = 0.56
-SPIKE_INTENSITY_CAP = 1.25
+SPIKE_LEVEL_GAIN = 4.4
 SPIKE_MAX_RATIO = 0.72
 
 IS_LINUX = sys.platform.startswith("linux")
@@ -168,18 +169,16 @@ class _LevelModel:
     def amplitude_ratios(self) -> np.ndarray:
         """Per-point ring amplitude as a fraction of the available radius.
 
-        The shape comes from the per-frame-normalized spectrum so there is always
-        visible band-to-band contrast (never a saturated, uniform ring). The
-        overall size is the AGC-normalized intensity, which keeps the donut about
-        the same size whatever the input volume. The result is hard-bounded by
-        ``SPIKE_MAX_RATIO`` so a hole always remains.
+        Mapped from the absolute per-band level, which the AGC has already
+        normalized for volume. A flat (broadband) spectrum keeps every band low,
+        so the ring stays thin; only bands that genuinely stand out rise into
+        spikes — that is what modulates the wave. The result is hard-bounded by
+        ``SPIKE_MAX_RATIO`` so a central hole always remains and the ring can
+        never saturate, whatever the input volume.
         """
         if self.visual_drive <= 0.0:
             return np.zeros(self.wave_points, dtype=np.float32)
-        peak_ref = max(float(self.smooth_levels.max()), 1e-4)
-        relative = self.smooth_levels / peak_ref
-        intensity = min(SPIKE_INTENSITY_CAP, self.global_level / VISUAL_TARGET_RMS)
-        ratios = SPIKE_BASELINE_RATIO + SPIKE_MODULATION_RATIO * relative * intensity
+        ratios = SPIKE_BASELINE_RATIO + SPIKE_LEVEL_GAIN * self.smooth_levels
         ratios = np.minimum(SPIKE_MAX_RATIO, ratios)
         return (ratios * self.visual_drive).astype(np.float32)
 
