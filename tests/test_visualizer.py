@@ -182,22 +182,14 @@ def test_level_model_exposes_decibel_drive_for_quiet_speech() -> None:
     assert model.visual_drive >= 0.5
 
 
-def test_visual_model_maps_quiet_speech_to_visible_spike_pixels() -> None:
+def test_visual_model_maps_quiet_speech_to_visible_motion() -> None:
     model = _drive_level_model(amplitude=100)
 
-    spike_px = visualizer._visual_spike_pixels(
-        float(model.smooth_levels.max()),
-        max_amplitude=23.0,
-        visual_drive=model.visual_drive,
-    )
-
-    assert spike_px >= 8.0
+    assert float(model.amplitude_ratios().max()) >= 0.2
 
 
-def _rendered_envelope(model: visualizer._LevelModel, max_amplitude: float = 23.0) -> float:
-    return visualizer._visual_spike_pixels(
-        float(model.smooth_levels.max()), max_amplitude, model.visual_drive
-    )
+def _rendered_envelope(model: visualizer._LevelModel) -> float:
+    return float(model.amplitude_ratios().max())
 
 
 def test_level_model_keeps_envelope_stable_across_input_volume() -> None:
@@ -218,10 +210,22 @@ def test_presence_gate_does_not_grow_with_loudness() -> None:
     assert visualizer._presence_gate(visualizer.GATE_FLOOR_DBFS - 5.0) == 0.0
 
 
-def test_visual_spike_pixels_never_exceeds_max_amplitude() -> None:
-    spike_px = visualizer._visual_spike_pixels(level=10.0, max_amplitude=23.0, visual_drive=1.0)
+def test_ring_never_saturates_and_keeps_a_hole() -> None:
+    # Even very loud input must leave the donut below the saturation ceiling so a
+    # central hole always remains.
+    for amplitude in (3_000, 20_000, 32_000):
+        loud = _drive_level_model(amplitude=amplitude, iterations=80)
+        assert float(loud.amplitude_ratios().max()) <= visualizer.SPIKE_MAX_RATIO + 1e-6
+    assert visualizer.SPIKE_MAX_RATIO < 1.0
 
-    assert spike_px <= 23.0
+
+def test_ring_shape_keeps_band_contrast() -> None:
+    # The per-frame spectral normalization must keep visible band-to-band
+    # variation rather than collapsing into a uniform (saturated) ring.
+    model = _drive_level_model(amplitude=6_000, frequency_hz=220, iterations=80)
+    ratios = model.amplitude_ratios()
+
+    assert float(ratios.max()) >= float(ratios.min()) * 1.5
 
 
 def test_gain_relaxes_toward_unity_during_silence() -> None:

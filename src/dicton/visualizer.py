@@ -39,7 +39,9 @@ BASS_BOOST = 0.25
 PEAK_HOLD_FRAMES = 30
 RMS_NORMALIZATION = 32768
 SPECTRUM_NORMALIZATION = 40_000_000
-SPECTRAL_CAP = 0.45
+# Kept high so the per-band levels preserve their relative contrast (a low cap
+# flattens every loud band to the same value and produces a saturated ring).
+SPECTRAL_CAP = 0.8
 DBFS_FLOOR = -55.0
 ACTIVE_RMS_THRESHOLD = 0.001
 # Presence gate (replaces the old loudness ramp): drive stays ≈1 while speech is
@@ -49,8 +51,14 @@ GATE_FULL_DBFS = -42.0
 MIN_ACTIVE_VISUAL_DRIVE = 0.8
 VISUAL_DRIVE_ATTACK = 0.35
 VISUAL_DRIVE_RELEASE = 0.12
-VISUAL_SPIKE_SCALE = 2.4
-MIN_ACTIVE_SPIKE_RATIO = 0.7
+# Ring amplitude as a fraction of the available radius. A thin always-on baseline
+# keeps a visible ring; modulation rides on the per-frame-normalized spectrum,
+# scaled by normalized intensity. SPIKE_MAX_RATIO < 1 guarantees the donut keeps
+# a hole and never saturates, whatever the input volume.
+SPIKE_BASELINE_RATIO = 0.16
+SPIKE_MODULATION_RATIO = 0.56
+SPIKE_INTENSITY_CAP = 1.25
+SPIKE_MAX_RATIO = 0.72
 
 IS_LINUX = sys.platform.startswith("linux")
 IS_WINDOWS = sys.platform.startswith("win")
@@ -156,6 +164,24 @@ class _LevelModel:
 
     def smooth(self) -> None:
         self.smooth_levels = self.smooth_levels * 0.82 + self.levels * 0.18
+
+    def amplitude_ratios(self) -> np.ndarray:
+        """Per-point ring amplitude as a fraction of the available radius.
+
+        The shape comes from the per-frame-normalized spectrum so there is always
+        visible band-to-band contrast (never a saturated, uniform ring). The
+        overall size is the AGC-normalized intensity, which keeps the donut about
+        the same size whatever the input volume. The result is hard-bounded by
+        ``SPIKE_MAX_RATIO`` so a hole always remains.
+        """
+        if self.visual_drive <= 0.0:
+            return np.zeros(self.wave_points, dtype=np.float32)
+        peak_ref = max(float(self.smooth_levels.max()), 1e-4)
+        relative = self.smooth_levels / peak_ref
+        intensity = min(SPIKE_INTENSITY_CAP, self.global_level / VISUAL_TARGET_RMS)
+        ratios = SPIKE_BASELINE_RATIO + SPIKE_MODULATION_RATIO * relative * intensity
+        ratios = np.minimum(SPIKE_MAX_RATIO, ratios)
+        return (ratios * self.visual_drive).astype(np.float32)
 
 
 class Visualizer:
@@ -397,17 +423,17 @@ def _new_window(qt: _QtBindings, bridge: Any) -> Any:
             max_amplitude = (outer_radius - inner_radius) / 2 - 2
             global_level = self._model.global_level
             visual_drive = self._model.visual_drive
+            ratios = self._model.amplitude_ratios()
             outer = qt.QtGui.QPolygonF()
             inner = qt.QtGui.QPolygonF()
             for i in range(self._model.wave_points):
-                level = float(self._model.smooth_levels[i])
                 angle = float(self._model._angles[i])
                 wave_phase = self._frame * 0.05
                 wave1 = math.sin(wave_phase + angle * 3) * 0.15
                 wave2 = math.sin(wave_phase * 0.7 + angle * 5) * 0.1
                 wave3 = math.sin(wave_phase * 1.2 + angle * 2) * 0.08
-                base_wave = (wave1 + wave2 + wave3) * max_amplitude * 0.15 * visual_drive
-                amplitude = _visual_spike_pixels(level, max_amplitude, visual_drive) + base_wave
+                base_wave = (wave1 + wave2 + wave3) * max_amplitude * 0.12 * visual_drive
+                amplitude = float(ratios[i]) * max_amplitude + base_wave
                 cos_value = float(self._model.cos[i])
                 sin_value = float(self._model.sin[i])
                 outer_r = mid_radius + amplitude
@@ -479,15 +505,6 @@ def _presence_gate(dbfs: float) -> float:
         return 1.0
     t = (dbfs - GATE_FLOOR_DBFS) / (GATE_FULL_DBFS - GATE_FLOOR_DBFS)
     return t * t * (3.0 - 2.0 * t)
-
-
-def _visual_spike_pixels(level: float, max_amplitude: float, visual_drive: float) -> float:
-    if visual_drive <= 0.0:
-        return 0.0
-    spectral_pixels = level * max_amplitude * VISUAL_SPIKE_SCALE
-    floor_pixels = max_amplitude * MIN_ACTIVE_SPIKE_RATIO
-    pixels = max(spectral_pixels, floor_pixels) * visual_drive
-    return min(max_amplitude, pixels)
 
 
 def _soft_compress(value: float) -> float:
