@@ -165,3 +165,9 @@ def test_level_model_boosts_bass_energy() -> None:
     treble = _drive_level_model(amplitude=3000, frequency_hz=2000)
 
     assert float(bass.smooth_levels.max()) >= float(treble.smooth_levels.max()) * 1.2
+
+
+def test_level_model_keeps_spike_contrast_for_tonal_voice_energy() -> None:
+    model = _drive_level_model(amplitude=3000, frequency_hz=220)
+
+    assert float(model.smooth_levels.max()) >= float(model.smooth_levels.mean()) * 2.0

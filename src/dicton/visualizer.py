@@ -30,7 +30,7 @@ VISUAL_MIN_GAIN = 0.35
 VISUAL_MAX_GAIN = 14.0
 VISUAL_GAIN_ATTACK = 0.28
 VISUAL_GAIN_RELEASE = 0.18
-BASS_BOOST = 0.18
+BASS_BOOST = 0.25
 PEAK_HOLD_FRAMES = 30
 RMS_NORMALIZATION = 32768
 SPECTRUM_NORMALIZATION = 40_000_000
@@ -96,11 +96,17 @@ class _LevelModel:
             bass = _soft_compress(
                 (float(np.max(fft[1:bass_end])) / SPECTRUM_NORMALIZATION) * self.adaptive_gain
             )
-        floor = max(rms * 0.15, bass * BASS_BOOST)
+        floor = max(rms * 0.06, bass * BASS_BOOST * 0.5)
         cap = min(1.0, rms * 2.2 + 0.15)
+        max_bin = max(2, int((fft_size - 1) * 0.7))
         for i in range(self.wave_points):
-            idx = min(1 + int((i / self.wave_points) * (fft_size - 1) * 0.7), fft_size - 1)
-            level = _soft_compress((float(fft[idx]) / SPECTRUM_NORMALIZATION) * self.adaptive_gain)
+            start = 1 + int((i / self.wave_points) * (max_bin - 1))
+            stop = 1 + int(((i + 1) / self.wave_points) * (max_bin - 1))
+            stop = max(start + 1, min(stop, fft_size))
+            peak = float(np.max(fft[start:stop])) if start < fft_size else 0.0
+            level = _soft_compress((peak / SPECTRUM_NORMALIZATION) * self.adaptive_gain)
+            if start < bass_end and raw_rms < 0.5:
+                level *= 1.0 + BASS_BOOST
             self.levels[i] = self.levels[i] * 0.4 + min(max(level, floor), cap) * 0.6
 
     def decay(self) -> None:
