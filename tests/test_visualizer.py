@@ -171,3 +171,22 @@ def test_level_model_keeps_spike_contrast_for_tonal_voice_energy() -> None:
     model = _drive_level_model(amplitude=3000, frequency_hz=220)
 
     assert float(model.smooth_levels.max()) >= float(model.smooth_levels.mean()) * 2.0
+
+
+def test_level_model_exposes_decibel_drive_for_quiet_speech() -> None:
+    model = _drive_level_model(amplitude=100)
+
+    assert -56.0 <= model.input_dbfs <= -50.0
+    assert model.visual_drive >= 0.5
+
+
+def test_visual_model_maps_quiet_speech_to_visible_spike_pixels() -> None:
+    model = _drive_level_model(amplitude=100)
+
+    spike_px = visualizer._visual_spike_pixels(
+        float(model.smooth_levels.max()),
+        max_amplitude=23.0,
+        visual_drive=model.visual_drive,
+    )
+
+    assert spike_px >= 8.0

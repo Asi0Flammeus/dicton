@@ -34,6 +34,13 @@ BASS_BOOST = 0.25
 PEAK_HOLD_FRAMES = 30
 RMS_NORMALIZATION = 32768
 SPECTRUM_NORMALIZATION = 40_000_000
+DBFS_FLOOR = -55.0
+DBFS_CEILING = -18.0
+MIN_ACTIVE_VISUAL_DRIVE = 0.55
+VISUAL_DRIVE_ATTACK = 0.35
+VISUAL_DRIVE_RELEASE = 0.12
+VISUAL_SPIKE_SCALE = 2.4
+MIN_ACTIVE_SPIKE_RATIO = 0.7
 
 IS_LINUX = sys.platform.startswith("linux")
 IS_WINDOWS = sys.platform.startswith("win")
@@ -60,6 +67,8 @@ class _LevelModel:
         self.levels = np.zeros(wave_points, dtype=np.float32)
         self.smooth_levels = np.zeros(wave_points, dtype=np.float32)
         self.global_level = 0.0
+        self.input_dbfs = DBFS_FLOOR
+        self.visual_drive = 0.0
         self.adaptive_gain = 1.0
         self.peak_level = 0.0
         self.peak_hold_counter = 0
@@ -73,6 +82,14 @@ class _LevelModel:
             return
         data = frame.astype(np.float32, copy=False)
         raw_rms = float(np.sqrt(np.mean(data * data))) / RMS_NORMALIZATION
+        self.input_dbfs = _dbfs(raw_rms)
+        target_drive = _visual_drive_from_dbfs(self.input_dbfs)
+        if raw_rms > 0.001:
+            target_drive = max(MIN_ACTIVE_VISUAL_DRIVE, target_drive)
+        drive_rate = (
+            VISUAL_DRIVE_ATTACK if target_drive > self.visual_drive else VISUAL_DRIVE_RELEASE
+        )
+        self.visual_drive += (target_drive - self.visual_drive) * drive_rate
         if raw_rms > self.peak_level:
             self.peak_level = raw_rms
             self.peak_hold_counter = PEAK_HOLD_FRAMES
@@ -112,6 +129,7 @@ class _LevelModel:
     def decay(self) -> None:
         self.levels *= 0.9
         self.global_level *= 0.9
+        self.visual_drive *= 0.9
         self.peak_level *= 0.995
 
     def smooth(self) -> None:
@@ -356,6 +374,7 @@ def _new_window(qt: _QtBindings, bridge: Any) -> Any:
             mid_radius = (outer_radius + inner_radius) / 2
             max_amplitude = (outer_radius - inner_radius) / 2 - 2
             global_level = self._model.global_level
+            visual_drive = self._model.visual_drive
             outer = qt.QtGui.QPolygonF()
             inner = qt.QtGui.QPolygonF()
             for i in range(self._model.wave_points):
@@ -365,9 +384,8 @@ def _new_window(qt: _QtBindings, bridge: Any) -> Any:
                 wave1 = math.sin(wave_phase + angle * 3) * 0.15
                 wave2 = math.sin(wave_phase * 0.7 + angle * 5) * 0.1
                 wave3 = math.sin(wave_phase * 1.2 + angle * 2) * 0.08
-                base_wave = (wave1 + wave2 + wave3) * max_amplitude * 0.3
-                amplitude = level * max_amplitude * 0.9 + base_wave
-                amplitude *= 0.4 + global_level * 0.9
+                base_wave = (wave1 + wave2 + wave3) * max_amplitude * 0.15 * visual_drive
+                amplitude = _visual_spike_pixels(level, max_amplitude, visual_drive) + base_wave
                 cos_value = float(self._model.cos[i])
                 sin_value = float(self._model.sin[i])
                 outer_r = mid_radius + amplitude
@@ -418,6 +436,25 @@ def _new_window(qt: _QtBindings, bridge: Any) -> Any:
 
 def _qcolor(qt: _QtBindings, color: tuple[int, int, int], alpha: int = 255) -> Any:
     return qt.QtGui.QColor(color[0], color[1], color[2], alpha)
+
+
+def _dbfs(raw_rms: float) -> float:
+    if raw_rms <= 0.0:
+        return DBFS_FLOOR
+    return max(-120.0, 20.0 * math.log10(raw_rms))
+
+
+def _visual_drive_from_dbfs(dbfs: float) -> float:
+    normalized = (dbfs - DBFS_FLOOR) / (DBFS_CEILING - DBFS_FLOOR)
+    return max(0.0, min(1.0, normalized))
+
+
+def _visual_spike_pixels(level: float, max_amplitude: float, visual_drive: float) -> float:
+    if visual_drive <= 0.0:
+        return 0.0
+    spectral_pixels = level * max_amplitude * VISUAL_SPIKE_SCALE
+    floor_pixels = max_amplitude * MIN_ACTIVE_SPIKE_RATIO
+    return max(spectral_pixels, floor_pixels) * visual_drive
 
 
 def _soft_compress(value: float) -> float:
