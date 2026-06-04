@@ -1,4 +1,4 @@
-"""Circular donut audio visualizer backed by PySide6/QPainter."""
+"""Circular audio spectrum visualizer (radial bars) backed by PySide6/QPainter."""
 
 from __future__ import annotations
 
@@ -35,31 +35,33 @@ VISUAL_MAX_GAIN = 40.0
 VISUAL_GAIN_ATTACK = 0.28
 VISUAL_GAIN_RELEASE = 0.18
 VISUAL_GAIN_RELAX = 0.08
-BASS_BOOST = 0.25
 PEAK_HOLD_FRAMES = 30
 RMS_NORMALIZATION = 32768
 SPECTRUM_NORMALIZATION = 40_000_000
-# Kept high so the per-band levels preserve their relative contrast (a low cap
-# flattens every loud band to the same value and produces a saturated ring).
-SPECTRAL_CAP = 0.8
 DBFS_FLOOR = -55.0
 ACTIVE_RMS_THRESHOLD = 0.001
-# Presence gate (replaces the old loudness ramp): drive stays ≈1 while speech is
-# present and only fades for genuine silence, so loudness no longer scales size.
+# Presence gate: drive stays ≈1 while speech is present and only fades for
+# genuine silence, so loudness no longer scales the visualization.
 GATE_FLOOR_DBFS = -54.0
 GATE_FULL_DBFS = -42.0
 MIN_ACTIVE_VISUAL_DRIVE = 0.8
 VISUAL_DRIVE_ATTACK = 0.35
 VISUAL_DRIVE_RELEASE = 0.12
-# Ring amplitude as a fraction of the available radius, mapped from the ABSOLUTE
-# per-band level (already volume-normalized by the AGC). A flat/broadband
-# spectrum has uniformly low levels (~0.013) -> a thin ring; tonal peaks (~0.1+)
-# rise into spikes. SPIKE_MAX_RATIO < 1 guarantees a central hole always remains.
-# (A previous attempt normalized each band to the frame's own peak, which made a
-# flat spectrum saturate every band to the maximum -> a solid ring.)
-SPIKE_BASELINE_RATIO = 0.16
-SPIKE_LEVEL_GAIN = 4.4
-SPIKE_MAX_RATIO = 0.72
+# Circular spectrum. Bands are spaced geometrically over the FFT bins
+# (log-frequency — equal visual width per octave, so bass does not dominate),
+# each band's magnitude is taken in dB (20·log10) and mapped from a
+# [floor, ceiling] dBFS window onto a [0, 1] bar length. The AGC has already
+# volume-normalized the magnitude, so the same window works at any input level.
+# Tuned from measured speech/noise: peaks land near -22 dB, noise floor ~-45 dB.
+BAND_BIN_MIN = 2
+BAND_BIN_FRACTION = 0.55
+SPECTRUM_DB_FLOOR = -50.0
+SPECTRUM_DB_CEILING = -20.0
+# Bar layout (px, within the 160×160 widget centered at SIZE/2): bars radiate
+# outward from a central circle of radius BAR_INNER_RADIUS, up to BAR_MAX_LENGTH.
+BAR_INNER_RADIUS = 40
+BAR_MAX_LENGTH = 30
+BAR_WIDTH = 2.4
 
 IS_LINUX = sys.platform.startswith("linux")
 IS_WINDOWS = sys.platform.startswith("win")
@@ -94,6 +96,9 @@ class _LevelModel:
         self._angles = np.linspace(math.pi / 2, math.pi / 2 + math.tau, wave_points, endpoint=False)
         self.cos = np.cos(self._angles)
         self.sin = np.sin(self._angles)
+        # Geometric (log-frequency) bin positions, rebuilt when the FFT size changes.
+        self._band_positions = np.zeros(wave_points, dtype=np.float64)
+        self._band_fft_size = -1
 
     def accept(self, frame: np.ndarray) -> None:
         if frame.size == 0:
@@ -135,26 +140,22 @@ class _LevelModel:
         rms = _soft_compress(raw_rms * self.adaptive_gain)
         self.global_level = self.global_level * 0.7 + rms * 0.3
 
+        # Circular spectrum: sample the FFT magnitude at log-spaced bins (one per
+        # bar), convert to dB, and map a fixed dBFS window onto a [0, 1] bar
+        # length. The AGC above keeps the magnitude volume-normalized, so the
+        # window is volume-independent.
         fft = np.abs(np.fft.rfft(data))
         fft_size = len(fft)
-        bass_end = min(max(2, fft_size // 24), fft_size)
-        bass = 0.0
-        if bass_end > 1:
-            bass = _soft_compress(
-                (float(np.max(fft[1:bass_end])) / SPECTRUM_NORMALIZATION) * self.adaptive_gain
-            )
-        floor = max(rms * 0.06, bass * BASS_BOOST * 0.5)
-        cap = SPECTRAL_CAP
-        max_bin = max(2, int((fft_size - 1) * 0.7))
-        for i in range(self.wave_points):
-            start = 1 + int((i / self.wave_points) * (max_bin - 1))
-            stop = 1 + int(((i + 1) / self.wave_points) * (max_bin - 1))
-            stop = max(start + 1, min(stop, fft_size))
-            peak = float(np.max(fft[start:stop])) if start < fft_size else 0.0
-            level = _soft_compress((peak / SPECTRUM_NORMALIZATION) * self.adaptive_gain)
-            if start < bass_end and raw_rms < 0.5:
-                level *= 1.0 + BASS_BOOST
-            self.levels[i] = self.levels[i] * 0.4 + min(max(level, floor), cap) * 0.6
+        if fft_size != self._band_fft_size:
+            self._band_positions = _log_band_positions(fft_size, self.wave_points)
+            self._band_fft_size = fft_size
+        mag = np.interp(self._band_positions, np.arange(fft_size), fft)
+        scaled = (mag / SPECTRUM_NORMALIZATION) * self.adaptive_gain
+        db = 20.0 * np.log10(scaled + 1e-9)
+        norm = np.clip(
+            (db - SPECTRUM_DB_FLOOR) / (SPECTRUM_DB_CEILING - SPECTRUM_DB_FLOOR), 0.0, 1.0
+        )
+        self.levels = self.levels * 0.4 + norm.astype(np.float32) * 0.6
 
     def decay(self) -> None:
         self.levels *= 0.9
@@ -166,21 +167,16 @@ class _LevelModel:
     def smooth(self) -> None:
         self.smooth_levels = self.smooth_levels * 0.82 + self.levels * 0.18
 
-    def amplitude_ratios(self) -> np.ndarray:
-        """Per-point ring amplitude as a fraction of the available radius.
+    def bar_levels(self) -> np.ndarray:
+        """Per-bar length as a fraction [0, 1] of ``BAR_MAX_LENGTH``.
 
-        Mapped from the absolute per-band level, which the AGC has already
-        normalized for volume. A flat (broadband) spectrum keeps every band low,
-        so the ring stays thin; only bands that genuinely stand out rise into
-        spikes — that is what modulates the wave. The result is hard-bounded by
-        ``SPIKE_MAX_RATIO`` so a central hole always remains and the ring can
-        never saturate, whatever the input volume.
+        Each value is the band's dB-mapped, smoothed level gated by speech
+        presence: bars retract to zero in silence and rise with the spectrum
+        while speech is present. Volume-independent thanks to the AGC.
         """
         if self.visual_drive <= 0.0:
             return np.zeros(self.wave_points, dtype=np.float32)
-        ratios = SPIKE_BASELINE_RATIO + SPIKE_LEVEL_GAIN * self.smooth_levels
-        ratios = np.minimum(SPIKE_MAX_RATIO, ratios)
-        return (ratios * self.visual_drive).astype(np.float32)
+        return np.clip(self.smooth_levels * self.visual_drive, 0.0, 1.0).astype(np.float32)
 
 
 class Visualizer:
@@ -416,67 +412,37 @@ def _new_window(qt: _QtBindings, bridge: Any) -> Any:
         def _paint_recording(self, painter: Any) -> None:
             center_x = SIZE / 2
             center_y = SIZE / 2
-            outer_radius = SIZE / 2 - 10
-            inner_radius = 20
-            mid_radius = (outer_radius + inner_radius) / 2
-            max_amplitude = (outer_radius - inner_radius) / 2 - 2
+            center = qt.QtCore.QPointF(center_x, center_y)
+            levels = self._model.bar_levels()
             global_level = self._model.global_level
-            visual_drive = self._model.visual_drive
-            ratios = self._model.amplitude_ratios()
-            outer = qt.QtGui.QPolygonF()
-            inner = qt.QtGui.QPolygonF()
+
+            # Central circle the spectrum bars radiate from; brightens with level.
+            ring_intensity = min(1.0, 0.45 + global_level * 0.6)
+            painter.setBrush(qt.QtCore.Qt.BrushStyle.NoBrush)
+            painter.setPen(
+                qt.QtGui.QPen(_qcolor(qt, _lerp_color(COLOR_DIM, COLOR_MAIN, ring_intensity)), 2)
+            )
+            painter.drawEllipse(center, BAR_INNER_RADIUS, BAR_INNER_RADIUS)
+
+            # Radial spectrum bars: one per frequency band, length = its level.
+            pen = qt.QtGui.QPen()
+            pen.setWidthF(BAR_WIDTH)
+            pen.setCapStyle(qt.QtCore.Qt.PenCapStyle.RoundCap)
+            r0 = BAR_INNER_RADIUS + 1.0
             for i in range(self._model.wave_points):
-                angle = float(self._model._angles[i])
-                wave_phase = self._frame * 0.05
-                wave1 = math.sin(wave_phase + angle * 3) * 0.15
-                wave2 = math.sin(wave_phase * 0.7 + angle * 5) * 0.1
-                wave3 = math.sin(wave_phase * 1.2 + angle * 2) * 0.08
-                base_wave = (wave1 + wave2 + wave3) * max_amplitude * 0.12 * visual_drive
-                amplitude = float(ratios[i]) * max_amplitude + base_wave
+                level = float(levels[i])
+                length = level * BAR_MAX_LENGTH
+                if length < 0.6:
+                    continue
                 cos_value = float(self._model.cos[i])
                 sin_value = float(self._model.sin[i])
-                outer_r = mid_radius + amplitude
-                inner_r = max(inner_radius, mid_radius - amplitude)
-                outer.append(
-                    qt.QtCore.QPointF(
-                        center_x + cos_value * outer_r, center_y + sin_value * outer_r
-                    )
+                r1 = r0 + length
+                pen.setColor(_qcolor(qt, _lerp_color(COLOR_MID, COLOR_GLOW, level)))
+                painter.setPen(pen)
+                painter.drawLine(
+                    qt.QtCore.QPointF(center_x + cos_value * r0, center_y + sin_value * r0),
+                    qt.QtCore.QPointF(center_x + cos_value * r1, center_y + sin_value * r1),
                 )
-                inner.append(
-                    qt.QtCore.QPointF(
-                        center_x + cos_value * inner_r, center_y + sin_value * inner_r
-                    )
-                )
-
-            if outer.size() <= 2 or inner.size() <= 2:
-                return
-            shape = qt.QtGui.QPolygonF(outer)
-            for i in range(inner.size() - 1, -1, -1):
-                shape.append(inner.at(i))
-            painter.setPen(qt.QtCore.Qt.PenStyle.NoPen)
-            painter.setBrush(_qcolor(qt, COLOR_MID))
-            painter.drawPolygon(shape)
-
-            intensity = min(1.0, 0.5 + global_level * 0.6)
-            line_color = (
-                int(COLOR_DIM[0] + (COLOR_MAIN[0] - COLOR_DIM[0]) * intensity),
-                int(COLOR_DIM[1] + (COLOR_MAIN[1] - COLOR_DIM[1]) * intensity),
-                int(COLOR_DIM[2] + (COLOR_MAIN[2] - COLOR_DIM[2]) * intensity),
-            )
-            painter.setBrush(qt.QtCore.Qt.BrushStyle.NoBrush)
-            painter.setPen(qt.QtGui.QPen(_qcolor(qt, line_color), 2))
-            painter.drawPolygon(outer)
-            painter.setPen(qt.QtGui.QPen(_qcolor(qt, COLOR_DIM), 2))
-            painter.drawPolygon(inner)
-            painter.setBrush(_qcolor(qt, BACKGROUND))
-            painter.setPen(qt.QtCore.Qt.PenStyle.NoPen)
-            painter.drawEllipse(
-                qt.QtCore.QPointF(center_x, center_y), inner_radius - 8, inner_radius - 8
-            )
-            if global_level > 0.25:
-                painter.setBrush(qt.QtCore.Qt.BrushStyle.NoBrush)
-                painter.setPen(qt.QtGui.QPen(_qcolor(qt, COLOR_GLOW, int(global_level * 120)), 1))
-                painter.drawPolygon(outer)
 
     return DonutWindow()
 
@@ -485,10 +451,31 @@ def _qcolor(qt: _QtBindings, color: tuple[int, int, int], alpha: int = 255) -> A
     return qt.QtGui.QColor(color[0], color[1], color[2], alpha)
 
 
+def _lerp_color(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[int, int, int]:
+    t = max(0.0, min(1.0, t))
+    return (
+        int(a[0] + (b[0] - a[0]) * t),
+        int(a[1] + (b[1] - a[1]) * t),
+        int(a[2] + (b[2] - a[2]) * t),
+    )
+
+
 def _dbfs(raw_rms: float) -> float:
     if raw_rms <= 0.0:
         return DBFS_FLOOR
     return max(-120.0, 20.0 * math.log10(raw_rms))
+
+
+def _log_band_positions(fft_size: int, nbars: int) -> np.ndarray:
+    """Geometrically (log-frequency) spaced FFT-bin positions, one per bar.
+
+    Bin index is proportional to frequency, so geometric spacing of bins is
+    geometric spacing of frequency — independent of the sample rate. The
+    magnitude curve is sampled (interpolated) at these positions, giving the
+    bass/mids fine resolution and compressing the sparse high end.
+    """
+    bin_max = max(BAND_BIN_MIN + 1, int(fft_size * BAND_BIN_FRACTION))
+    return BAND_BIN_MIN * (bin_max / BAND_BIN_MIN) ** np.linspace(0.0, 1.0, nbars)
 
 
 def _presence_gate(dbfs: float) -> float:
