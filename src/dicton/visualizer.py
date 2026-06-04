@@ -56,11 +56,11 @@ VISUAL_DRIVE_RELEASE = 0.12
 BAND_BIN_MIN = 2
 BAND_BIN_FRACTION = 0.55
 SPECTRUM_DB_FLOOR = -50.0
-SPECTRUM_DB_CEILING = -20.0
+SPECTRUM_DB_CEILING = -28.0
 # Bar layout (px, within the 160×160 widget centered at SIZE/2): bars radiate
 # outward from a central circle of radius BAR_INNER_RADIUS, up to BAR_MAX_LENGTH.
-BAR_INNER_RADIUS = 40
-BAR_MAX_LENGTH = 30
+BAR_INNER_RADIUS = 36
+BAR_MAX_LENGTH = 38
 BAR_WIDTH = 2.4
 
 IS_LINUX = sys.platform.startswith("linux")
