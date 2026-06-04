@@ -16,7 +16,7 @@ import numpy as np
 
 log = logging.getLogger("dicton")
 
-SIZE = 160
+SIZE = 200
 WAVE_POINTS = 90
 
 COLOR_MAIN = (188, 82, 21)
@@ -47,6 +47,8 @@ GATE_FULL_DBFS = -42.0
 MIN_ACTIVE_VISUAL_DRIVE = 0.8
 VISUAL_DRIVE_ATTACK = 0.35
 VISUAL_DRIVE_RELEASE = 0.12
+# Below this gate value the ring is treated as fully retracted (silent).
+GATE_SILENCE_EPS = 0.02
 # Circular spectrum. Bands are spaced geometrically over the FFT bins
 # (log-frequency — equal visual width per octave, so bass does not dominate),
 # each band's magnitude is taken in dB (20·log10) and mapped from a
@@ -57,11 +59,21 @@ BAND_BIN_MIN = 2
 BAND_BIN_FRACTION = 0.55
 SPECTRUM_DB_FLOOR = -50.0
 SPECTRUM_DB_CEILING = -28.0
-# Bar layout (px, within the 160×160 widget centered at SIZE/2): bars radiate
+# Every bar keeps a small minimum length while sound is present, so the whole
+# circle stays populated (a spectrum, not a lopsided arc); louder bands grow on
+# top. The bands are also mirrored (see _log_band_edges / accept) so the ring is
+# left/right symmetric rather than energy piling up on one side.
+BAR_BASELINE = 0.14
+# Bar layout (px, within the SIZE×SIZE widget centered at SIZE/2): bars radiate
 # outward from a central circle of radius BAR_INNER_RADIUS, up to BAR_MAX_LENGTH.
-BAR_INNER_RADIUS = 36
-BAR_MAX_LENGTH = 38
-BAR_WIDTH = 2.4
+BAR_INNER_RADIUS = 48
+BAR_MAX_LENGTH = 46
+BAR_WIDTH = 2.6
+# Translucent circular backdrop (needs an X11 compositor for true transparency,
+# e.g. picom): a dark disc behind the spectrum, transparent at the corners, so
+# the widget reads as a circle on the desktop instead of a black square.
+BACKDROP_RADIUS = 96
+BACKDROP_ALPHA = 205
 
 IS_LINUX = sys.platform.startswith("linux")
 IS_WINDOWS = sys.platform.startswith("win")
@@ -96,8 +108,10 @@ class _LevelModel:
         self._angles = np.linspace(math.pi / 2, math.pi / 2 + math.tau, wave_points, endpoint=False)
         self.cos = np.cos(self._angles)
         self.sin = np.sin(self._angles)
-        # Geometric (log-frequency) bin positions, rebuilt when the FFT size changes.
-        self._band_positions = np.zeros(wave_points, dtype=np.float64)
+        # Half the bars carry unique bands; the ring is mirrored for symmetry.
+        # Band edges are rebuilt when the FFT size changes.
+        self._n_half = (wave_points + 1) // 2
+        self._band_edges = np.zeros(self._n_half + 1, dtype=np.float64)
         self._band_fft_size = -1
 
     def accept(self, frame: np.ndarray) -> None:
@@ -140,21 +154,27 @@ class _LevelModel:
         rms = _soft_compress(raw_rms * self.adaptive_gain)
         self.global_level = self.global_level * 0.7 + rms * 0.3
 
-        # Circular spectrum: sample the FFT magnitude at log-spaced bins (one per
-        # bar), convert to dB, and map a fixed dBFS window onto a [0, 1] bar
-        # length. The AGC above keeps the magnitude volume-normalized, so the
-        # window is volume-independent.
         fft = np.abs(np.fft.rfft(data))
         fft_size = len(fft)
         if fft_size != self._band_fft_size:
-            self._band_positions = _log_band_positions(fft_size, self.wave_points)
+            self._band_edges = _log_band_edges(fft_size, self._n_half)
             self._band_fft_size = fft_size
-        mag = np.interp(self._band_positions, np.arange(fft_size), fft)
+        # Aggregate each log band by its peak bin (catches sharp tones), in dB,
+        # mapped from a fixed dBFS window onto [0, 1]. The AGC keeps the
+        # magnitude volume-normalized, so the window is volume-independent.
+        edges = self._band_edges
+        mag = np.empty(self._n_half, dtype=np.float64)
+        for j in range(self._n_half):
+            lo = int(edges[j])
+            hi = max(lo + 1, int(edges[j + 1]))
+            mag[j] = fft[lo:hi].max()
         scaled = (mag / SPECTRUM_NORMALIZATION) * self.adaptive_gain
         db = 20.0 * np.log10(scaled + 1e-9)
-        norm = np.clip(
+        half = np.clip(
             (db - SPECTRUM_DB_FLOOR) / (SPECTRUM_DB_CEILING - SPECTRUM_DB_FLOOR), 0.0, 1.0
         )
+        # Mirror the bands so the ring is left/right symmetric.
+        norm = np.concatenate([half, half[::-1]])[: self.wave_points]
         self.levels = self.levels * 0.4 + norm.astype(np.float32) * 0.6
 
     def decay(self) -> None:
@@ -170,13 +190,15 @@ class _LevelModel:
     def bar_levels(self) -> np.ndarray:
         """Per-bar length as a fraction [0, 1] of ``BAR_MAX_LENGTH``.
 
-        Each value is the band's dB-mapped, smoothed level gated by speech
-        presence: bars retract to zero in silence and rise with the spectrum
-        while speech is present. Volume-independent thanks to the AGC.
+        While speech is present every bar keeps at least ``BAR_BASELINE`` so the
+        whole circle stays populated, with louder bands rising on top; the gate
+        scales the whole ring so it retracts to nothing in silence.
+        Volume-independent thanks to the AGC.
         """
-        if self.visual_drive <= 0.0:
+        if self.visual_drive <= GATE_SILENCE_EPS:
             return np.zeros(self.wave_points, dtype=np.float32)
-        return np.clip(self.smooth_levels * self.visual_drive, 0.0, 1.0).astype(np.float32)
+        shaped = BAR_BASELINE + (1.0 - BAR_BASELINE) * self.smooth_levels
+        return np.clip(shaped * self.visual_drive, 0.0, 1.0).astype(np.float32)
 
 
 class Visualizer:
@@ -368,6 +390,10 @@ def _new_window(qt: _QtBindings, bridge: Any) -> Any:
             self.setWindowTitle("dicton")
             self.setFixedSize(SIZE, SIZE)
             self.setAttribute(qt.QtCore.Qt.WidgetAttribute.WA_ShowWithoutActivating, True)
+            # Transparent window background: the dark backdrop is drawn as a
+            # circle in paintEvent, so the widget reads as a circle (corners see
+            # through to the desktop on a compositor) instead of a black square.
+            self.setAttribute(qt.QtCore.Qt.WidgetAttribute.WA_TranslucentBackground, True)
             self.setFocusPolicy(qt.QtCore.Qt.FocusPolicy.NoFocus)
             self._position_near_top_right()
 
@@ -392,7 +418,15 @@ def _new_window(qt: _QtBindings, bridge: Any) -> Any:
         def paintEvent(self, _event: object) -> None:  # noqa: N802
             painter = qt.QtGui.QPainter(self)
             painter.setRenderHint(qt.QtGui.QPainter.RenderHint.Antialiasing, True)
-            painter.fillRect(self.rect(), _qcolor(qt, BACKGROUND))
+            # Clear to fully transparent, then lay down a circular dark backdrop.
+            painter.setCompositionMode(qt.QtGui.QPainter.CompositionMode.CompositionMode_Source)
+            painter.fillRect(self.rect(), qt.QtGui.QColor(0, 0, 0, 0))
+            painter.setCompositionMode(qt.QtGui.QPainter.CompositionMode.CompositionMode_SourceOver)
+            painter.setPen(qt.QtCore.Qt.PenStyle.NoPen)
+            painter.setBrush(_qcolor(qt, BACKGROUND, BACKDROP_ALPHA))
+            painter.drawEllipse(
+                qt.QtCore.QPointF(SIZE / 2, SIZE / 2), BACKDROP_RADIUS, BACKDROP_RADIUS
+            )
             if self._state == "processing":
                 self._paint_processing(painter)
             elif self._state == "recording":
@@ -466,16 +500,17 @@ def _dbfs(raw_rms: float) -> float:
     return max(-120.0, 20.0 * math.log10(raw_rms))
 
 
-def _log_band_positions(fft_size: int, nbars: int) -> np.ndarray:
-    """Geometrically (log-frequency) spaced FFT-bin positions, one per bar.
+def _log_band_edges(fft_size: int, nbands: int) -> np.ndarray:
+    """``nbands + 1`` geometrically (log-frequency) spaced FFT-bin edges.
 
     Bin index is proportional to frequency, so geometric spacing of bins is
-    geometric spacing of frequency — independent of the sample rate. The
-    magnitude curve is sampled (interpolated) at these positions, giving the
-    bass/mids fine resolution and compressing the sparse high end.
+    geometric spacing of frequency — independent of the sample rate. Each band
+    aggregates the bins between consecutive edges (see ``accept``), giving the
+    bass/mids fine resolution and compressing the sparse high end. Edges are
+    contiguous so every bin belongs to exactly one band (no peak is missed).
     """
     bin_max = max(BAND_BIN_MIN + 1, int(fft_size * BAND_BIN_FRACTION))
-    return BAND_BIN_MIN * (bin_max / BAND_BIN_MIN) ** np.linspace(0.0, 1.0, nbars)
+    return BAND_BIN_MIN * (bin_max / BAND_BIN_MIN) ** np.linspace(0.0, 1.0, nbands + 1)
 
 
 def _presence_gate(dbfs: float) -> float:

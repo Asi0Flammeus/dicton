@@ -164,14 +164,24 @@ def test_level_model_reduces_loud_microphones_to_avoid_saturation() -> None:
     assert float(model.bar_levels().max()) <= 1.0
 
 
-def test_log_band_positions_are_geometric() -> None:
-    positions = visualizer._log_band_positions(401, 32)
+def test_log_band_edges_are_geometric() -> None:
+    edges = visualizer._log_band_edges(401, 45)
 
-    assert np.all(np.diff(positions) > 0)  # strictly increasing
-    assert positions[0] == visualizer.BAND_BIN_MIN
+    assert len(edges) == 46  # nbands + 1
+    assert edges[0] == visualizer.BAND_BIN_MIN
+    assert np.all(np.diff(edges) > 0)  # strictly increasing
     # Constant geometric ratio (log-frequency spacing).
-    ratios = positions[1:] / positions[:-1]
+    ratios = edges[1:] / edges[:-1]
     assert float(ratios.std()) < 1e-6
+
+
+def test_spectrum_ring_is_mirror_symmetric() -> None:
+    # The mirrored bands make the ring left/right symmetric instead of piling
+    # energy onto one arc.
+    model = _drive_level_model(amplitude=6000, frequency_hz=220, iterations=40)
+    half = model.wave_points // 2
+
+    assert np.allclose(model.smooth_levels[:half], model.smooth_levels[half:][::-1])
 
 
 def test_tonal_input_produces_a_localized_peak_bar() -> None:
@@ -202,6 +212,14 @@ def test_bar_levels_are_zero_in_silence() -> None:
         model.smooth()
 
     assert float(model.bar_levels().max()) == 0.0
+
+
+def test_active_speech_fills_every_bar() -> None:
+    # The baseline keeps the whole circle populated while sound is present, so
+    # the spectrum is a full ring rather than a lopsided arc.
+    model = _drive_level_model(amplitude=4000, frequency_hz=220, iterations=40)
+
+    assert float(model.bar_levels().min()) > 0.0
 
 
 def test_level_model_keeps_spectrum_stable_across_input_volume() -> None:
@@ -235,8 +253,9 @@ def test_broadband_input_renders_short_bars_not_a_solid_disc() -> None:
 
     bars = model.bar_levels()
 
-    assert float(bars.max()) <= 0.5
-    assert float(bars.mean()) <= 0.3
+    # Not pegged to full length — a ring of short/medium bars, not a solid disc.
+    assert float(bars.max()) <= 0.7
+    assert float(bars.mean()) <= 0.5
 
 
 def test_gain_relaxes_toward_unity_during_silence() -> None:
