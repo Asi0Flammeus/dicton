@@ -222,6 +222,26 @@ def test_active_speech_fills_every_bar() -> None:
     assert float(model.bar_levels().min()) > 0.0
 
 
+def test_organic_layer_breaks_mirror_symmetry() -> None:
+    # The underlying bands are mirror-symmetric, but the displayed bars must not
+    # be — the organic offset/shimmer makes the two halves differ.
+    model = _drive_level_model(amplitude=6000, frequency_hz=220, iterations=40)
+    half = model.wave_points // 2
+
+    assert np.allclose(model.bar_levels()[:half], model.bar_levels()[half:][::-1])
+    display = model.display_levels(frame=37)
+    assert not np.allclose(display[:half], display[half:][::-1])
+
+
+def test_display_levels_are_zero_in_silence() -> None:
+    model = visualizer._LevelModel(wave_points=visualizer.WAVE_POINTS)
+    for _ in range(40):
+        model.accept(np.zeros(800, dtype=np.int16))
+        model.smooth()
+
+    assert float(model.display_levels(frame=10).max()) == 0.0
+
+
 def test_level_model_keeps_spectrum_stable_across_input_volume() -> None:
     # The AGC's whole point: at steady state a soft speaker and a loud speaker
     # drive the same bar heights — only the spectral shape, not volume, matters.

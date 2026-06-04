@@ -74,6 +74,14 @@ BAR_WIDTH = 2.6
 # the widget reads as a circle on the desktop instead of a black square.
 BACKDROP_RADIUS = 96
 BACKDROP_ALPHA = 205
+# Organic layer: the spectrum is mirrored (perfectly symmetric), which looks
+# mechanical. Break it with a per-bar static height offset (asymmetric, since
+# the random pattern is not mirrored) plus a slow, per-bar desynced shimmer so
+# bars breathe independently. Kept subtle — decoration, not signal.
+ORGANIC_SEED = 7
+ORGANIC_OFFSET = 0.13
+ORGANIC_SHIMMER = 0.05
+ORGANIC_SPEED = 0.12
 
 IS_LINUX = sys.platform.startswith("linux")
 IS_WINDOWS = sys.platform.startswith("win")
@@ -113,6 +121,12 @@ class _LevelModel:
         self._n_half = (wave_points + 1) // 2
         self._band_edges = np.zeros(self._n_half + 1, dtype=np.float64)
         self._band_fft_size = -1
+        # Per-bar organic perturbation (deterministic): static offset breaks the
+        # mirror symmetry, phase/speed desync the animated shimmer.
+        rng = np.random.default_rng(ORGANIC_SEED)
+        self._organic_offset = rng.uniform(-ORGANIC_OFFSET, ORGANIC_OFFSET, wave_points)
+        self._organic_phase = rng.uniform(0.0, 2.0 * math.pi, wave_points)
+        self._organic_speed = rng.uniform(0.6, 1.4, wave_points)
 
     def accept(self, frame: np.ndarray) -> None:
         if frame.size == 0:
@@ -199,6 +213,22 @@ class _LevelModel:
             return np.zeros(self.wave_points, dtype=np.float32)
         shaped = BAR_BASELINE + (1.0 - BAR_BASELINE) * self.smooth_levels
         return np.clip(shaped * self.visual_drive, 0.0, 1.0).astype(np.float32)
+
+    def display_levels(self, frame: int) -> np.ndarray:
+        """``bar_levels`` plus the organic layer that breaks the mirror symmetry.
+
+        A static per-bar offset (not mirrored) makes the two halves differ, and a
+        slow per-bar desynced shimmer keeps the ring breathing so the same shapes
+        do not keep recurring. Both fade out with the gate (nothing in silence).
+        """
+        base = self.bar_levels()
+        if not base.any():
+            return base
+        shimmer = ORGANIC_SHIMMER * np.sin(
+            frame * ORGANIC_SPEED * self._organic_speed + self._organic_phase
+        )
+        out = base * (1.0 + self._organic_offset) + shimmer * self.visual_drive
+        return np.clip(out, 0.0, 1.0).astype(np.float32)
 
 
 class Visualizer:
@@ -447,7 +477,7 @@ def _new_window(qt: _QtBindings, bridge: Any) -> Any:
             center_x = SIZE / 2
             center_y = SIZE / 2
             center = qt.QtCore.QPointF(center_x, center_y)
-            levels = self._model.bar_levels()
+            levels = self._model.display_levels(self._frame)
             global_level = self._model.global_level
 
             # Central circle the spectrum bars radiate from; brightens with level.
