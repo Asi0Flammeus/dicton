@@ -43,13 +43,16 @@ DBFS_FLOOR = -55.0
 # anything below speech level so the ring is FLAT when not talking and only comes
 # alive while speaking. These thresholds are deliberately stricter than the
 # noise floor (tune GATE_FLOOR_DBFS up if idle noise still nudges the bars).
-ACTIVE_RMS_THRESHOLD = 0.004
-GATE_FLOOR_DBFS = -46.0
-GATE_FULL_DBFS = -36.0
+ACTIVE_RMS_THRESHOLD = 0.005
+GATE_FLOOR_DBFS = -44.0
+GATE_FULL_DBFS = -34.0
 VISUAL_DRIVE_ATTACK = 0.35
 VISUAL_DRIVE_RELEASE = 0.12
-# Below this gate value the ring is treated as fully retracted (silent/flat).
-GATE_SILENCE_EPS = 0.02
+# Squelch: the gate must open past this before any bar shows, and the bar
+# amplitude is remapped from [squelch, 1] onto [0, 1] so it fades in smoothly
+# rather than popping. Kills the residual ambient-noise flutter when not
+# speaking (raise it if idle noise still nudges the bars).
+GATE_SQUELCH = 0.3
 # Circular spectrum. Bands are spaced geometrically over the FFT bins
 # (log-frequency — equal visual width per octave, so bass does not dominate),
 # each band's magnitude is taken in dB (20·log10) and mapped from a
@@ -203,33 +206,42 @@ class _LevelModel:
     def smooth(self) -> None:
         self.smooth_levels = self.smooth_levels * 0.82 + self.levels * 0.18
 
+    def _effective_drive(self) -> float:
+        """Gate after squelch: 0 until the gate clears ``GATE_SQUELCH``, then
+        ramps [squelch, 1] -> [0, 1] so the ring fades in instead of popping."""
+        if self.visual_drive <= GATE_SQUELCH:
+            return 0.0
+        return (self.visual_drive - GATE_SQUELCH) / (1.0 - GATE_SQUELCH)
+
     def bar_levels(self) -> np.ndarray:
         """Per-bar length as a fraction [0, 1] of ``BAR_MAX_LENGTH``.
 
         While speech is present every bar keeps at least ``BAR_BASELINE`` so the
-        whole circle stays populated, with louder bands rising on top; the gate
-        scales the whole ring so it retracts to nothing in silence.
-        Volume-independent thanks to the AGC.
+        whole circle stays populated, with louder bands rising on top; the
+        squelched gate scales the whole ring so it is flat unless actually
+        speaking. Volume-independent thanks to the AGC.
         """
-        if self.visual_drive <= GATE_SILENCE_EPS:
+        drive = self._effective_drive()
+        if drive <= 0.0:
             return np.zeros(self.wave_points, dtype=np.float32)
         shaped = BAR_BASELINE + (1.0 - BAR_BASELINE) * self.smooth_levels
-        return np.clip(shaped * self.visual_drive, 0.0, 1.0).astype(np.float32)
+        return np.clip(shaped * drive, 0.0, 1.0).astype(np.float32)
 
     def display_levels(self, frame: int) -> np.ndarray:
-        """``bar_levels`` plus the organic layer that breaks the mirror symmetry.
+        """``bar_levels`` plus the organic layer (offset + shimmer).
 
-        A static per-bar offset (not mirrored) makes the two halves differ, and a
-        slow per-bar desynced shimmer keeps the ring breathing so the same shapes
-        do not keep recurring. Both fade out with the gate (nothing in silence).
+        A static per-bar offset makes neighbours differ, and a slow per-bar
+        desynced shimmer keeps the ring breathing so the same shapes do not keep
+        recurring. Both fade out with the gate (nothing when not speaking).
         """
         base = self.bar_levels()
         if not base.any():
             return base
+        drive = self._effective_drive()
         shimmer = ORGANIC_SHIMMER * np.sin(
             frame * ORGANIC_SPEED * self._organic_speed + self._organic_phase
         )
-        out = base * (1.0 + self._organic_offset) + shimmer * self.visual_drive
+        out = base * (1.0 + self._organic_offset) + shimmer * drive
         return np.clip(out, 0.0, 1.0).astype(np.float32)
 
 
