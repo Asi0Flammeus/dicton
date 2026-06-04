@@ -39,15 +39,16 @@ PEAK_HOLD_FRAMES = 30
 RMS_NORMALIZATION = 32768
 SPECTRUM_NORMALIZATION = 40_000_000
 DBFS_FLOOR = -55.0
-ACTIVE_RMS_THRESHOLD = 0.001
-# Presence gate: drive stays ≈1 while speech is present and only fades for
-# genuine silence, so loudness no longer scales the visualization.
-GATE_FLOOR_DBFS = -54.0
-GATE_FULL_DBFS = -42.0
-MIN_ACTIVE_VISUAL_DRIVE = 0.8
+# Speech sits well above the room-noise floor; the gate must stay shut for
+# anything below speech level so the ring is FLAT when not talking and only comes
+# alive while speaking. These thresholds are deliberately stricter than the
+# noise floor (tune GATE_FLOOR_DBFS up if idle noise still nudges the bars).
+ACTIVE_RMS_THRESHOLD = 0.004
+GATE_FLOOR_DBFS = -46.0
+GATE_FULL_DBFS = -36.0
 VISUAL_DRIVE_ATTACK = 0.35
 VISUAL_DRIVE_RELEASE = 0.12
-# Below this gate value the ring is treated as fully retracted (silent).
+# Below this gate value the ring is treated as fully retracted (silent/flat).
 GATE_SILENCE_EPS = 0.02
 # Circular spectrum. Bands are spaced geometrically over the FFT bins
 # (log-frequency — equal visual width per octave, so bass does not dominate),
@@ -58,16 +59,21 @@ GATE_SILENCE_EPS = 0.02
 BAND_BIN_MIN = 2
 BAND_BIN_FRACTION = 0.55
 SPECTRUM_DB_FLOOR = -50.0
-SPECTRUM_DB_CEILING = -28.0
+SPECTRUM_DB_CEILING = -32.0
+# Écoulement (flow): a tall bar lifts its neighbours so peaks spread into ridges
+# instead of standing alone. Each bar is raised toward its neighbours' levels
+# with a per-step falloff, over SPREAD_RADIUS bars on each side (circular).
+SPREAD_FALLOFF = 0.6
+SPREAD_RADIUS = 3
 # Every bar keeps a small minimum length while sound is present, so the whole
 # circle stays populated (a spectrum, not a lopsided arc); louder bands grow on
-# top. The bands are also mirrored (see _log_band_edges / accept) so the ring is
-# left/right symmetric rather than energy piling up on one side.
+# top. The spectrum is laid out once around the ring (no mirror) so it is
+# asymmetric — the organic layer further breaks any residual regularity.
 BAR_BASELINE = 0.14
 # Bar layout (px, within the SIZE×SIZE widget centered at SIZE/2): bars radiate
 # outward from a central circle of radius BAR_INNER_RADIUS, up to BAR_MAX_LENGTH.
-BAR_INNER_RADIUS = 48
-BAR_MAX_LENGTH = 46
+BAR_INNER_RADIUS = 42
+BAR_MAX_LENGTH = 52
 BAR_WIDTH = 2.6
 # Translucent circular backdrop (needs an X11 compositor for true transparency,
 # e.g. picom): a dark disc behind the spectrum, transparent at the corners, so
@@ -116,10 +122,8 @@ class _LevelModel:
         self._angles = np.linspace(math.pi / 2, math.pi / 2 + math.tau, wave_points, endpoint=False)
         self.cos = np.cos(self._angles)
         self.sin = np.sin(self._angles)
-        # Half the bars carry unique bands; the ring is mirrored for symmetry.
-        # Band edges are rebuilt when the FFT size changes.
-        self._n_half = (wave_points + 1) // 2
-        self._band_edges = np.zeros(self._n_half + 1, dtype=np.float64)
+        # Log-frequency band edges (one band per bar), rebuilt on FFT-size change.
+        self._band_edges = np.zeros(wave_points + 1, dtype=np.float64)
         self._band_fft_size = -1
         # Per-bar organic perturbation (deterministic): static offset breaks the
         # mirror symmetry, phase/speed desync the animated shimmer.
@@ -137,10 +141,9 @@ class _LevelModel:
         self.input_dbfs = _dbfs(raw_rms)
         active = raw_rms > ACTIVE_RMS_THRESHOLD
 
-        # Presence gate: ≈1 while speech is present, fades only for true silence.
+        # Presence gate: opens only for speech-level input, so the ring is flat
+        # when not talking. No "minimum active" floor — idle noise stays gated.
         target_drive = _presence_gate(self.input_dbfs)
-        if active:
-            target_drive = max(MIN_ACTIVE_VISUAL_DRIVE, target_drive)
         drive_rate = (
             VISUAL_DRIVE_ATTACK if target_drive > self.visual_drive else VISUAL_DRIVE_RELEASE
         )
@@ -171,24 +174,23 @@ class _LevelModel:
         fft = np.abs(np.fft.rfft(data))
         fft_size = len(fft)
         if fft_size != self._band_fft_size:
-            self._band_edges = _log_band_edges(fft_size, self._n_half)
+            self._band_edges = _log_band_edges(fft_size, self.wave_points)
             self._band_fft_size = fft_size
-        # Aggregate each log band by its peak bin (catches sharp tones), in dB,
-        # mapped from a fixed dBFS window onto [0, 1]. The AGC keeps the
-        # magnitude volume-normalized, so the window is volume-independent.
+        # One band per bar (no mirror -> asymmetric ring), aggregated by its peak
+        # bin (catches sharp tones), in dB, mapped from a fixed dBFS window onto
+        # [0, 1]. The AGC keeps the magnitude volume-normalized.
         edges = self._band_edges
-        mag = np.empty(self._n_half, dtype=np.float64)
-        for j in range(self._n_half):
+        mag = np.empty(self.wave_points, dtype=np.float64)
+        for j in range(self.wave_points):
             lo = int(edges[j])
             hi = max(lo + 1, int(edges[j + 1]))
             mag[j] = fft[lo:hi].max()
         scaled = (mag / SPECTRUM_NORMALIZATION) * self.adaptive_gain
         db = 20.0 * np.log10(scaled + 1e-9)
-        half = np.clip(
+        norm = np.clip(
             (db - SPECTRUM_DB_FLOOR) / (SPECTRUM_DB_CEILING - SPECTRUM_DB_FLOOR), 0.0, 1.0
         )
-        # Mirror the bands so the ring is left/right symmetric.
-        norm = np.concatenate([half, half[::-1]])[: self.wave_points]
+        norm = _spread_levels(norm)  # écoulement: peaks flow into their neighbours
         self.levels = self.levels * 0.4 + norm.astype(np.float32) * 0.6
 
     def decay(self) -> None:
@@ -541,6 +543,21 @@ def _log_band_edges(fft_size: int, nbands: int) -> np.ndarray:
     """
     bin_max = max(BAND_BIN_MIN + 1, int(fft_size * BAND_BIN_FRACTION))
     return BAND_BIN_MIN * (bin_max / BAND_BIN_MIN) ** np.linspace(0.0, 1.0, nbands + 1)
+
+
+def _spread_levels(levels: np.ndarray) -> np.ndarray:
+    """Écoulement: lift each bar toward its neighbours so peaks flow into ridges.
+
+    Each bar is raised to the max of itself and its neighbours scaled by a
+    distance falloff (circular), so a tall bar pulls its neighbours up without
+    being flattened itself.
+    """
+    spread = levels.copy()
+    for d in range(1, SPREAD_RADIUS + 1):
+        fall = SPREAD_FALLOFF**d
+        spread = np.maximum(spread, np.roll(levels, d) * fall)
+        spread = np.maximum(spread, np.roll(levels, -d) * fall)
+    return spread
 
 
 def _presence_gate(dbfs: float) -> float:

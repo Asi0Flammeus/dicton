@@ -175,33 +175,39 @@ def test_log_band_edges_are_geometric() -> None:
     assert float(ratios.std()) < 1e-6
 
 
-def test_spectrum_ring_is_mirror_symmetric() -> None:
-    # The mirrored bands make the ring left/right symmetric instead of piling
-    # energy onto one arc.
-    model = _drive_level_model(amplitude=6000, frequency_hz=220, iterations=40)
-    half = model.wave_points // 2
+def test_spread_lifts_neighbours_of_a_peak() -> None:
+    levels = np.zeros(20, dtype=np.float32)
+    levels[10] = 1.0
+    spread = visualizer._spread_levels(levels)
 
-    assert np.allclose(model.smooth_levels[:half], model.smooth_levels[half:][::-1])
+    assert spread[10] == 1.0  # the peak itself is preserved
+    assert 0.0 < spread[9] < 1.0  # neighbours are lifted
+    assert spread[9] > spread[8] > spread[7]  # ... with falloff by distance
 
 
 def test_tonal_input_produces_a_localized_peak_bar() -> None:
-    # A pure tone must concentrate into a few tall bars, not a flat ring.
+    # A pure tone must concentrate into a ridge of tall bars, not a flat ring.
     model = _drive_level_model(amplitude=3000, frequency_hz=220, iterations=80)
     bars = model.bar_levels()
 
-    assert float(bars.max()) >= float(bars.mean()) * 3.0
+    assert float(bars.max()) >= float(bars.mean()) * 2.0
 
 
-def test_level_model_exposes_decibel_drive_for_quiet_speech() -> None:
+def test_gate_stays_flat_below_speech_level() -> None:
+    # Sub-speech input (room-noise level) must keep the ring flat (gate shut), so
+    # nothing moves when not talking.
     model = _drive_level_model(amplitude=100)
 
     assert -56.0 <= model.input_dbfs <= -50.0
-    assert model.visual_drive >= 0.5
+    assert model.visual_drive < 0.1
+    assert float(model.bar_levels().max()) == 0.0
 
 
 def test_bar_levels_map_quiet_speech_to_visible_bars() -> None:
-    model = _drive_level_model(amplitude=100)
+    # Soft but genuine speech (above the gate) still produces visible bars.
+    model = _drive_level_model(amplitude=600)
 
+    assert model.visual_drive > 0.5
     assert float(model.bar_levels().max()) >= 0.2
 
 
@@ -222,15 +228,21 @@ def test_active_speech_fills_every_bar() -> None:
     assert float(model.bar_levels().min()) > 0.0
 
 
-def test_organic_layer_breaks_mirror_symmetry() -> None:
-    # The underlying bands are mirror-symmetric, but the displayed bars must not
-    # be — the organic offset/shimmer makes the two halves differ.
+def test_spectrum_ring_is_not_symmetric() -> None:
+    # No mirror: the spectrum is laid out once around the ring, so the two halves
+    # differ (energy is not duplicated symmetrically).
     model = _drive_level_model(amplitude=6000, frequency_hz=220, iterations=40)
     half = model.wave_points // 2
 
-    assert np.allclose(model.bar_levels()[:half], model.bar_levels()[half:][::-1])
-    display = model.display_levels(frame=37)
-    assert not np.allclose(display[:half], display[half:][::-1])
+    assert not np.allclose(model.bar_levels()[:half], model.bar_levels()[half:][::-1])
+
+
+def test_organic_layer_perturbs_the_displayed_bars() -> None:
+    # The organic offset/shimmer must visibly change the displayed bars relative
+    # to the raw audio levels.
+    model = _drive_level_model(amplitude=6000, frequency_hz=220, iterations=40)
+
+    assert not np.allclose(model.display_levels(frame=37), model.bar_levels())
 
 
 def test_display_levels_are_zero_in_silence() -> None:
@@ -245,7 +257,7 @@ def test_display_levels_are_zero_in_silence() -> None:
 def test_level_model_keeps_spectrum_stable_across_input_volume() -> None:
     # The AGC's whole point: at steady state a soft speaker and a loud speaker
     # drive the same bar heights — only the spectral shape, not volume, matters.
-    quiet = _drive_level_model(amplitude=600, iterations=80)
+    quiet = _drive_level_model(amplitude=3000, iterations=80)
     loud = _drive_level_model(amplitude=20_000, iterations=80)
 
     ratio = float(loud.bar_levels().max()) / float(quiet.bar_levels().max())
