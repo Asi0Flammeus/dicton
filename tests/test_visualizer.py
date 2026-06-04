@@ -203,9 +203,9 @@ def test_gate_stays_flat_below_speech_level() -> None:
     assert float(model.bar_levels().max()) == 0.0
 
 
-def test_bar_levels_map_quiet_speech_to_visible_bars() -> None:
-    # Soft but genuine speech (above the gate) still produces visible bars.
-    model = _drive_level_model(amplitude=600)
+def test_bar_levels_map_speech_to_visible_bars() -> None:
+    # Genuine speech (above the squelched gate) produces visible bars.
+    model = _drive_level_model(amplitude=1500)
 
     assert model.visual_drive > 0.5
     assert float(model.bar_levels().max()) >= 0.2

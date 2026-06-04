@@ -43,16 +43,16 @@ DBFS_FLOOR = -55.0
 # anything below speech level so the ring is FLAT when not talking and only comes
 # alive while speaking. These thresholds are deliberately stricter than the
 # noise floor (tune GATE_FLOOR_DBFS up if idle noise still nudges the bars).
-ACTIVE_RMS_THRESHOLD = 0.005
-GATE_FLOOR_DBFS = -44.0
-GATE_FULL_DBFS = -34.0
+ACTIVE_RMS_THRESHOLD = 0.006
+GATE_FLOOR_DBFS = -42.0
+GATE_FULL_DBFS = -32.0
 VISUAL_DRIVE_ATTACK = 0.35
 VISUAL_DRIVE_RELEASE = 0.12
 # Squelch: the gate must open past this before any bar shows, and the bar
 # amplitude is remapped from [squelch, 1] onto [0, 1] so it fades in smoothly
 # rather than popping. Kills the residual ambient-noise flutter when not
 # speaking (raise it if idle noise still nudges the bars).
-GATE_SQUELCH = 0.3
+GATE_SQUELCH = 0.45
 # Circular spectrum. Bands are spaced geometrically over the FFT bins
 # (log-frequency — equal visual width per octave, so bass does not dominate),
 # each band's magnitude is taken in dB (20·log10) and mapped from a
@@ -62,7 +62,7 @@ GATE_SQUELCH = 0.3
 BAND_BIN_MIN = 2
 BAND_BIN_FRACTION = 0.55
 SPECTRUM_DB_FLOOR = -50.0
-SPECTRUM_DB_CEILING = -32.0
+SPECTRUM_DB_CEILING = -35.0
 # Écoulement (flow): a tall bar lifts its neighbours so peaks spread into ridges
 # instead of standing alone. Each bar is raised toward its neighbours' levels
 # with a per-step falloff, over SPREAD_RADIUS bars on each side (circular).
@@ -75,8 +75,8 @@ SPREAD_RADIUS = 3
 BAR_BASELINE = 0.14
 # Bar layout (px, within the SIZE×SIZE widget centered at SIZE/2): bars radiate
 # outward from a central circle of radius BAR_INNER_RADIUS, up to BAR_MAX_LENGTH.
-BAR_INNER_RADIUS = 42
-BAR_MAX_LENGTH = 52
+BAR_INNER_RADIUS = 40
+BAR_MAX_LENGTH = 54
 BAR_WIDTH = 2.6
 # Translucent circular backdrop (needs an X11 compositor for true transparency,
 # e.g. picom): a dark disc behind the spectrum, transparent at the corners, so
