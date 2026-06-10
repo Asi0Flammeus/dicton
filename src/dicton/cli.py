@@ -118,6 +118,17 @@ def _restart_hint() -> None:
     console.print("Restart the daemon to apply: [cyan]systemctl --user restart dicton[/cyan]")
 
 
+@app.command(name="macros")
+def macros_cmd() -> None:
+    """Edit voice macros (spoken trigger → text inserted verbatim)."""
+    if not config.exists():
+        console.print("[red]No config yet[/red] — run `dicton wizard` first.")
+        raise typer.Exit(1)
+    from .macros_ui import run_window
+
+    raise typer.Exit(run_window(config.load()))
+
+
 @app.command(name="stats")
 def stats_cmd() -> None:
     """Show lifetime usage summary."""

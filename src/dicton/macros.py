@@ -170,6 +170,35 @@ def expand(raw: str, macros: list[Macro]) -> tuple[str, dict[str, str]]:
     return "".join(out), token_map
 
 
+def validate(
+    spellings: list[str],
+    value: str,
+    macros: list[Macro],
+    current: Macro | None,
+) -> tuple[list[str], list[str]]:
+    """Check an edited macro. Returns (errors, warnings): errors block the
+    save (empty trigger/value, spelling that normalizes to nothing), warnings
+    only need confirmation (spelling already used by another macro — the
+    first one would silently win at match time)."""
+    errors: list[str] = []
+    warnings: list[str] = []
+    if not any(normalize(s) for s in spellings):
+        errors.append("Au moins une orthographe (non vide) est requise.")
+    if not value:
+        errors.append("La valeur est vide.")
+    for s in spellings:
+        if s.strip() and not normalize(s):
+            errors.append(f"« {s} » ne contient aucun mot reconnaissable.")
+    own = {normalize(s) for s in spellings if normalize(s)}
+    for m in macros:
+        if current is not None and m.id == current.id:
+            continue
+        for s in m.spellings:
+            if normalize(s) in own:
+                warnings.append(f"« {s} » est déjà utilisée par la macro « {m.id} ».")
+    return errors, warnings
+
+
 def restore(text: str, token_map: dict[str, str], *, fallback: str | None = None) -> str:
     """Swap tokens back for their verbatim values.
 
