@@ -94,10 +94,10 @@ Point d'insertion : `src/dicton/pipeline.py:320` (juste après `joined`, autour 
 ```
 BRUT     "envoie le crqpt url au client"
   expand()  →  détecte + tokenise
-TOKENISÉ "envoie le ⟦M0⟧ au client"          (⟦M0⟧ = jeton opaque, U+E000…)
+TOKENISÉ "envoie le QZM0XQZ au client"        (QZM0XQZ = jeton opaque alphanumérique)
   cleanup LLM  (le jeton est une donnée inerte, préservée mot pour mot)
-NETTOYÉ  "Envoie le ⟦M0⟧ au client."
-  restore()  →  ⟦M0⟧ → valeur
+NETTOYÉ  "Envoie le QZM0XQZ au client."
+  restore()  →  QZM0XQZ → valeur
 FINAL    "Envoie le https://crqpt.com au client."
 ```
 
@@ -111,6 +111,14 @@ le seul défaut capable de casser la feature silencieusement.
   cleanup et on restaure les jetons dans le texte **tokenisé pré-cleanup**. La macro se déclenche
   toujours (valeur byte-exact présente), au prix de la passe de polish dans ce cas rare. Priorité
   assumée : fiabilité de la feature > polish.
+
+**Résultat de la validation empirique** (3 prises × 4 modèles par candidat, prompt de cleanup réel) :
+toute décoration se fait arracher par au moins un modèle Llama — `⟦M0⟧`, `[[M0]]`, `{{M0}}`,
+`@@M0@@`, `__M0__` ressortent en `M0` nu sur `llama-3.1-8b-instant`, et U+E000 (zone privée) est
+supprimé par 3 modèles sur 4. En revanche la **suite alphanumérique intérieure survit toujours** :
+le jeton retenu est donc *uniquement* une suite alphanumérique opaque, `QZM{i}XQZ`, préservée 12/12
+par les 4 modèles. Le test `test_token_survives_real_models` (gated sur `GROQ_API_KEY`) rejoue
+cette validation contre l'API réelle.
 
 ## Architecture — éditeur découplé du daemon
 
@@ -149,7 +157,11 @@ dicton macros (process fenêtre Qt)         daemon (process long)
                  [ Enregistrer ]   [ Supprimer ]
 ```
 
-## Plan d'implémentation (tracer-bullet)
+## Plan d'implémentation (tracer-bullet) — ✅ implémenté
+
+État : les trois phases sont livrées (`src/dicton/macros.py`, `src/dicton/macros_ui.py`,
+`dicton macros` dans `cli.py`, branchement dans `pipeline.py:_end`, tests
+`tests/test_macros.py` + `tests/test_macros_ui.py`).
 
 ### Phase 1 — Le moteur (les macros se déclenchent, sans UI)
 
