@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 
 import httpx
 import pytest
@@ -133,7 +134,8 @@ def test_save_load_round_trip(macros_file) -> None:
     loaded = macros.load()
     assert loaded == [CRQPT, SIGNATURE]
     assert loaded[1].value == "Cordialement,\nAsi0\n— alysis"
-    assert (os.stat(macros_file).st_mode & 0o777) == 0o600
+    if sys.platform != "win32":  # POSIX mode bits are meaningless on Windows
+        assert (os.stat(macros_file).st_mode & 0o777) == 0o600
 
 
 def test_load_uses_mtime_cache(macros_file) -> None:
