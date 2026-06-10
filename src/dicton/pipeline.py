@@ -22,7 +22,7 @@ import sounddevice as sd
 from pynput import keyboard
 
 from . import cleanup as cleanup_mod
-from . import stats, stt
+from . import macros, stats, stt
 from .async_lifecycle import AsyncLoopRunner
 from .chunker import Chunker, ChunkParams
 from .config import Config
@@ -326,12 +326,16 @@ class Pipeline:
             client = self._runner.client
             if client is None:
                 raise RuntimeError("async client is not started")
+            # Macro values are byte-exact and must never reach the cleanup
+            # LLM: swap matches for opaque tokens, clean, swap back.
+            tokenized, macro_tokens = macros.expand(joined, macros.load())
             cleaned = await cleanup_mod.cleanup(
                 client,
-                joined,
+                tokenized,
                 api_key=self.cfg.groq_api_key,
                 model=self.cfg.cleanup_model,
             )
+            cleaned = macros.restore(cleaned, macro_tokens, fallback=tokenized)
             cleanup_ms = int((time.monotonic() - t_cl_start) * 1000)
 
             if self.viz is not None:

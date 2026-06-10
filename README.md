@@ -86,6 +86,10 @@ dicton update   # réinstalle le dernier main depuis GitHub + restart systemd
 
 Pendant l'enregistrement, un petit anneau orange flotte en haut à droite. Il passe en pulse concentrique pendant le processing (STT + cleanup), puis disparaît quand le texte est collé. Les players audio (Spotify, YouTube, VLC…) sont mis en pause automatiquement pendant que tu parles, et repris à la fin.
 
+### Macros
+
+Une macro remplace un déclencheur prononcé par un texte inséré **verbatim** — d'une URL (« crqpt url » → `https://crqpt.com`) à un bloc multi-paragraphes (signature). `dicton macros` ouvre l'éditeur : déclencheur tapé ou 🎤 enregistré (la transcription Whisper brute devient une « orthographe » ; ajoutes-en d'autres quand Whisper varie), valeur multi-lignes. La détection est inline sur chaque dictée, insensible à la casse/aux accents/à la ponctuation, et la valeur contourne le cleanup LLM — elle est collée octet pour octet. Stockage : `~/.config/dicton/macros.json`, relu à la volée (pas de restart). Détails : [docs/features/macros.md](docs/features/macros.md).
+
 ## Commandes
 
 | Commande               | Effet                                                                              |
@@ -93,6 +97,7 @@ Pendant l'enregistrement, un petit anneau orange flotte en haut à droite. Il pa
 | `dicton`               | Lance le daemon (ou délègue au service systemd si autostart actif)                 |
 | `dicton wizard`        | Re-lance le setup complet (clé, hotkey, modèle, autostart)                         |
 | `dicton config`        | Change uniquement le modèle de cleanup                                             |
+| `dicton macros`        | Ouvre l'éditeur de macros (déclencheur parlé → texte collé verbatim)               |
 | `dicton stats`         | Affiche les totaux : nombre de dictées, latence moyenne, temps de frappe économisé |
 | `dicton update`        | Réinstalle le dernier `main` depuis GitHub + restart systemd                       |
 | `dicton update <path>` | Reinstall depuis un repo local + restart systemd (dev)                             |
@@ -129,6 +134,8 @@ src/dicton/
 ├── chunker.py      Découpage silence-aware avec overlap, RMS dBFS.
 ├── stt.py          Whisper turbo via httpx HTTP/2 partagé.
 ├── cleanup.py      LLM cleanup en français, prompt verrouillé.
+├── macros.py       Expansion de macros : matching normalisé aux frontières de mots, jeton opaque autour du cleanup, valeur byte-exact, macros.json relu via cache mtime.
+├── macros_ui.py    Éditeur Qt `dicton macros` (CRUD + 🎤 orthographe via STT), découplé du daemon — ils ne partagent que macros.json.
 ├── output.py       Clipboard + Ctrl+Shift+V (xclip+xdotool / wl-copy+wtype / pbcopy+osascript / SetClipboardData+SendInput).
 ├── visualizer.py   Donut FFT pygame, XShape circulaire sur X11, hide via shape-mask (jamais de show/hide window → pas de focus stealing).
 ├── fn_key.py       Listener evdev pour Fn (KEY_WAKEUP 143 + KEY_FN 464-466), détection double-tap.
