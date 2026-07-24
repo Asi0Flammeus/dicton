@@ -130,7 +130,7 @@ def get_stt_provider_with_fallback(
     user_provider = os.getenv("STT_PROVIDER", "").lower()
     if user_provider:
         provider = get_stt_provider(user_provider, config)
-        if provider.is_available():
+        if not isinstance(provider, NullSTTProvider) and provider.is_available():
             if verbose:
                 print(f"✓ STT Provider: {provider.name} (configured)")
             logger.info(f"Using user-specified STT provider: {provider.name}")
@@ -147,7 +147,7 @@ def get_stt_provider_with_fallback(
 
     for name in order:
         provider = get_stt_provider(name, config, use_cache=True)
-        if provider.is_available():
+        if not isinstance(provider, NullSTTProvider) and provider.is_available():
             if verbose:
                 suffix = "(fallback)" if is_fallback else "(primary)"
                 print(f"✓ STT Provider: {provider.name} {suffix}")
@@ -174,7 +174,7 @@ def get_available_stt_providers() -> list[str]:
     for name in _PROVIDER_REGISTRY:
         try:
             provider = get_stt_provider(name, use_cache=False)
-            if provider.is_available():
+            if not isinstance(provider, NullSTTProvider) and provider.is_available():
                 available.append(name)
         except Exception:
             pass

@@ -279,20 +279,23 @@ class FnKeyHandler:
                 f"Secondary hotkey config: basic={config.SECONDARY_HOTKEY}, translation={config.SECONDARY_HOTKEY_TRANSLATION}, act={config.SECONDARY_HOTKEY_ACT_ON_TEXT}"
             )
 
-        # Basic mode (F1 by default)
-        keycode = SECONDARY_HOTKEY_MAP.get(config.SECONDARY_HOTKEY)
-        if keycode:
-            self._secondary_hotkeys[keycode] = ProcessingMode.BASIC
-
-        # Translation mode (F2 by default)
-        keycode = SECONDARY_HOTKEY_MAP.get(config.SECONDARY_HOTKEY_TRANSLATION)
-        if keycode:
-            self._secondary_hotkeys[keycode] = ProcessingMode.TRANSLATION
-
-        # Act on Text mode (F3 by default)
-        keycode = SECONDARY_HOTKEY_MAP.get(config.SECONDARY_HOTKEY_ACT_ON_TEXT)
-        if keycode:
-            self._secondary_hotkeys[keycode] = ProcessingMode.ACT_ON_TEXT
+        configured_hotkeys = (
+            (config.SECONDARY_HOTKEY, ProcessingMode.BASIC),
+            (config.SECONDARY_HOTKEY_TRANSLATION, ProcessingMode.TRANSLATION),
+            (config.SECONDARY_HOTKEY_ACT_ON_TEXT, ProcessingMode.ACT_ON_TEXT),
+        )
+        for key_name, mode in configured_hotkeys:
+            keycode = SECONDARY_HOTKEY_MAP.get(key_name)
+            if keycode is None:
+                continue
+            if keycode in self._secondary_hotkeys:
+                existing_mode = self._secondary_hotkeys[keycode]
+                print(
+                    f"⚠ Secondary hotkey '{key_name}' is assigned to both "
+                    f"{existing_mode.name} and {mode.name}; keeping {existing_mode.name}"
+                )
+                continue
+            self._secondary_hotkeys[keycode] = mode
 
     def _parse_custom_hotkey(self):
         """Parse CUSTOM_HOTKEY_VALUE into required modifiers and main key.

@@ -279,18 +279,16 @@ class Dicton:
         """Capture selected text for Act on Text mode (called before recording starts)"""
         try:
             from .platform_utils import IS_WAYLAND
-            from .selection_handler import get_primary_selection, has_selection
-
-            if not has_selection():
-                print("⚠ No text selected")
-                notify("⚠ No Selection", "Highlight text first, then press FN+Shift")
-                return None
+            from .selection_handler import get_primary_selection
 
             selected = get_primary_selection()
             if not selected:
                 tool_hint = "wl-clipboard" if IS_WAYLAND else "xclip"
-                print(f"⚠ Could not read selection (install {tool_hint})")
-                notify("⚠ Selection Error", f"Install {tool_hint}")
+                print(f"⚠ No readable text selection (ensure {tool_hint} is installed)")
+                notify(
+                    "⚠ No Selection",
+                    f"Highlight text first and ensure {tool_hint} is installed",
+                )
                 return None
 
             return selected
@@ -334,9 +332,13 @@ class Dicton:
             if not llm_processor.is_available():
                 print("⚠ LLM not available (set GEMINI_API_KEY or ANTHROPIC_API_KEY)")
                 notify("⚠ LLM Not Available", "Configure LLM_PROVIDER")
-                return text  # Fallback to raw text
+                if mode == ProcessingMode.ACT_ON_TEXT:
+                    return None
+                return text  # Other LLM modes retain their existing raw-text fallback
 
-            if mode == ProcessingMode.ACT_ON_TEXT and selected_text:
+            if mode == ProcessingMode.ACT_ON_TEXT:
+                if not selected_text:
+                    return None
                 return llm_processor.act_on_text(selected_text, text, context=context)
 
             elif mode == ProcessingMode.REFORMULATION:
@@ -359,6 +361,8 @@ class Dicton:
 
         except ImportError:
             print("⚠ LLM processor not available")
+            if mode == ProcessingMode.ACT_ON_TEXT:
+                return None
             return text
 
         return text
@@ -378,14 +382,17 @@ class Dicton:
         mode: ProcessingMode,
         replace_selection: bool,
         context: ContextInfo | None = None,
-    ):
-        """Output the processed text using character-by-character typing.
+    ) -> bool:
+        """Output processed text, replacing the selection for Act on Text.
 
         Args:
             text: The processed text to output.
             mode: The processing mode used.
-            replace_selection: Whether we're replacing a selection (Act on Text).
+            replace_selection: Whether a selection was captured for Act on Text.
             context: Optional context for adaptive typing speed.
+
+        Returns:
+            True when text was output successfully, otherwise False.
         """
         # Calculate typing delay from context profile
         typing_delay_ms = 50  # Default: 50ms
@@ -401,16 +408,19 @@ class Dicton:
                 if config.CONTEXT_DEBUG:
                     print(f"[Context] Typing delay: {typing_delay_ms}ms ({profile.typing_speed})")
 
-        # All modes use insert_text (xdotool type) for reliable output
-        # For Act on Text: selection is still active, typing replaces it naturally
-        self.keyboard.insert_text(text, typing_delay_ms=typing_delay_ms)
-
         if mode == ProcessingMode.ACT_ON_TEXT:
+            if not replace_selection or not self.keyboard.replace_selection_with_text(text):
+                print("⚠ Failed to replace selected text")
+                notify("⚠ Replacement Failed", "Selected text was left unchanged")
+                return False
             print(f"✓ Replaced: {text[:50]}..." if len(text) > 50 else f"✓ {text}")
             notify("✓ Text Replaced", text[:100])
-        else:
-            print(f"✓ {text[:50]}..." if len(text) > 50 else f"✓ {text}")
-            notify("✓ Done", text[:100])
+            return True
+
+        self.keyboard.insert_text(text, typing_delay_ms=typing_delay_ms)
+        print(f"✓ {text[:50]}..." if len(text) > 50 else f"✓ {text}")
+        notify("✓ Done", text[:100])
+        return True
 
     def _check_vpn_active(self) -> bool:
         """Check if a VPN is active (may block API calls)."""

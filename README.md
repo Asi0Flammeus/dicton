@@ -16,7 +16,7 @@ A fast, low-latency voice-to-text dictation tool for Linux. Press the FN key to 
 ## Features
 
 - **FN Key Activation**: Use your laptop's FN key for seamless push-to-talk dictation
-- **Multiple Processing Modes**: Basic transcription, translation, LLM reformulation
+- **Multiple Processing Modes**: Basic transcription, translation, LLM reformulation, and voice-directed editing of selected text
 - **Real-time Visualizer**: Animated toric ring shows audio levels with mode-specific colors
 - **ElevenLabs STT**: Fast, accurate transcription via ElevenLabs Scribe API
 - **LLM Enhancement**: Optional text cleanup and translation via Gemini or Anthropic (with automatic fallback)
@@ -40,10 +40,11 @@ Dicton uses the **FN key** (XF86WakeUp) as the primary trigger, with modifier ke
 | FN | Basic | Orange | Transcribe with auto-reformulation |
 | FN + Ctrl | Translation | Green | Transcribe and translate to English |
 | FN + Alt | Reformulation | Purple | LLM-powered text cleanup |
-| FN + Shift | Act on Text | Magenta | **(WIP)** Apply instruction to selected text |
+| FN + Shift | Act on Text | Magenta | Apply a spoken instruction to selected text in place |
 | FN + Space | Raw | Yellow | Raw transcription, no processing |
 
-> **Note**: Act on Text mode is experimental and still under development.
+> **Platform note**: Act on Text requires Linux selection/clipboard tools: `xclip` on
+> X11, or `wl-clipboard` on Wayland. XWayland applications fall back to `xclip`.
 
 ### Visual Feedback
 - **Animated ring**: Recording in progress
@@ -200,6 +201,15 @@ Or use **double-tap** for longer recordings:
 
 1. **Hold FN + Alt** and speak naturally
 2. **Release** to get cleaned-up text (removes fillers, fixes grammar)
+
+### Act on Text
+
+1. Highlight text in any application.
+2. **Hold FN + Shift** and speak a free-form instruction such as “make this more concise.”
+3. **Release** to replace the selection with the LLM result.
+
+The transformed text remains in the clipboard for immediate reuse. Use the target
+application's normal undo command (usually **Ctrl+Z**) to restore the original edit.
 
 ## Service Management (Linux)
 

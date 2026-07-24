@@ -4,6 +4,7 @@ This module provides access to the PRIMARY selection (highlighted text)
 without requiring Ctrl+C. Supports both X11 (xclip) and Wayland (wl-paste).
 """
 
+import os
 import subprocess
 
 from .config import config
@@ -31,11 +32,9 @@ def get_primary_selection() -> str | None:
             return result
         # Fall through to X11 in case of XWayland
 
-    # Try X11 (works on X11 and XWayland)
-    if IS_X11 or not IS_WAYLAND:
-        result = _get_selection_x11()
-        if result is not None:
-            return result
+    # X11 works natively on X11 and through XWayland when DISPLAY is available.
+    if IS_X11 or not IS_WAYLAND or os.environ.get("DISPLAY"):
+        return _get_selection_x11()
 
     return None
 
@@ -52,7 +51,7 @@ def _get_selection_wayland() -> str | None:
         )
 
         if result.returncode == 0 and result.stdout:
-            return result.stdout.strip()
+            return result.stdout
 
         return None
 
@@ -82,7 +81,7 @@ def _get_selection_x11() -> str | None:
         )
 
         if result.returncode == 0 and result.stdout:
-            return result.stdout.strip()
+            return result.stdout
 
         return None
 
@@ -121,6 +120,22 @@ def get_clipboard() -> str | None:
     if not IS_LINUX:
         return None
 
+    if IS_WAYLAND:
+        try:
+            result = subprocess.run(
+                ["wl-paste", "-n"],
+                capture_output=True,
+                text=True,
+                timeout=2.0,
+            )
+            if result.returncode == 0 and result.stdout:
+                return result.stdout
+        except Exception:
+            pass
+
+        if not os.environ.get("DISPLAY"):
+            return None
+
     try:
         result = subprocess.run(
             ["xclip", "-selection", "clipboard", "-o"],
@@ -130,11 +145,11 @@ def get_clipboard() -> str | None:
         )
 
         if result.returncode == 0 and result.stdout:
-            return result.stdout.strip()
+            return result.stdout
 
         return None
 
-    except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+    except Exception:
         return None
 
 
@@ -150,6 +165,23 @@ def set_clipboard(text: str) -> bool:
     if not IS_LINUX or not text:
         return False
 
+    if IS_WAYLAND:
+        try:
+            result = subprocess.run(
+                ["wl-copy"],
+                input=text,
+                capture_output=True,
+                text=True,
+                timeout=2.0,
+            )
+            if result.returncode == 0:
+                return True
+        except Exception:
+            pass
+
+        if not os.environ.get("DISPLAY"):
+            return False
+
     try:
         process = subprocess.Popen(
             ["xclip", "-selection", "clipboard"],
@@ -159,5 +191,5 @@ def set_clipboard(text: str) -> bool:
         process.communicate(input=text, timeout=2.0)
         return process.returncode == 0
 
-    except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+    except Exception:
         return False

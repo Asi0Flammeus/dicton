@@ -279,8 +279,8 @@ class KeyboardHandler:
     def replace_selection_with_text(self, text: str) -> bool:
         """Replace the currently selected text with new text.
 
-        Uses clipboard (Ctrl+V) method for reliable replacement across apps.
-        Preserves original clipboard content.
+        Uses clipboard paste for reliable, low-latency replacement and leaves
+        the transformed text in the clipboard for reuse or recovery.
 
         Args:
             text: The text to replace selection with.
@@ -303,8 +303,6 @@ class KeyboardHandler:
         from .selection_handler import get_clipboard, set_clipboard
 
         try:
-            # Save current clipboard
-            original_clipboard = get_clipboard()
 
             # Set new text to clipboard
             if not set_clipboard(text):
@@ -313,8 +311,6 @@ class KeyboardHandler:
             # Verify clipboard was set correctly (prevents race condition)
             if not self._verify_clipboard(text, get_clipboard):
                 print("⚠ Clipboard verification failed for selection replace")
-                if original_clipboard:
-                    set_clipboard(original_clipboard)
                 return False
 
             # Simulate Ctrl+V to paste
@@ -323,13 +319,6 @@ class KeyboardHandler:
             self._keyboard_controller.release("v")
             self._keyboard_controller.release(Key.ctrl)
 
-            # Delay before restoring clipboard to let paste complete
-            restore_delay = config.CLIPBOARD_RESTORE_DELAY_MS / 1000.0
-            time.sleep(restore_delay)
-
-            # Restore original clipboard if there was one
-            if original_clipboard:
-                set_clipboard(original_clipboard)
 
             return True
 
@@ -342,11 +331,6 @@ class KeyboardHandler:
         try:
             import pyperclip
 
-            # Save current clipboard
-            try:
-                original_clipboard = pyperclip.paste()
-            except Exception:
-                original_clipboard = None
 
             # Set new text
             pyperclip.copy(text)
@@ -354,8 +338,6 @@ class KeyboardHandler:
             # Verify clipboard was set correctly (Windows clipboard can also be async)
             if not self._verify_clipboard(text, pyperclip.paste):
                 print("⚠ Clipboard verification failed for Windows selection replace")
-                if original_clipboard:
-                    pyperclip.copy(original_clipboard)
                 return False
 
             # Simulate Ctrl+V
@@ -364,13 +346,6 @@ class KeyboardHandler:
             self._keyboard_controller.release("v")
             self._keyboard_controller.release(Key.ctrl)
 
-            # Delay before restoring clipboard to let paste complete
-            restore_delay = config.CLIPBOARD_RESTORE_DELAY_MS / 1000.0
-            time.sleep(restore_delay)
-
-            # Restore original clipboard
-            if original_clipboard:
-                pyperclip.copy(original_clipboard)
 
             return True
 

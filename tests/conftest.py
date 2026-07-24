@@ -1,4 +1,8 @@
 """Pytest fixtures for Dicton tests."""
+import os
+
+# pynput otherwise tries to connect to an X server during test collection.
+os.environ.setdefault("PYNPUT_BACKEND", "dummy")
 
 import pytest
 
